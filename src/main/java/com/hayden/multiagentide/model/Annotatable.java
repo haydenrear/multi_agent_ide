@@ -1,0 +1,15 @@
+package com.hayden.multiagentide.model;
+
+/**
+ * Capability mixin: Nodes that support annotations/metadata.
+ */
+public sealed interface Annotatable permits OrchestratorNode, PlanningNode, WorkNode {
+    /**
+     * Add or update annotation on this node.
+     */
+    record Annotation(
+            String key,
+            String value,
+            long timestamp
+    ) {}
+}
