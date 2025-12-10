@@ -73,7 +73,9 @@ public sealed interface GraphNode
      * Check if this node implements a specific capability.
      */
     default boolean hasCapability(Class<?> capabilityClass) {
-        return getCapabilities().contains(capabilityClass);
+        return getCapabilities().contains(capabilityClass)
+                || this.getClass().isAssignableFrom(capabilityClass)
+                || capabilityClass.isAssignableFrom(this.getClass());
     }
 
     /**
