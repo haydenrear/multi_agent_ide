@@ -3,6 +3,7 @@ package com.hayden.multiagentide.model;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Summary of a spec without loading the entire content.
@@ -17,6 +18,17 @@ public record SpecSummary(
         List<String> relatedSpecs,
         Instant summarizedAt
 ) {
+
+
+    public String sectionPaths() {
+        return summary();
+    }
+
+    public String summary() {
+        return sections.stream()
+                .map(s -> s.toString())
+                .collect(Collectors.joining());
+    }
 
     public SpecSummary {
         if (specId == null || specId.isEmpty()) throw new IllegalArgumentException("specId required");

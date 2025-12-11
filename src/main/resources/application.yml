@@ -1,1 +1,29 @@
-spring.application.name: multi-agent-ide
+spring:
+  application:
+    name: multi-agent-ide
+  webflux:
+    base-path: /api
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+# LangChain4j configuration
+langchain4j:
+  openai:
+    chat-model:
+      # Set your OpenAI API key via OPENAI_API_KEY environment variable
+      api-key: ${OPENAI_API_KEY:}
+      model-name: gpt-4
+      temperature: 0.7
+      max-tokens: 2000
+      timeout: 30s
+      max-retries: 3
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.hayden.multiagentide: DEBUG
+    dev.langchain4j: DEBUG

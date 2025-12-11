@@ -1,0 +1,258 @@
+package com.hayden.multiagentide.config;
+
+import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.LangChain4jAgentTools;
+import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
+import dev.langchain4j.agentic.AgenticServices;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
+
+/**
+ * LangChain4j configuration for Chat Language Models and Agentic Services.
+ * Configures OpenAI models and builds multi-agent system using langchain4j-agentic.
+ * Uses before/after agent invocation handlers to manage node lifecycle in the computation graph.
+ */
+@Configuration
+public class LangChain4jConfiguration {
+
+    @Value("${langchain4j.openai.chat-model.api-key:}")
+    private String apiKey;
+
+    @Value("${langchain4j.openai.chat-model.model-name:gpt-4}")
+    private String modelName;
+
+    @Value("${langchain4j.openai.chat-model.temperature:0.7}")
+    private Double temperature;
+
+    @Value("${langchain4j.openai.chat-model.max-tokens:2000}")
+    private Integer maxTokens;
+
+    /**
+     * Create OpenAI Chat Language Model for non-streaming calls.
+     * Used by Planning, Merger, and Review agents.
+     */
+    @Bean
+    public ChatModel chatLanguageModel() {
+        if (apiKey == null || apiKey.isEmpty()) {
+            // Return a no-op mock if no API key is configured
+            return new MockChatLanguageModel();
+        }
+
+        return OpenAiChatModel.builder()
+                .apiKey(apiKey)
+                .modelName(modelName)
+                .temperature(temperature)
+                .maxTokens(maxTokens)
+                .build();
+    }
+
+    /**
+     * Create OpenAI Streaming Chat Language Model for streaming responses.
+     * Used by Editor agent for token-by-token code generation.
+     */
+    @Bean
+    public StreamingChatModel streamingChatLanguageModel() {
+        if (apiKey == null || apiKey.isEmpty()) {
+            // Return a no-op mock if no API key is configured
+            return new MockStreamingChatLanguageModel();
+        }
+
+        return OpenAiStreamingChatModel.builder()
+                .apiKey(apiKey)
+                .modelName(modelName)
+                .temperature(temperature)
+                .maxTokens(maxTokens)
+                .build();
+    }
+
+    /**
+     * Create agent lifecycle handler for managing node lifecycle in computation graph.
+     */
+    @Bean
+    public AgentLifecycleHandler agentLifecycleHandler(ComputationGraphOrchestrator orchestrator) {
+        return new AgentLifecycleHandler(orchestrator);
+    }
+
+    /**
+     * Build Planning Agent using AgenticServices with lifecycle management.
+     * Decomposes goals into structured work items.
+     * Before invocation: registers planning node
+     * After invocation: updates node with plan results
+     */
+    @Bean
+    public AgentInterfaces.PlanningAgent planningAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler
+    ) {
+        return AgenticServices.agentBuilder(AgentInterfaces.PlanningAgent.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    // Register planning node before agent executes
+                    lifecycleHandler.beforePlanningAgentInvocation(
+                            invocation.inputs().toString(),
+                            null);
+                })
+                .afterAgentInvocation(invocation -> {
+                    // Update node with planning results after agent completes
+                    lifecycleHandler.afterPlanningAgentInvocation(
+                            invocation.output().toString());
+                })
+                .build();
+    }
+
+    /**
+     * Build Editor Agent using AgenticServices with lifecycle management.
+     * Generates code based on specifications.
+     * Before invocation: registers editor node
+     * After invocation: updates node with generated code
+     */
+    @Bean
+    public AgentInterfaces.EditorAgent editorAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler) {
+        return AgenticServices.agentBuilder(AgentInterfaces.EditorAgent.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    // Register editor node before agent executes
+                    lifecycleHandler.beforeEditorAgentInvocation(
+                            invocation.inputs().toString(),
+                            "",
+                            null
+                    );
+                })
+                .afterAgentInvocation(invocation -> {
+                    // Update node with generated code after agent completes
+                    lifecycleHandler.afterEditorAgentInvocation(
+                            invocation.output().toString()
+                    );
+                })
+                .build();
+    }
+
+    /**
+     * Build Merger Agent using AgenticServices with lifecycle management.
+     * Determines merge strategies and resolves conflicts.
+     * Before invocation: registers merger node
+     * After invocation: updates node with merge strategy
+     */
+    @Bean
+    public AgentInterfaces.MergerAgent mergerAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler) {
+        return AgenticServices.agentBuilder(AgentInterfaces.MergerAgent.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    // Register merger node before agent executes
+                    lifecycleHandler.beforeMergerAgentInvocation(
+                            invocation.inputs().toString(),
+                            "",
+                            null
+                    );
+                })
+                .afterAgentInvocation(invocation -> {
+                    // Update node with merge strategy after agent completes
+                    lifecycleHandler.afterMergerAgentInvocation(
+                            invocation.output().toString()
+                    );
+                })
+                .build();
+    }
+
+    /**
+     * Build Review Agent using AgenticServices with lifecycle management.
+     * Evaluates code quality and completeness.
+     * Before invocation: registers review node
+     * After invocation: updates node with evaluation results
+     */
+    @Bean
+    public AgentInterfaces.ReviewAgent reviewAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler) {
+        return AgenticServices.agentBuilder(AgentInterfaces.ReviewAgent.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    // Register review node before agent executes
+                    lifecycleHandler.beforeReviewAgentInvocation(
+                            invocation.inputs().toString(),
+                            "",
+                            null
+                    );
+                })
+                .afterAgentInvocation(invocation -> {
+                    // Update node with evaluation after agent completes
+                    lifecycleHandler.afterReviewAgentInvocation(
+                            invocation.output().toString()
+                    );
+                })
+                .build();
+    }
+
+    /**
+     * Build Orchestrator Agent using AgenticServices.
+     * Coordinates multi-agent workflows.
+     */
+    @Bean
+    public AgentInterfaces.OrchestratorAgent orchestratorAgent(ChatModel chatModel,
+                                                               LangChain4jAgentTools tools) {
+        return AgenticServices.agentBuilder(AgentInterfaces.OrchestratorAgent.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .build();
+    }
+
+    /**
+     * Mock ChatLanguageModel for testing without OpenAI API key.
+     */
+    private static class MockChatLanguageModel implements ChatModel {
+        @Override
+        public String chat(String userMessage) {
+            return "Mock response: " + userMessage;
+        }
+
+        @Override
+        public ChatResponse chat(java.util.List<ChatMessage> messages) {
+            return ChatResponse.builder()
+                    .aiMessage(AiMessage.from("Mock response for " + messages.size() + " messages"))
+                    .build();
+        }
+    }
+
+    /**
+     * Mock Streaming ChatLanguageModel for testing without OpenAI API key.
+     */
+    private static class MockStreamingChatLanguageModel implements StreamingChatModel {
+        @Override
+        public void chat(String userMessage, StreamingChatResponseHandler handler) {
+            handler.onPartialResponse("Mock streaming response for: " + userMessage);
+            handler.onCompleteResponse(ChatResponse.builder()
+                    .aiMessage(AiMessage.from("Mock streaming response for: " + userMessage))
+                    .build());
+        }
+
+        @Override
+        public void chat(java.util.List<ChatMessage> messages, StreamingChatResponseHandler handler) {
+            handler.onPartialResponse("Mock streaming response for " + messages.size() + " messages");
+            handler.onCompleteResponse(ChatResponse.builder()
+                    .aiMessage(AiMessage.from("Mock streaming response for " + messages.size() + " messages"))
+                    .build());
+        }
+    }
+}

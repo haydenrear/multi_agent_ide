@@ -78,4 +78,12 @@ public record AgentReviewNode(
                 reviewerAgentType, Instant.now(), specFileId
         );
     }
+
+    public String contentToReview() {
+        return this.reviewContent;
+    }
+
+    public String reviewerAgent() {
+        return this.reviewerAgentType;
+    }
 }

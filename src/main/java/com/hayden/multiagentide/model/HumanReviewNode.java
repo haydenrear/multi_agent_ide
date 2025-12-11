@@ -76,4 +76,8 @@ public record HumanReviewNode(
                 Instant.now(), specFileId
         );
     }
+
+    public String contentToReview() {
+        return this.reviewContent;
+    }
 }
