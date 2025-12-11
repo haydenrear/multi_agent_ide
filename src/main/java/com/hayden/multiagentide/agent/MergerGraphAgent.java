@@ -66,19 +66,14 @@ public class MergerGraphAgent extends BaseGraphAgent {
 
         WorkNode parentNode = (WorkNode) parentOpt.get();
 
-        String mergeStrategy = mergerAgent.determineMergeStrategy(
-                workNode.goal(),
-                parentNode.goal()
-        );
-
         MergeResult mainMergeResult = worktreeService.mergeWorktrees(
                 workNode.mainWorktreeId(),
                 parentNode.mainWorktreeId()
         );
 
         if (!mainMergeResult.successful()) {
-            mergerAgent.resolveConflicts(String.join(", ", mainMergeResult.conflicts().stream()
-                    .map(MergeResult.MergeConflict::filePath).toList()), mergeStrategy);
+            var m = mergerAgent.performMerge(String.join(", ", mainMergeResult.conflicts().stream()
+                    .map(MergeResult.MergeConflict::filePath).toList()));
 
             emitStatusChangeEvent(workNode.nodeId(), GraphNode.NodeStatus.RUNNING,
                     GraphNode.NodeStatus.WAITING_REVIEW, "Merge conflicts detected", context);

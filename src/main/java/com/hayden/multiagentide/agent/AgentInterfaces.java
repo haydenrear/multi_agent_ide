@@ -50,31 +50,16 @@ public class AgentInterfaces {
      * Merger agent that determines merge strategies and resolves conflicts.
      */
     public interface MergerAgent {
-        @Agent(value = "Analyzes code changes and determines optimal merge strategies")
-        @UserMessage("""
-                Determine the best merge strategy for combining these changes:
-                
-                Child goal: {{childGoal}}
-                Parent goal: {{parentGoal}}
-                
-                Consider:
-                - Code overlap and conflicts
-                - Dependency ordering
-                - Feature compatibility
-                
-                Recommend a merge strategy: fast-forward, recursive, or manual.
-                """)
-        String determineMergeStrategy(@V("childGoal") String childGoal, @V("parentGoal") String parentGoal);
 
         @Agent(value = "Resolves merge conflicts based on strategy and context")
         @UserMessage("""
-                Resolve the following merge conflicts using strategy: {{strategy}}
+                Resolve the following merge conflicts
                 
                 Conflicting files: {{conflictFiles}}
                 
                 Provide resolution approach for each conflict.
                 """)
-        String resolveConflicts(@V("conflictFiles") String conflictFiles, @V("strategy") String strategy);
+        String performMerge(@V("conflictFiles") String conflictFiles);
     }
 
     /**

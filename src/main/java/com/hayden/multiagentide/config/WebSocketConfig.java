@@ -1,6 +1,7 @@
 package com.hayden.multiagentide.config;
 
 import com.hayden.multiagentide.adapter.WebSocketEventAdapter;
+import com.hayden.multiagentide.controller.OrchestrationController;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
     private final WebSocketEventAdapter eventAdapter;
 
     private ComputationGraphOrchestrator orchestrator;
+    private OrchestrationController orchestrationController;
 
     public WebSocketConfig(WebSocketEventAdapter eventAdapter) {
         this.eventAdapter = eventAdapter;
@@ -36,9 +38,14 @@ public class WebSocketConfig implements WebSocketConfigurer {
         this.orchestrator = orchestrator;
     }
 
+    @Autowired
+    public void setOrchestrationController(OrchestrationController orchestrationController) {
+        this.orchestrationController = orchestrationController;
+    }
+
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(new EventStreamHandler(eventAdapter, orchestrator), "/ws/events")
+        registry.addHandler(new EventStreamHandler(eventAdapter, orchestrator, orchestrationController), "/ws/events")
                 .setAllowedOrigins("*");
     }
 
@@ -52,6 +59,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
         private final WebSocketEventAdapter eventAdapter;
 
         private final ComputationGraphOrchestrator computationGraphOrchestrator;
+
+        private final OrchestrationController orchestrationController;
 
 
         @Override

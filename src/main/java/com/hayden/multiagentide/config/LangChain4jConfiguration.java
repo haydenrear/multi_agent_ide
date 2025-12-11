@@ -6,6 +6,7 @@ import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.http.client.spring.restclient.SpringRestClientBuilder;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
@@ -16,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Primary;
 
 /**
  * LangChain4j configuration for Chat Language Models and Agentic Services.
@@ -42,6 +44,7 @@ public class LangChain4jConfiguration {
      * Used by Planning, Merger, and Review agents.
      */
     @Bean
+    @Primary
     public ChatModel chatLanguageModel() {
         if (apiKey == null || apiKey.isEmpty()) {
             // Return a no-op mock if no API key is configured
@@ -53,6 +56,7 @@ public class LangChain4jConfiguration {
                 .modelName(modelName)
                 .temperature(temperature)
                 .maxTokens(maxTokens)
+                .httpClientBuilder(new SpringRestClientBuilder())
                 .build();
     }
 
@@ -71,6 +75,7 @@ public class LangChain4jConfiguration {
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .temperature(temperature)
+                .httpClientBuilder(new SpringRestClientBuilder())
                 .maxTokens(maxTokens)
                 .build();
     }
