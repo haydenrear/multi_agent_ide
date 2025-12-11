@@ -1,4 +1,4 @@
-package com.hayden.multiagentide.model;
+package com.hayden.multiagentide.model.mixins;
 
 /**
  * Capability mixin: Nodes that require human or agent review.

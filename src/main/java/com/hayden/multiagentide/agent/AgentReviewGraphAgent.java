@@ -1,10 +1,10 @@
 package com.hayden.multiagentide.agent;
 
 import com.hayden.multiagentide.infrastructure.EventBus;
-import com.hayden.multiagentide.model.AgentReviewNode;
-import com.hayden.multiagentide.model.Events;
-import com.hayden.multiagentide.model.GraphAgent;
-import com.hayden.multiagentide.model.GraphNode;
+import com.hayden.multiagentide.model.mixins.AgentReviewNode;
+import com.hayden.multiagentide.model.mixins.Events;
+import com.hayden.multiagentide.model.mixins.GraphAgent;
+import com.hayden.multiagentide.model.mixins.GraphNode;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;

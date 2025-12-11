@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.hayden.multiagentide.model.Events;
+import com.hayden.multiagentide.model.mixins.Events;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;

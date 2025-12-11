@@ -1,4 +1,6 @@
-package com.hayden.multiagentide.model;
+package com.hayden.multiagentide.model.mixins;
+
+import com.hayden.multiagentide.model.SubmoduleNode;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -21,8 +23,6 @@ public record OrchestratorNode(
         Map<String, String> metadata,
         Instant createdAt,
         Instant lastUpdatedAt,
-        
-        // Orchestrator-specific fields
         String repositoryUrl,
         String baseBranch,
         boolean hasSubmodules,
@@ -33,6 +33,12 @@ public record OrchestratorNode(
         String orchestratorOutput,
         List<SubmoduleNode> submodules
 ) implements GraphNode, Branchable, Summarizable, Viewable<String>, Annotatable {
+
+    public OrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String specFileId, String orchestratorOutput) {
+        this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
+                repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, specFileId, orchestratorOutput,
+                new ArrayList<>());
+    }
 
     public OrchestratorNode {
         if (nodeId == null || nodeId.isEmpty()) throw new IllegalArgumentException("nodeId required");

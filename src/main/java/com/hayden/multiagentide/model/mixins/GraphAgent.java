@@ -1,4 +1,7 @@
-package com.hayden.multiagentide.model;
+package com.hayden.multiagentide.model.mixins;
+
+import com.hayden.multiagentide.model.Spec;
+import com.hayden.multiagentide.model.WorktreeContext;
 
 /**
  * Base interface for graph agents that operate on nodes.

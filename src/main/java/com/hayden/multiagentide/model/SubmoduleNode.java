@@ -1,5 +1,7 @@
 package com.hayden.multiagentide.model;
 
+import com.hayden.multiagentide.model.mixins.GraphNode;
+
 import java.time.Instant;
 import java.util.*;
 

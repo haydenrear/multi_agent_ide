@@ -4,216 +4,32 @@ import com.hayden.multiagentide.agent.ExecutionContextImpl;
 import com.hayden.multiagentide.agent.GraphAgentFactory;
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.*;
+import com.hayden.multiagentide.model.mixins.*;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.SpecService;
 import com.hayden.multiagentide.service.WorktreeService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 /**
  * Main orchestrator for the computation graph.
  * Manages node execution, event emission, and worktree/spec lifecycle.
  */
 @Service
+@RequiredArgsConstructor
 public class ComputationGraphOrchestrator {
 
     private final GraphRepository graphRepository;
     private final WorktreeRepository worktreeRepository;
     private final SpecRepository specRepository;
     private final EventBus eventBus;
-    private final GraphAgentFactory agentFactory;
-    private final WorktreeService worktreeService;
-    private final SpecService specService;
-    private final ExecutorService executorService;
 
-    public ComputationGraphOrchestrator(
-            GraphRepository graphRepository,
-            WorktreeRepository worktreeRepository,
-            SpecRepository specRepository,
-            EventBus eventBus,
-            GraphAgentFactory agentFactory,
-            WorktreeService worktreeService,
-            SpecService specService) {
-        this.graphRepository = graphRepository;
-        this.worktreeRepository = worktreeRepository;
-        this.specRepository = specRepository;
-        this.eventBus = eventBus;
-        this.agentFactory = agentFactory;
-        this.worktreeService = worktreeService;
-        this.specService = specService;
-        this.executorService = Executors.newFixedThreadPool(4);
-    }
-
-    /**
-     * Initialize an orchestrator node with a goal.
-     * Creates main worktree, submodule worktrees, and base spec.
-     */
-    public OrchestratorNode initializeOrchestrator(String repositoryUrl, String baseBranch,
-                                                   String goal, String title) {
-        String nodeId = UUID.randomUUID().toString();
-
-        // Create main worktree
-        MainWorktreeContext mainWorktree = worktreeService.createMainWorktree(
-                repositoryUrl, baseBranch, nodeId);
-
-        // Create orchestrator node
-        OrchestratorNode orchestrator = new OrchestratorNode(
-                nodeId,
-                title,
-                goal,
-                GraphNode.NodeStatus.READY,
-                null,
-                new ArrayList<>(),
-                new HashMap<>(),
-                Instant.now(),
-                Instant.now(),
-                repositoryUrl,
-                baseBranch,
-                mainWorktree.hasSubmodules(),
-                worktreeService.getSubmoduleNames(mainWorktree.worktreePath()),
-                mainWorktree.worktreeId(),
-                new ArrayList<>(),
-                null,
-                null,
-                new ArrayList<>()
-        );
-
-        // Create spec
-        Spec baseSpec = specService.createSpec(
-                mainWorktree.worktreeId(),
-                mainWorktree.worktreePath().resolve("SPEC.md"),
-                goal
-        );
-
-        // Update orchestrator with spec ID
-        orchestrator = new OrchestratorNode(
-                orchestrator.nodeId(),
-                orchestrator.title(),
-                orchestrator.goal(),
-                orchestrator.status(),
-                orchestrator.parentNodeId(),
-                orchestrator.childNodeIds(),
-                orchestrator.metadata(),
-                orchestrator.createdAt(),
-                orchestrator.lastUpdatedAt(),
-                orchestrator.repositoryUrl(),
-                orchestrator.baseBranch(),
-                orchestrator.hasSubmodules(),
-                orchestrator.submoduleNames(),
-                orchestrator.mainWorktreeId(),
-                orchestrator.submoduleWorktreeIds(),
-                baseSpec.specId(),
-                orchestrator.orchestratorOutput(),
-                new ArrayList<>()
-        );
-
-        // Create submodule worktrees
-        if (mainWorktree.hasSubmodules()) {
-            List<String> submoduleWorktreeIds = new ArrayList<>();
-            for (String submoduleName : orchestrator.submoduleNames()) {
-                Path submodulePath = worktreeService.getSubmodulePath(
-                        mainWorktree.worktreePath(), submoduleName);
-                SubmoduleWorktreeContext subWorktree = worktreeService.createSubmoduleWorktree(
-                        submoduleName, submodulePath.toString(),
-                        mainWorktree.worktreeId(), mainWorktree.worktreePath(),
-                        nodeId
-                );
-                submoduleWorktreeIds.add(subWorktree.worktreeId());
-                worktreeRepository.save(subWorktree);
-
-                // Emit worktree created event
-                emitWorktreeCreatedEvent(subWorktree.worktreeId(), nodeId,
-                        subWorktree.worktreePath().toString(), "submodule", submoduleName);
-            }
-
-            // Update orchestrator with submodule worktree IDs
-            var submodule = new SubmoduleNode(
-                    orchestrator.nodeId(),
-                    orchestrator.title(),
-                    orchestrator.goal(),
-                    orchestrator.status(),
-                    orchestrator.parentNodeId(),
-                    orchestrator.childNodeIds(),
-                    orchestrator.metadata(),
-                    orchestrator.createdAt(),
-                    orchestrator.lastUpdatedAt(),
-                    orchestrator.repositoryUrl(),
-                    orchestrator.baseBranch(),
-                    orchestrator.hasSubmodules(),
-                    orchestrator.submoduleNames(),
-                    orchestrator.mainWorktreeId(),
-                    submoduleWorktreeIds,
-                    orchestrator.specFileId(),
-                    orchestrator.orchestratorOutput()
-            );
-
-            orchestrator.submodules().add(submodule);
-        }
-
-        // Emit events
-        emitNodeAddedEvent(orchestrator.nodeId(), orchestrator.title(),
-                orchestrator.nodeType(), orchestrator.parentNodeId());
-        emitWorktreeCreatedEvent(mainWorktree.worktreeId(), nodeId,
-                mainWorktree.worktreePath().toString(), "main", null);
-
-        // Save to repositories
-        graphRepository.save(orchestrator);
-        worktreeRepository.save(mainWorktree);
-        specRepository.save(baseSpec);
-
-        return orchestrator;
-    }
-
-    /**
-     * Execute a node asynchronously.
-     * Returns a future that completes with the updated node.
-     */
-    public CompletableFuture<GraphNode> executeNode(String nodeId) {
-        return CompletableFuture.supplyAsync(() -> {
-            Optional<GraphNode> nodeOpt = graphRepository.findById(nodeId);
-            if (nodeOpt.isEmpty()) {
-                throw new RuntimeException("Node not found: " + nodeId);
-            }
-
-            GraphNode node = nodeOpt.get();
-            Optional<GraphAgent> agentOpt = agentFactory.getAgentFor(node);
-
-            if (agentOpt.isEmpty()) {
-                throw new RuntimeException("No agent found for node: " + nodeId);
-            }
-
-            // Create execution context
-            ExecutionContextImpl context = new ExecutionContextImpl(
-                    worktreeRepository, specRepository, eventBus);
-
-            // Emit running status
-            emitStatusChangeEvent(nodeId, node.status(), GraphNode.NodeStatus.RUNNING, 
-                    "Agent execution started");
-
-            try {
-                // Execute agent
-                GraphNode updatedNode = agentOpt.get().execute(node, context);
-                graphRepository.save(updatedNode);
-
-                // Emit completed status
-                emitStatusChangeEvent(nodeId, GraphNode.NodeStatus.RUNNING, 
-                        updatedNode.status(), "Agent execution completed");
-
-                return updatedNode;
-            } catch (Exception e) {
-                // Emit failed status
-                emitStatusChangeEvent(nodeId, node.status(), GraphNode.NodeStatus.FAILED, 
-                        "Error: " + e.getMessage());
-                throw new RuntimeException("Node execution failed: " + e.getMessage(), e);
-            }
-        }, executorService);
-    }
 
     /**
      * Get a node from the graph.
@@ -305,7 +121,7 @@ public class ComputationGraphOrchestrator {
     /**
      * Emit node added event.
      */
-    private void emitNodeAddedEvent(String nodeId, String title, GraphNode.NodeType nodeType, String parentId) {
+    public void emitNodeAddedEvent(String nodeId, String title, GraphNode.NodeType nodeType, String parentId) {
         Events.NodeAddedEvent event = new Events.NodeAddedEvent(
                 UUID.randomUUID().toString(),
                 Instant.now(),
@@ -320,7 +136,7 @@ public class ComputationGraphOrchestrator {
     /**
      * Emit status changed event.
      */
-    private void emitStatusChangeEvent(String nodeId, GraphNode.NodeStatus oldStatus, 
+    public void emitStatusChangeEvent(String nodeId, GraphNode.NodeStatus oldStatus,
                                       GraphNode.NodeStatus newStatus, String reason) {
         Events.NodeStatusChangedEvent event = new Events.NodeStatusChangedEvent(
                 UUID.randomUUID().toString(),
@@ -336,7 +152,7 @@ public class ComputationGraphOrchestrator {
     /**
      * Emit worktree created event.
      */
-    private void emitWorktreeCreatedEvent(String worktreeId, String nodeId, String path,
+    public void emitWorktreeCreatedEvent(String worktreeId, String nodeId, String path,
                                          String type, String submoduleName) {
         Events.WorktreeCreatedEvent event = new Events.WorktreeCreatedEvent(
                 UUID.randomUUID().toString(),
@@ -353,21 +169,7 @@ public class ComputationGraphOrchestrator {
     /**
      * Helper to update node children based on type.
      */
-    private GraphNode updateNodeChildren(GraphNode parent, List<String> childIds) {
-//        switch(parent) {
-//            case AgentReviewNode agentReviewNode -> {
-//            }
-//            case HumanReviewNode humanReviewNode -> {
-//            }
-//            case OrchestratorNode orchestratorNode -> {
-//            }
-//            case PlanningNode planningNode -> {
-//            }
-//            case SummaryNode summaryNode -> {
-//            }
-//            case WorkNode workNode -> {
-//            }
-//        }
+    public GraphNode updateNodeChildren(GraphNode parent, List<String> childIds) {
         if (parent instanceof OrchestratorNode p) {
             return new OrchestratorNode(
                     p.nodeId(), p.title(), p.goal(), p.status(), p.parentNodeId(),
@@ -395,19 +197,5 @@ public class ComputationGraphOrchestrator {
             );
         }
         return parent;
-    }
-
-    /**
-     * Shutdown orchestrator.
-     */
-    public void shutdown() {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(30, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executorService.shutdownNow();
-        }
     }
 }

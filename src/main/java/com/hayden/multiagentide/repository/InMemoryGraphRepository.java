@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.repository;
 
-import com.hayden.multiagentide.model.GraphNode;
+import com.hayden.multiagentide.model.mixins.GraphNode;
 import org.springframework.stereotype.Repository;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;

@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.agent;
 
-import com.hayden.multiagentide.model.GraphAgent;
-import com.hayden.multiagentide.model.GraphNode;
+import com.hayden.multiagentide.model.mixins.GraphAgent;
+import com.hayden.multiagentide.model.mixins.GraphNode;
 import org.springframework.stereotype.Service;
 import java.util.*;
 

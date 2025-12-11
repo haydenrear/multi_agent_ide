@@ -1,4 +1,4 @@
-package com.hayden.multiagentide.model;
+package com.hayden.multiagentide.model.mixins;
 
 import java.time.Instant;
 import java.util.List;
@@ -10,8 +10,8 @@ import java.util.Set;
  * Nodes can implement capability mixins (Branchable, Editable, etc.) for optional behaviors.
  * This is a data-oriented interface that composes capabilities.
  */
-public sealed interface GraphNode 
-        permits OrchestratorNode, PlanningNode, WorkNode, 
+public sealed interface GraphNode
+        permits OrchestratorNode, PlanningNode, WorkNode,
                 HumanReviewNode, AgentReviewNode, SummaryNode {
 
     /**

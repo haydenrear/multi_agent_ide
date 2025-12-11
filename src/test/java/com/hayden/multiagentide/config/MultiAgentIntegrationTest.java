@@ -3,8 +3,6 @@ package com.hayden.multiagentide.config;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.LangChain4jAgentTools;
 import com.hayden.multiagentide.infrastructure.EventBus;
-import com.hayden.multiagentide.model.GraphNode;
-import com.hayden.multiagentide.model.OrchestratorNode;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;

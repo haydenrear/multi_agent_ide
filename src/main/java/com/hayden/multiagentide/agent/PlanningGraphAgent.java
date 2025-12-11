@@ -1,16 +1,14 @@
 package com.hayden.multiagentide.agent;
 
 import com.hayden.multiagentide.infrastructure.EventBus;
-import com.hayden.multiagentide.model.GraphAgent;
-import com.hayden.multiagentide.model.GraphNode;
+import com.hayden.multiagentide.model.mixins.GraphNode;
 import com.hayden.multiagentide.model.MainWorktreeContext;
-import com.hayden.multiagentide.model.OrchestratorNode;
-import com.hayden.multiagentide.model.PlanningNode;
+import com.hayden.multiagentide.model.mixins.OrchestratorNode;
+import com.hayden.multiagentide.model.mixins.PlanningNode;
 import com.hayden.multiagentide.model.Spec;
 import com.hayden.multiagentide.model.SubmoduleWorktreeContext;
-import com.hayden.multiagentide.model.WorkNode;
+import com.hayden.multiagentide.model.mixins.WorkNode;
 import com.hayden.multiagentide.repository.GraphRepository;
-import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.SpecService;
 import com.hayden.multiagentide.service.WorktreeService;

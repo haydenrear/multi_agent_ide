@@ -1,26 +1,172 @@
 package com.hayden.multiagentide.config;
 
-import com.hayden.multiagentide.model.*;
+import com.hayden.multiagentide.agent.GraphAgentFactory;
+import com.hayden.multiagentide.infrastructure.EventBus;
+import com.hayden.multiagentide.model.MainWorktreeContext;
+import com.hayden.multiagentide.model.Spec;
+import com.hayden.multiagentide.model.SubmoduleNode;
+import com.hayden.multiagentide.model.SubmoduleWorktreeContext;
+import com.hayden.multiagentide.model.mixins.*;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
+import com.hayden.multiagentide.repository.GraphRepository;
+import com.hayden.multiagentide.repository.SpecRepository;
+import com.hayden.multiagentide.repository.WorktreeRepository;
+import com.hayden.multiagentide.service.SpecService;
+import com.hayden.multiagentide.service.WorktreeService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Handles agent lifecycle events for the multi-agent system.
  * Manages node creation, updates, and removal in the computation graph
  * when agents are invoked (including when invoked by other agents).
  */
+@Component
+@RequiredArgsConstructor
 public class AgentLifecycleHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(AgentLifecycleHandler.class);
-    private final ComputationGraphOrchestrator orchestrator;
     private final ThreadLocal<String> currentNodeId = new ThreadLocal<>();
 
-    public AgentLifecycleHandler(ComputationGraphOrchestrator orchestrator) {
-        this.orchestrator = orchestrator;
+    private final ComputationGraphOrchestrator orchestrator;
+    private final GraphRepository graphRepository;
+    private final WorktreeRepository worktreeRepository;
+    private final SpecRepository specRepository;
+    private final WorktreeService worktreeService;
+    private final SpecService specService;
+
+    public void beforeOrchestrator(String repositoryUrl, String baseBranch,
+                                   String goal, String title) {
+        initializeOrchestrator(repositoryUrl, baseBranch, goal, title);
+    }
+
+    public void afterOrchestrator(String s) {
+        throw new RuntimeException("Not implemented yet");
+    }
+
+    /**
+     * Initialize an orchestrator node with a goal.
+     * Creates main worktree, submodule worktrees, and base spec.
+     */
+    public void initializeOrchestrator(String repositoryUrl, String baseBranch,
+                                       String goal, String title) {
+        String nodeId = UUID.randomUUID().toString();
+
+        // Create main worktree
+        MainWorktreeContext mainWorktree = worktreeService.createMainWorktree(
+                repositoryUrl, baseBranch, nodeId);
+
+        // Create orchestrator node
+        OrchestratorNode orchestrator = new OrchestratorNode(
+                nodeId,
+                title,
+                goal,
+                GraphNode.NodeStatus.READY,
+                null,
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                repositoryUrl,
+                baseBranch,
+                mainWorktree.hasSubmodules(),
+                worktreeService.getSubmoduleNames(mainWorktree.worktreePath()),
+                mainWorktree.worktreeId(),
+                new ArrayList<>(),
+                null,
+                null,
+                new ArrayList<>()
+        );
+
+        // Create spec
+        Spec baseSpec = specService.createSpec(
+                mainWorktree.worktreeId(),
+                mainWorktree.worktreePath().resolve("SPEC.md"),
+                goal
+        );
+
+        // Update orchestrator with spec ID
+        orchestrator = new OrchestratorNode(
+                orchestrator.nodeId(),
+                orchestrator.title(),
+                orchestrator.goal(),
+                orchestrator.status(),
+                orchestrator.parentNodeId(),
+                orchestrator.childNodeIds(),
+                orchestrator.metadata(),
+                orchestrator.createdAt(),
+                orchestrator.lastUpdatedAt(),
+                orchestrator.repositoryUrl(),
+                orchestrator.baseBranch(),
+                orchestrator.hasSubmodules(),
+                orchestrator.submoduleNames(),
+                orchestrator.mainWorktreeId(),
+                orchestrator.submoduleWorktreeIds(),
+                baseSpec.specId(),
+                orchestrator.orchestratorOutput(),
+                new ArrayList<>()
+        );
+
+        // Create submodule worktrees
+        if (mainWorktree.hasSubmodules()) {
+            List<String> submoduleWorktreeIds = new ArrayList<>();
+            for (String submoduleName : orchestrator.submoduleNames()) {
+                Path submodulePath = worktreeService.getSubmodulePath(
+                        mainWorktree.worktreePath(), submoduleName);
+                SubmoduleWorktreeContext subWorktree = worktreeService.createSubmoduleWorktree(
+                        submoduleName, submodulePath.toString(),
+                        mainWorktree.worktreeId(), mainWorktree.worktreePath(),
+                        nodeId
+                );
+                submoduleWorktreeIds.add(subWorktree.worktreeId());
+                worktreeRepository.save(subWorktree);
+
+                // Emit worktree created event
+                this.orchestrator.emitWorktreeCreatedEvent(subWorktree.worktreeId(), nodeId,
+                        subWorktree.worktreePath().toString(), "submodule", submoduleName);
+            }
+
+            // Update orchestrator with submodule worktree IDs
+            var submodule = new SubmoduleNode(
+                    orchestrator.nodeId(),
+                    orchestrator.title(),
+                    orchestrator.goal(),
+                    orchestrator.status(),
+                    orchestrator.parentNodeId(),
+                    orchestrator.childNodeIds(),
+                    orchestrator.metadata(),
+                    orchestrator.createdAt(),
+                    orchestrator.lastUpdatedAt(),
+                    orchestrator.repositoryUrl(),
+                    orchestrator.baseBranch(),
+                    orchestrator.hasSubmodules(),
+                    orchestrator.submoduleNames(),
+                    orchestrator.mainWorktreeId(),
+                    submoduleWorktreeIds,
+                    orchestrator.specFileId(),
+                    orchestrator.orchestratorOutput()
+            );
+
+            orchestrator.submodules().add(submodule);
+        }
+
+        // Emit events
+        this.orchestrator.emitNodeAddedEvent(orchestrator.nodeId(), orchestrator.title(),
+                orchestrator.nodeType(), orchestrator.parentNodeId());
+        this.orchestrator.emitWorktreeCreatedEvent(mainWorktree.worktreeId(), nodeId,
+                mainWorktree.worktreePath().toString(), "main", null);
+
+        // Save to repositories
+        graphRepository.save(orchestrator);
+        worktreeRepository.save(mainWorktree);
+        specRepository.save(baseSpec);
     }
 
     /**

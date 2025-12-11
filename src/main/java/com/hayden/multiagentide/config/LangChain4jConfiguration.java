@@ -75,13 +75,6 @@ public class LangChain4jConfiguration {
                 .build();
     }
 
-    /**
-     * Create agent lifecycle handler for managing node lifecycle in computation graph.
-     */
-    @Bean
-    public AgentLifecycleHandler agentLifecycleHandler(ComputationGraphOrchestrator orchestrator) {
-        return new AgentLifecycleHandler(orchestrator);
-    }
 
     /**
      * Build Planning Agent using AgenticServices with lifecycle management.
@@ -211,8 +204,19 @@ public class LangChain4jConfiguration {
      */
     @Bean
     public AgentInterfaces.OrchestratorAgent orchestratorAgent(ChatModel chatModel,
-                                                               LangChain4jAgentTools tools) {
+                                                               LangChain4jAgentTools tools,
+                                                                @Lazy AgentLifecycleHandler lifecycleHandler) {
         return AgenticServices.agentBuilder(AgentInterfaces.OrchestratorAgent.class)
+                .beforeAgentInvocation(invocation -> {
+                    // Register planning node before agent executes
+                    lifecycleHandler.beforeOrchestrator(
+                            invocation.inputs().toString(),
+                            null, null, null);
+                })
+                .afterAgentInvocation(invocation -> {
+                    // Update node with planning results after agent completes
+                    lifecycleHandler.afterOrchestrator(invocation.output().toString());
+                })
                 .chatModel(chatModel)
                 .tools(tools)
                 .build();

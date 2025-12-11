@@ -1,4 +1,4 @@
-package com.hayden.multiagentide.model;
+package com.hayden.multiagentide.model.mixins;
 
 import java.time.Instant;
 import java.util.ArrayList;

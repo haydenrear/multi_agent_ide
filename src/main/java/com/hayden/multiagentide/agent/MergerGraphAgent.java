@@ -1,11 +1,11 @@
 package com.hayden.multiagentide.agent;
 
 import com.hayden.multiagentide.infrastructure.EventBus;
-import com.hayden.multiagentide.model.GraphAgent;
-import com.hayden.multiagentide.model.GraphNode;
+import com.hayden.multiagentide.model.mixins.GraphAgent;
+import com.hayden.multiagentide.model.mixins.GraphNode;
 import com.hayden.multiagentide.model.MergeResult;
 import com.hayden.multiagentide.model.SubmoduleWorktreeContext;
-import com.hayden.multiagentide.model.WorkNode;
+import com.hayden.multiagentide.model.mixins.WorkNode;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.service.SpecService;
 import com.hayden.multiagentide.service.WorktreeService;

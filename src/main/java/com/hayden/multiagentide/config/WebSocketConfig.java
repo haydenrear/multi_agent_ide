@@ -1,7 +1,11 @@
 package com.hayden.multiagentide.config;
 
 import com.hayden.multiagentide.adapter.WebSocketEventAdapter;
+import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
@@ -20,13 +24,21 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     private final WebSocketEventAdapter eventAdapter;
 
+    private ComputationGraphOrchestrator orchestrator;
+
     public WebSocketConfig(WebSocketEventAdapter eventAdapter) {
         this.eventAdapter = eventAdapter;
     }
 
+    @Lazy
+    @Autowired
+    public void setOrchestrator(ComputationGraphOrchestrator orchestrator) {
+        this.orchestrator = orchestrator;
+    }
+
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(new EventStreamHandler(eventAdapter), "/ws/events")
+        registry.addHandler(new EventStreamHandler(eventAdapter, orchestrator), "/ws/events")
                 .setAllowedOrigins("*");
     }
 
@@ -34,13 +46,13 @@ public class WebSocketConfig implements WebSocketConfigurer {
      * WebSocket handler for event streaming.
      */
     @Component
+    @RequiredArgsConstructor
     public static class EventStreamHandler extends TextWebSocketHandler {
 
         private final WebSocketEventAdapter eventAdapter;
 
-        public EventStreamHandler(WebSocketEventAdapter eventAdapter) {
-            this.eventAdapter = eventAdapter;
-        }
+        private final ComputationGraphOrchestrator computationGraphOrchestrator;
+
 
         @Override
         public void afterConnectionEstablished(WebSocketSession session) throws Exception {
