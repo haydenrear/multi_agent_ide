@@ -3,7 +3,7 @@ package com.hayden.multiagentide.model.mixins;
 /**
  * Capability mixin: Nodes that can be edited (code/specs modified).
  */
-public sealed interface Editable permits WorkNode {
+public sealed interface Editable permits EditorNode {
     /**
      * Request to edit this node's code or spec.
      */

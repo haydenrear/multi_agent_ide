@@ -11,8 +11,7 @@ import java.util.Set;
  * This is a data-oriented interface that composes capabilities.
  */
 public sealed interface GraphNode
-        permits OrchestratorNode, PlanningNode, WorkNode,
-                HumanReviewNode, AgentReviewNode, SummaryNode {
+        permits AgentReviewNode, DiscoveryNode, DiscoveryOrchestratorNode, HumanReviewNode, MergeNode, OrchestratorNode, PlanningNode, PlanningOrchestratorNode, SummaryNode, EditorNode {
 
     /**
      * Unique identifier for this node.

@@ -34,7 +34,7 @@ public class DefaultEventBus implements EventBus {
     @Override
     public void publish(Events.GraphEvent event) {
         for (EventListener listener : subscribers) {
-            if (listener.isInterestedIn(event.eventType())) {
+            if (listener.isInterestedIn(event)) {
                 try {
                     listener.onEvent(event);
                 } catch (Exception e) {

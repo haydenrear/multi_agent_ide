@@ -2,8 +2,10 @@ package com.hayden.multiagentide.config;
 
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.LangChain4jAgentTools;
-import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import dev.langchain4j.agentic.AgenticServices;
+import dev.langchain4j.agentic.planner.Action;
+import dev.langchain4j.agentic.planner.Planner;
+import dev.langchain4j.agentic.planner.PlanningContext;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.http.client.spring.restclient.SpringRestClientBuilder;
@@ -18,6 +20,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
+
+import java.util.UUID;
 
 /**
  * LangChain4j configuration for Chat Language Models and Agentic Services.
@@ -100,12 +104,13 @@ public class LangChain4jConfiguration {
                     // Register planning node before agent executes
                     lifecycleHandler.beforePlanningAgentInvocation(
                             invocation.inputs().toString(),
-                            null);
+                            null, UUID.randomUUID().toString());
                 })
                 .afterAgentInvocation(invocation -> {
                     // Update node with planning results after agent completes
                     lifecycleHandler.afterPlanningAgentInvocation(
-                            invocation.output().toString());
+                            invocation.output().toString(),
+                            null);
                 })
                 .build();
     }
@@ -129,13 +134,15 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeEditorAgentInvocation(
                             invocation.inputs().toString(),
                             "",
+                            null,
                             null
                     );
                 })
                 .afterAgentInvocation(invocation -> {
                     // Update node with generated code after agent completes
                     lifecycleHandler.afterEditorAgentInvocation(
-                            invocation.output().toString()
+                            invocation.output().toString(),
+                            null
                     );
                 })
                 .build();
@@ -160,13 +167,15 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeMergerAgentInvocation(
                             invocation.inputs().toString(),
                             "",
-                            null
+                            null,
+                            UUID.randomUUID().toString()
                     );
                 })
                 .afterAgentInvocation(invocation -> {
                     // Update node with merge strategy after agent completes
                     lifecycleHandler.afterMergerAgentInvocation(
-                            invocation.output().toString()
+                            invocation.output().toString(),
+                            null
                     );
                 })
                 .build();
@@ -191,13 +200,14 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeReviewAgentInvocation(
                             invocation.inputs().toString(),
                             "",
-                            null
+                            null, UUID.randomUUID().toString()
                     );
                 })
                 .afterAgentInvocation(invocation -> {
                     // Update node with evaluation after agent completes
                     lifecycleHandler.afterReviewAgentInvocation(
-                            invocation.output().toString()
+                            invocation.output().toString(),
+                            null
                     );
                 })
                 .build();

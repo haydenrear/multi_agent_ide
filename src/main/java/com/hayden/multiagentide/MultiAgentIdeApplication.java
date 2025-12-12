@@ -13,7 +13,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableAsync
 public class MultiAgentIdeApplication {
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         SpringApplication.run(MultiAgentIdeApplication.class, args);
     }
 }

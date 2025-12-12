@@ -32,7 +32,7 @@ public record OrchestratorNode(
         String specFileId,
         String orchestratorOutput,
         List<SubmoduleNode> submodules
-) implements GraphNode, Branchable, Summarizable, Viewable<String>, Annotatable {
+) implements GraphNode, Branchable, Summarizable, Viewable<String>, Annotatable, Orchestrator {
 
     public OrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String specFileId, String orchestratorOutput) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,

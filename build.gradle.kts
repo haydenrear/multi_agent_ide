@@ -13,3 +13,7 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-open-ai-spring-boot-starter:1.9.1-beta17")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
 }
+
+tasks.bootJar {
+    mainClass = "com.hayden.multiagentide.MultiAgentIdeApplication"
+}

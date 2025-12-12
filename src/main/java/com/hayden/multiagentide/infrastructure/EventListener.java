@@ -29,6 +29,10 @@ public interface EventListener {
         return true;
     }
 
+    default boolean isInterestedIn(Events.GraphEvent eventType) {
+        return isInterestedIn(eventType.eventType());
+    }
+
     /**
      * Called when listener is subscribed.
      */

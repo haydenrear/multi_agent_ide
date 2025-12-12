@@ -1,5 +1,7 @@
 package com.hayden.multiagentide.model.mixins;
 
+import com.google.common.graph.Graph;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,11 @@ public interface Events {
          * Type of event for classification.
          */
         String eventType();
+
+    }
+
+    sealed interface AgentEvent extends GraphEvent {
+        String nodeId();
     }
 
     /**
@@ -37,9 +44,11 @@ public interface Events {
             String nodeTitle,
             GraphNode.NodeType nodeType,
             String parentNodeId
-    ) implements GraphEvent {
+    ) implements AgentEvent {
         @Override
-        public String eventType() { return "NODE_ADDED"; }
+        public String eventType() {
+            return "NODE_ADDED";
+        }
     }
 
     /**
@@ -54,12 +63,15 @@ public interface Events {
             String reason
     ) implements GraphEvent {
         @Override
-        public String eventType() { return "NODE_STATUS_CHANGED"; }
+        public String eventType() {
+            return "NODE_STATUS_CHANGED";
+        }
     }
+
     /**
      * Emitted when a node is branched with modified goal.
      */
-    public record NodeBranchedEvent(
+    record NodeBranchedEvent(
             String eventId,
             Instant timestamp,
             String originalNodeId,
@@ -69,13 +81,15 @@ public interface Events {
             List<String> submoduleWorktreeIds
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "NODE_BRANCHED"; }
+        public String eventType() {
+            return "NODE_BRANCHED";
+        }
     }
 
     /**
      * Emitted when a node is pruned.
      */
-    public record NodePrunedEvent(
+    record NodePrunedEvent(
             String eventId,
             Instant timestamp,
             String nodeId,
@@ -83,28 +97,33 @@ public interface Events {
             List<String> pruneWorktreeIds
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "NODE_PRUNED"; }
+        public String eventType() {
+            return "NODE_PRUNED";
+        }
     }
 
     /**
      * Emitted when a review is requested.
      */
-    public record NodeReviewRequestedEvent(
+    record NodeReviewRequestedEvent(
             String eventId,
             Instant timestamp,
             String nodeId,
             String reviewNodeId,
-            String reviewType,  // "human", "agent", or specific agent type
+            String reviewType,
+            // "human", "agent", or specific agent type
             String contentToReview
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "NODE_REVIEW_REQUESTED"; }
+        public String eventType() {
+            return "NODE_REVIEW_REQUESTED";
+        }
     }
 
     /**
      * Emitted when overall goal is completed.
      */
-    public record GoalCompletedEvent(
+    record GoalCompletedEvent(
             String eventId,
             Instant timestamp,
             String orchestratorNodeId,
@@ -114,7 +133,9 @@ public interface Events {
             long executionTimeMs
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "GOAL_COMPLETED"; }
+        public String eventType() {
+            return "GOAL_COMPLETED";
+        }
     }
 
 // ============ WORKTREE EVENTS ============
@@ -122,38 +143,45 @@ public interface Events {
     /**
      * Emitted when a worktree is created (main or submodule).
      */
-    public record WorktreeCreatedEvent(
+    record WorktreeCreatedEvent(
             String eventId,
             Instant timestamp,
             String worktreeId,
             String associatedNodeId,
             String worktreePath,
-            String worktreeType,  // "main" or "submodule"
-            String submoduleName  // Only if submodule
+            String worktreeType,
+            // "main" or "submodule"
+            String submoduleName
+            // Only if submodule
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "WORKTREE_CREATED"; }
+        public String eventType() {
+            return "WORKTREE_CREATED";
+        }
     }
 
     /**
      * Emitted when a worktree is branched.
      */
-    public record WorktreeBranchedEvent(
+    record WorktreeBranchedEvent(
             String eventId,
             Instant timestamp,
             String originalWorktreeId,
             String branchedWorktreeId,
             String branchName,
-            String worktreeType  // "main" or "submodule"
+            String worktreeType
+            // "main" or "submodule"
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "WORKTREE_BRANCHED"; }
+        public String eventType() {
+            return "WORKTREE_BRANCHED";
+        }
     }
 
     /**
      * Emitted when a child worktree is merged into parent.
      */
-    public record WorktreeMergedEvent(
+    record WorktreeMergedEvent(
             String eventId,
             Instant timestamp,
             String childWorktreeId,
@@ -161,24 +189,29 @@ public interface Events {
             String mergeCommitHash,
             boolean conflictDetected,
             List<String> conflictFiles,
-            String worktreeType  // "main" or "submodule"
+            String worktreeType
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "WORKTREE_MERGED"; }
+        public String eventType() {
+            return "WORKTREE_MERGED";
+        }
     }
 
     /**
      * Emitted when a worktree is discarded/removed.
      */
-    public record WorktreeDiscardedEvent(
+    record WorktreeDiscardedEvent(
             String eventId,
             Instant timestamp,
             String worktreeId,
             String reason,
-            String worktreeType  // "main" or "submodule"
+            String worktreeType
+            // "main" or "submodule"
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "WORKTREE_DISCARDED"; }
+        public String eventType() {
+            return "WORKTREE_DISCARDED";
+        }
     }
 
 // ============ SPEC EVENTS ============
@@ -186,7 +219,7 @@ public interface Events {
     /**
      * Emitted when a spec is validated.
      */
-    public record SpecValidatedEvent(
+    record SpecValidatedEvent(
             String eventId,
             Instant timestamp,
             String specId,
@@ -194,28 +227,33 @@ public interface Events {
             List<String> validationErrors
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "SPEC_VALIDATED"; }
+        public String eventType() {
+            return "SPEC_VALIDATED";
+        }
     }
 
     /**
      * Emitted when a spec is updated.
      */
-    public record SpecUpdatedEvent(
+    record SpecUpdatedEvent(
             String eventId,
             Instant timestamp,
             String specId,
             String worktreeId,
             String updatedSections,
-            String updatedBy  // Agent type or "user"
+            String updatedBy
+            // Agent type or "user"
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "SPEC_UPDATED"; }
+        public String eventType() {
+            return "SPEC_UPDATED";
+        }
     }
 
     /**
      * Emitted when a spec is merged.
      */
-    public record SpecMergedEvent(
+    record SpecMergedEvent(
             String eventId,
             Instant timestamp,
             String childSpecId,
@@ -225,7 +263,9 @@ public interface Events {
             Map<String, String> mergedSections
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "SPEC_MERGED"; }
+        public String eventType() {
+            return "SPEC_MERGED";
+        }
     }
 
 // ============ GENERIC GRAPH EVENTS ============
@@ -233,27 +273,31 @@ public interface Events {
     /**
      * Generic event for updates to nodes.
      */
-    public record NodeUpdatedEvent(
+    record NodeUpdatedEvent(
             String eventId,
             Instant timestamp,
             String nodeId,
             Map<String, String> updates
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "NODE_UPDATED"; }
+        public String eventType() {
+            return "NODE_UPDATED";
+        }
     }
 
     /**
      * Event for deletion of nodes (less common than pruning).
      */
-    public record NodeDeletedEvent(
+    record NodeDeletedEvent(
             String eventId,
             Instant timestamp,
             String nodeId,
             String reason
     ) implements Events.GraphEvent {
         @Override
-        public String eventType() { return "NODE_DELETED"; }
+        public String eventType() {
+            return "NODE_DELETED";
+        }
     }
 
     /**
@@ -268,7 +312,9 @@ public interface Events {
             boolean isFinal
     ) implements GraphEvent {
         @Override
-        public String eventType() { return "NODE_STREAM_DELTA"; }
+        public String eventType() {
+            return "NODE_STREAM_DELTA";
+        }
     }
 }
 

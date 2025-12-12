@@ -3,7 +3,7 @@ package com.hayden.multiagentide.model.mixins;
 /**
  * Capability mixin: Nodes that require human or agent review.
  */
-public sealed interface Reviewable permits PlanningNode, WorkNode, HumanReviewNode, AgentReviewNode {
+public sealed interface Reviewable permits AgentReviewNode, HumanReviewNode, PlanningNode, PlanningOrchestratorNode, EditorNode {
     /**
      * Request review decision.
      */

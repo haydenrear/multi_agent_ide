@@ -11,7 +11,7 @@ import java.util.Set;
  * Node representing a unit of work tied to main and submodule worktrees.
  * Can be Branchable, Editable, Reviewable, Interruptable, Prunable, Summarizable.
  */
-public record WorkNode(
+public record EditorNode(
         String nodeId,
         String title,
         String goal,
@@ -35,7 +35,7 @@ public record WorkNode(
 ) implements GraphNode, Branchable, Editable, Reviewable,
                          Interruptable, Prunable, Summarizable, Viewable<String>, Annotatable {
 
-    public WorkNode {
+    public EditorNode {
         if (nodeId == null || nodeId.isEmpty()) throw new IllegalArgumentException("nodeId required");
         if (goal == null || goal.isEmpty()) throw new IllegalArgumentException("goal required");
         if (mainWorktreeId == null || mainWorktreeId.isEmpty()) throw new IllegalArgumentException("mainWorktreeId required");
@@ -63,8 +63,8 @@ public record WorkNode(
     /**
      * Create an updated version with new status.
      */
-    public WorkNode withStatus(GraphNode.NodeStatus newStatus) {
-        return new WorkNode(
+    public EditorNode withStatus(GraphNode.NodeStatus newStatus) {
+        return new EditorNode(
                 nodeId, title, goal, newStatus, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 mainWorktreeId, submoduleWorktreeIds, specFileId,
@@ -76,10 +76,10 @@ public record WorkNode(
     /**
      * Add a submodule worktree.
      */
-    public WorkNode addSubmoduleWorktree(String submoduleWorktreeId) {
+    public EditorNode addSubmoduleWorktree(String submoduleWorktreeId) {
         List<String> newSubmodules = new ArrayList<>(submoduleWorktreeIds);
         newSubmodules.add(submoduleWorktreeId);
-        return new WorkNode(
+        return new EditorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 mainWorktreeId, newSubmodules, specFileId,
@@ -91,8 +91,8 @@ public record WorkNode(
     /**
      * Update work output and streaming progress.
      */
-    public WorkNode withOutput(String output, int tokens) {
-        return new WorkNode(
+    public EditorNode withOutput(String output, int tokens) {
+        return new EditorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 mainWorktreeId, submoduleWorktreeIds, specFileId,
@@ -104,8 +104,8 @@ public record WorkNode(
     /**
      * Update progress.
      */
-    public WorkNode withProgress(int completed, int total) {
-        return new WorkNode(
+    public EditorNode withProgress(int completed, int total) {
+        return new EditorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 mainWorktreeId, submoduleWorktreeIds, specFileId,
@@ -117,8 +117,8 @@ public record WorkNode(
     /**
      * Mark that merge is required.
      */
-    public WorkNode requireMerge() {
-        return new WorkNode(
+    public EditorNode requireMerge() {
+        return new EditorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 mainWorktreeId, submoduleWorktreeIds, specFileId,
@@ -130,10 +130,10 @@ public record WorkNode(
     /**
      * Add a child node ID.
      */
-    public WorkNode addChildNode(String childNodeId) {
+    public EditorNode addChildNode(String childNodeId) {
         List<String> newChildren = new ArrayList<>(childNodeIds);
         newChildren.add(childNodeId);
-        return new WorkNode(
+        return new EditorNode(
                 nodeId, title, goal, status, parentNodeId,
                 newChildren, metadata, createdAt, Instant.now(),
                 mainWorktreeId, submoduleWorktreeIds, specFileId,

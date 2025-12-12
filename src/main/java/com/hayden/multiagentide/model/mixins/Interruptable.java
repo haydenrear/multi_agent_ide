@@ -3,7 +3,7 @@ package com.hayden.multiagentide.model.mixins;
 /**
  * Capability mixin: Nodes that can be stopped mid-execution.
  */
-public sealed interface Interruptable permits WorkNode {
+public sealed interface Interruptable permits EditorNode {
     /**
      * Signal to interrupt execution.
      */

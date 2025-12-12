@@ -3,7 +3,7 @@ package com.hayden.multiagentide.model.mixins;
 /**
  * Capability mixin: Nodes that can be removed from the graph.
  */
-public sealed interface Prunable permits WorkNode {
+public sealed interface Prunable permits EditorNode {
     /**
      * Request to prune this node and descendants.
      */

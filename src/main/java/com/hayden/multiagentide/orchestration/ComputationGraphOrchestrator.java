@@ -1,21 +1,16 @@
 package com.hayden.multiagentide.orchestration;
 
-import com.hayden.multiagentide.agent.ExecutionContextImpl;
-import com.hayden.multiagentide.agent.GraphAgentFactory;
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.*;
 import com.hayden.multiagentide.model.mixins.*;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
-import com.hayden.multiagentide.service.SpecService;
-import com.hayden.multiagentide.service.WorktreeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import java.nio.file.Path;
+
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.*;
 
 /**
  * Main orchestrator for the computation graph.
@@ -35,7 +30,8 @@ public class ComputationGraphOrchestrator {
      * Get a node from the graph.
      */
     public Optional<GraphNode> getNode(String nodeId) {
-        return graphRepository.findById(nodeId);
+        return Optional.ofNullable(nodeId)
+                .flatMap(graphRepository::findById);
     }
 
     /**
@@ -187,8 +183,8 @@ public class ComputationGraphOrchestrator {
                     p.estimatedSubtasks(), p.completedSubtasks()
             );
         }
-        if (parent instanceof WorkNode p ) {
-            return new WorkNode(
+        if (parent instanceof EditorNode p ) {
+            return new EditorNode(
                     p.nodeId(), p.title(), p.goal(), p.status(), p.parentNodeId(),
                     childIds, p.metadata(), p.createdAt(), p.lastUpdatedAt(),
                     p.mainWorktreeId(), p.submoduleWorktreeIds(), p.specFileId(),
