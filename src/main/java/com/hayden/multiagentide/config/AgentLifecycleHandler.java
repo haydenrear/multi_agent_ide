@@ -265,8 +265,7 @@ public class AgentLifecycleHandler {
         }
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof DiscoveryNode) {
-            DiscoveryNode node = (DiscoveryNode) nodeOpt.get();
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof DiscoveryNode node) {
             DiscoveryNode updated = new DiscoveryNode(
                     node.nodeId(),
                     node.title(),
@@ -282,6 +281,7 @@ public class AgentLifecycleHandler {
                     node.totalTasksFailed(),
                     node.specFileId()
             );
+
             graphRepository.save(updated);
             
             // Emit status changed event for workflow orchestration
@@ -332,8 +332,7 @@ public class AgentLifecycleHandler {
         }
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof SkillArtifactMergeNode) {
-            SkillArtifactMergeNode node = (SkillArtifactMergeNode) nodeOpt.get();
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof SkillArtifactMergeNode node) {
             SkillArtifactMergeNode updated = new SkillArtifactMergeNode(
                     node.nodeId(),
                     node.title(),
@@ -388,8 +387,7 @@ public class AgentLifecycleHandler {
         }
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof PlanningNode) {
-            PlanningNode node = (PlanningNode) nodeOpt.get();
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof PlanningNode node) {
             PlanningNode updated = new PlanningNode(
                     node.nodeId(),
                     node.title(),

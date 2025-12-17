@@ -61,15 +61,17 @@ public class AgentRunner {
             case PlanningOrchestratorNode planningOrchestratorNode -> {
                 this.runPlanningOrchestratorAgent(planningOrchestratorNode, parent);
             }
-            case PlanningNode planningNode -> {
-                if (planningNode.status() == GraphNode.NodeStatus.READY) {
-                    this.runPlanningAgent(planningNode, parent);
-                } else if (planningNode.status() == GraphNode.NodeStatus.COMPLETED
-                        && parent instanceof PlanningOrchestratorNode orch
+            case PlanningNode planningNode when planningNode.status() == GraphNode.NodeStatus.COMPLETED -> {
+                if (parent instanceof PlanningOrchestratorNode orch
                         && computationGraphOrchestrator.getChildNodes(orch.nodeId()).stream()
-                        .allMatch(s -> s.status() == GraphNode.NodeStatus.COMPLETED)) {
+                        .allMatch(s -> s.status() == GraphNode.NodeStatus.COMPLETED))
                     this.planningCollectorAgents(orch);
-                }
+            }
+            case PlanningNode planningNode when planningNode.status() ==  GraphNode.NodeStatus.READY -> {
+                this.runPlanningAgent(planningNode, parent);
+            }
+            case PlanningNode planningNode -> {
+
             }
             case EditorNode editorNode -> {
                 this.runTicketAgent(editorNode, parent);

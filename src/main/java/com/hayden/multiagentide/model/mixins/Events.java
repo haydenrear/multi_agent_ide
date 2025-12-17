@@ -61,7 +61,7 @@ public interface Events {
             GraphNode.NodeStatus oldStatus,
             GraphNode.NodeStatus newStatus,
             String reason
-    ) implements GraphEvent {
+    ) implements AgentEvent {
         @Override
         public String eventType() {
             return "NODE_STATUS_CHANGED";

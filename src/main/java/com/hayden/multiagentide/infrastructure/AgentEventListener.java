@@ -100,6 +100,11 @@ public class AgentEventListener implements EventListener {
      * require different handling and are ignored here.
      */
     private void handleNodeAdded(Events.NodeAddedEvent event) {
+        doAgentRunner(event);
+    }
+
+
+    private void doAgentRunner(Events.AgentEvent event) {
         String nodeId = event.nodeId();
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
 
@@ -109,10 +114,10 @@ public class AgentEventListener implements EventListener {
         }
 
         GraphNode node = nodeOpt.get();
-        
+
         // Only dispatch nodes that are in READY status
         if (node.status() != GraphNode.NodeStatus.READY) {
-            log.debug("Node added but not in READY status: {} ({}) - status: {}", 
+            log.debug("Node added but not in READY status: {} ({}) - status: {}",
                     node.title(), nodeId, node.status());
             return;
         }
@@ -130,7 +135,7 @@ public class AgentEventListener implements EventListener {
         try {
             agentRunner.runAgent(dispatch);
         } catch (Exception e) {
-            log.error("Failed to execute agent for node: {} ({}) during dispatch", 
+            log.error("Failed to execute agent for node: {} ({}) during dispatch",
                     node.title(), nodeId, e);
         }
     }
@@ -232,10 +237,7 @@ public class AgentEventListener implements EventListener {
     private void handlePlanningNodeCompleted(PlanningNode node) {
         log.info("Planning agent completed, checking if all planning agents done");
         Optional<GraphNode> parentOpt = orchestrator.getNode(node.parentNodeId());
-        if (parentOpt.isPresent() && parentOpt.get() instanceof PlanningOrchestratorNode) {
-            // Check if all planning siblings are completed
-            // If yes, create and kick off PlanningMerger
-        }
+        agentRunner.runAgent(new AgentRunner.AgentDispatchArgs(node, parentOpt.orElse(null), orchestrator.getChildNodes(node.nodeId())));
     }
 
     private void handlePlanningMergerCompleted(SkillArtifactMergeNode node) {
