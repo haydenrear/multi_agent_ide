@@ -36,52 +36,6 @@ public class AgentEventListener implements EventListener {
     /**
      * Dispatches an agent for execution with its parent and children context.
      */
-    public record AgentDispatch(GraphNode self, @Nullable GraphNode parent, List<GraphNode> children) {
-
-        public void runAgent(AgentRunner agentRunner) {
-            switch (self) {
-                case DiscoveryNode discoveryNode -> {
-                    agentRunner.runDiscoveryAgent(discoveryNode, parent);
-                }
-                case DiscoveryOrchestratorNode discoveryOrchestratorNode -> {
-                    agentRunner.runDiscoveryOrchestratorAgent(discoveryOrchestratorNode, parent);
-                }
-                case SkillArtifactMergeNode mergeNode when isDiscoveryMerger(mergeNode) -> {
-                    agentRunner.runDiscoveryMergerAgent(mergeNode, parent);
-                }
-                case SkillArtifactMergeNode mergeNode when isPlanningMerger(mergeNode) -> {
-                    agentRunner.runPlanningMergerAgent(mergeNode, parent);
-                }
-                case PlanningOrchestratorNode planningOrchestratorNode -> {
-                    agentRunner.runPlanningOrchestratorAgent(planningOrchestratorNode, parent);
-                }
-                case PlanningNode planningNode -> {
-                    agentRunner.runPlanningAgent(planningNode, parent);
-                }
-                case EditorNode editorNode -> {
-                    agentRunner.runTicketAgent(editorNode, parent);
-                }
-                case AgentReviewNode agentReviewNode -> {
-                    agentRunner.runReviewAgent(agentReviewNode, parent);
-                }
-                case MergeNode mergeNode -> {
-                    agentRunner.runMergeAgent(mergeNode, parent);
-                }
-                case OrchestratorNode orchestratorNode -> {
-                    agentRunner.runOrchestratorAgent(orchestratorNode);
-                }
-                default -> log.warn("No dispatch handler for node type: {}", self.getClass().getSimpleName());
-            }
-        }
-
-        private static boolean isDiscoveryMerger(SkillArtifactMergeNode node) {
-            return node.title().contains("Discovery") || node.goal().contains("discovery");
-        }
-
-        private static boolean isPlanningMerger(SkillArtifactMergeNode node) {
-            return node.title().contains("Planning") || node.goal().contains("planning");
-        }
-    }
 
     @Override
     public void onEvent(Events.GraphEvent event) {
@@ -171,10 +125,10 @@ public class AgentEventListener implements EventListener {
         }
 
         var children = orchestrator.getChildNodes(nodeId);
-        var dispatch = new AgentDispatch(node, parentOpt.orElse(null), children);
+        var dispatch = new AgentRunner.AgentDispatchArgs(node, parentOpt.orElse(null), children);
 
         try {
-            dispatch.runAgent(agentRunner);
+            agentRunner.runAgent(dispatch);
         } catch (Exception e) {
             log.error("Failed to execute agent for node: {} ({}) during dispatch", 
                     node.title(), nodeId, e);

@@ -8,7 +8,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Nullable;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -38,6 +40,71 @@ public class AgentRunner {
 
     private final ComputationGraphOrchestrator computationGraphOrchestrator;
     private final GraphRepository graphRepository;
+
+    public record AgentDispatchArgs(GraphNode self, @Nullable GraphNode parent, List<GraphNode> children) { }
+
+    public void runAgent(AgentDispatchArgs d) {
+        var parent = d.parent;
+        switch (d.self) {
+            case DiscoveryNode discoveryNode -> {
+                this.runDiscoveryAgent(discoveryNode, parent);
+            }
+            case DiscoveryOrchestratorNode discoveryOrchestratorNode -> {
+                this.runDiscoveryOrchestratorAgent(discoveryOrchestratorNode, parent);
+            }
+            case SkillArtifactMergeNode mergeNode when isDiscoveryMerger(mergeNode) -> {
+                this.runDiscoveryMergerAgent(mergeNode, parent);
+            }
+            case SkillArtifactMergeNode mergeNode when isPlanningMerger(mergeNode) -> {
+                this.runPlanningMergerAgent(mergeNode, parent);
+            }
+            case PlanningOrchestratorNode planningOrchestratorNode -> {
+                this.runPlanningOrchestratorAgent(planningOrchestratorNode, parent);
+            }
+            case PlanningNode planningNode -> {
+                if (planningNode.status() == GraphNode.NodeStatus.READY) {
+                    this.runPlanningAgent(planningNode, parent);
+                } else if (planningNode.status() == GraphNode.NodeStatus.COMPLETED
+                        && parent instanceof PlanningOrchestratorNode orch
+                        && computationGraphOrchestrator.getChildNodes(orch.nodeId()).stream()
+                        .allMatch(s -> s.status() == GraphNode.NodeStatus.COMPLETED)) {
+                    this.planningCollectorAgents(orch);
+                }
+            }
+            case EditorNode editorNode -> {
+                this.runTicketAgent(editorNode, parent);
+            }
+            case AgentReviewNode agentReviewNode -> {
+                this.runReviewAgent(agentReviewNode, parent);
+            }
+            case MergeNode mergeNode -> {
+                this.runMergeAgent(mergeNode, parent);
+            }
+            case OrchestratorNode orchestratorNode -> {
+                this.runOrchestratorAgent(orchestratorNode);
+            }
+            case SkillArtifactMergeNode skillArtifactMergeNode -> {
+            }
+            case CollectorNode collectorNode -> {
+            }
+            case DiscoveryCollectorNode discoveryCollectorNode -> {
+            }
+            case HumanReviewNode humanReviewNode -> {
+            }
+            case PlanningCollectorNode planningCollectorNode -> {
+            }
+            case SummaryNode summaryNode -> {
+            }
+        }
+    }
+
+    private static boolean isDiscoveryMerger(SkillArtifactMergeNode node) {
+        return node.title().contains("Discovery") || node.goal().contains("discovery");
+    }
+
+    private static boolean isPlanningMerger(SkillArtifactMergeNode node) {
+        return node.title().contains("Planning") || node.goal().contains("planning");
+    }
 
     // ===== ORCHESTRATOR PHASE =====
 
@@ -184,16 +251,19 @@ public class AgentRunner {
             // Get discovery context from parent chain
             String discoveryContext = extractDiscoveryContext(node);
 
-            String divisionStrategy = planningOrchestrator.decomposePlanAndCreateWorkItems(
-                    node.goal()
-            );
+            String divisionStrategy = planningOrchestrator.decomposePlanAndCreateWorkItems(node.goal());
             log.info("PlanningOrchestrator determined strategy: {}", divisionStrategy);
 
             // Next: Kick off PlanningAgent(s) based on strategy
             kickOffPlanningAgents(node, divisionStrategy, discoveryContext);
+
         } catch (Exception e) {
             log.error("PlanningOrchestratorAgent failed for node: {}", node.nodeId(), e);
         }
+    }
+
+    public void planningCollectorAgents(PlanningOrchestratorNode orchestratorNode) {
+
     }
 
     /**
