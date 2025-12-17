@@ -86,6 +86,118 @@ public class LangChain4jConfiguration {
 
 
     /**
+     * Build Discovery Orchestrator Agent using AgenticServices with lifecycle management.
+     * Determines division strategy for discovery work across multiple agents.
+     * Before invocation: registers discovery orchestrator node
+     * After invocation: kicks off multiple discovery agents based on strategy
+     */
+    @Bean
+    public AgentInterfaces.DiscoveryOrchestrator discoveryOrchestratorAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler
+    ) {
+        return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryOrchestrator.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    lifecycleHandler.beforeDiscoveryOrchestratorInvocation(
+                            invocation.inputs().toString(),
+                            null, UUID.randomUUID().toString());
+                })
+                .afterAgentInvocation(invocation -> {
+                    lifecycleHandler.afterDiscoveryOrchestratorInvocation(
+                            invocation.output().toString(),
+                            null);
+                })
+                .build();
+    }
+
+    /**
+     * Build Discovery Agent using AgenticServices with lifecycle management.
+     * Discovers and analyzes specific areas of the codebase.
+     * Before invocation: registers discovery node
+     * After invocation: updates node with discovery findings
+     */
+    @Bean
+    public AgentInterfaces.DiscoveryAgent discoveryAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler
+    ) {
+        return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryAgent.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    lifecycleHandler.beforeDiscoveryAgentInvocation(
+                            invocation.inputs().toString(),
+                            null, UUID.randomUUID().toString());
+                })
+                .afterAgentInvocation(invocation -> {
+                    lifecycleHandler.afterDiscoveryAgentInvocation(
+                            invocation.output().toString(),
+                            null, null);
+                })
+                .build();
+    }
+
+    /**
+     * Build Discovery Merger Agent using AgenticServices with lifecycle management.
+     * Consolidates discovery findings from multiple agents into unified document.
+     * Before invocation: registers discovery merger node
+     * After invocation: updates node with merged discovery
+     */
+    @Bean
+    public AgentInterfaces.DiscoveryMerger discoveryMergerAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler
+    ) {
+        return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryMerger.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    lifecycleHandler.beforeDiscoveryMergerInvocation(
+                            invocation.inputs().toString(),
+                            null, UUID.randomUUID().toString());
+                })
+                .afterAgentInvocation(invocation -> {
+                    lifecycleHandler.afterDiscoveryMergerInvocation(
+                            invocation.output().toString(),
+                            null);
+                })
+                .build();
+    }
+
+    /**
+     * Build Planning Orchestrator Agent using AgenticServices with lifecycle management.
+     * Decomposes goals into division strategy for multiple planning agents.
+     * Before invocation: registers planning orchestrator node
+     * After invocation: kicks off multiple planning agents based on strategy
+     */
+    @Bean
+    public AgentInterfaces.PlanningOrchestrator planningOrchestratorAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler
+    ) {
+        return AgenticServices.agentBuilder(AgentInterfaces.PlanningOrchestrator.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    lifecycleHandler.beforePlanningOrchestratorInvocation(
+                            invocation.inputs().toString(),
+                            null, UUID.randomUUID().toString());
+                })
+                .afterAgentInvocation(invocation -> {
+                    lifecycleHandler.afterPlanningOrchestratorInvocation(
+                            invocation.output().toString(),
+                            null);
+                })
+                .build();
+    }
+
+    /**
      * Build Planning Agent using AgenticServices with lifecycle management.
      * Decomposes goals into structured work items.
      * Before invocation: registers planning node
@@ -109,6 +221,90 @@ public class LangChain4jConfiguration {
                 .afterAgentInvocation(invocation -> {
                     // Update node with planning results after agent completes
                     lifecycleHandler.afterPlanningAgentInvocation(
+                            invocation.output().toString(),
+                            null);
+                })
+                .build();
+    }
+
+    /**
+     * Build Planning Merger Agent using AgenticServices with lifecycle management.
+     * Consolidates planning results into structured tickets.
+     * Before invocation: registers planning merger node
+     * After invocation: updates node with merged tickets
+     */
+    @Bean
+    public AgentInterfaces.PlanningMerger planningMergerAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler
+    ) {
+        return AgenticServices.agentBuilder(AgentInterfaces.PlanningMerger.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    lifecycleHandler.beforePlanningMergerInvocation(
+                            invocation.inputs().toString(),
+                            null, UUID.randomUUID().toString());
+                })
+                .afterAgentInvocation(invocation -> {
+                    lifecycleHandler.afterPlanningMergerInvocation(
+                            invocation.output().toString(),
+                            null);
+                })
+                .build();
+    }
+
+    /**
+     * Build Ticket Orchestrator Agent using AgenticServices with lifecycle management.
+     * Orchestrates ticket-based implementation workflow.
+     * Before invocation: registers ticket orchestrator node, creates worktrees
+     * After invocation: kicks off ticket agents
+     */
+    @Bean
+    public AgentInterfaces.TicketOrchestrator ticketOrchestratorAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler
+    ) {
+        return AgenticServices.agentBuilder(AgentInterfaces.TicketOrchestrator.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    lifecycleHandler.beforeTicketOrchestratorInvocation(
+                            invocation.inputs().toString(),
+                            null, UUID.randomUUID().toString());
+                })
+                .afterAgentInvocation(invocation -> {
+                    lifecycleHandler.afterTicketOrchestratorInvocation(
+                            invocation.output().toString(),
+                            null);
+                })
+                .build();
+    }
+
+    /**
+     * Build Ticket Agent using AgenticServices with lifecycle management.
+     * Implements individual tickets with complete code generation.
+     * Before invocation: registers ticket node, creates feature branch
+     * After invocation: updates node with implementation summary
+     */
+    @Bean
+    public AgentInterfaces.TicketAgent ticketAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler
+    ) {
+        return AgenticServices.agentBuilder(AgentInterfaces.TicketAgent.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .beforeAgentInvocation(invocation -> {
+                    lifecycleHandler.beforeTicketAgentInvocation(
+                            invocation.inputs().toString(),
+                            null, UUID.randomUUID().toString());
+                })
+                .afterAgentInvocation(invocation -> {
+                    lifecycleHandler.afterTicketAgentInvocation(
                             invocation.output().toString(),
                             null);
                 })

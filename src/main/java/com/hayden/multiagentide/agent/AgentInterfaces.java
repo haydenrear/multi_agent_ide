@@ -25,11 +25,27 @@ public class AgentInterfaces {
         String decomposePlanAndCreateWorkItems(@V("goal") String goal);
     }
 
+    /**
+     * Merger agent that consolidates planning results from multiple agents into tickets.
+     */
     public interface PlanningMerger {
-        @Agent(value = "")
+        @Agent(value = "Consolidates planning outputs into structured tickets")
         @UserMessage("""
+                Merge and consolidate the following planning results from multiple agents:
+
+                Goal: {{goal}}
+                Planning Results: {{planningResults}}
+
+                Create structured tickets with:
+                - Ticket ID and title
+                - Clear implementation tasks
+                - Dependencies between tickets
+                - Acceptance criteria
+                - Estimated effort
+
+                Return merged tickets in structured format.
                 """)
-        String decomposePlanAndCreateWorkItems(@V("goal") String goal);
+        String consolidatePlansIntoTickets(@V("goal") String goal, @V("planningResults") String planningResults);
     }
 
     /**
@@ -70,80 +86,124 @@ public class AgentInterfaces {
         String kickOffAnyNumberOfAgentsForCodeSearch(@V("goal") String goal);
     }
 
+    /**
+     * Merger agent that consolidates discovery findings from multiple agents.
+     */
     public interface DiscoveryMerger {
-        @Agent(value = "Decomposes high-level goals into structured work items with clear tasks and dependencies")
+        @Agent(value = "Consolidates discovery findings into unified codebase understanding")
         @UserMessage("""
-                Coordinate the merging of the multi-agent workflow from discovery:
+                Merge and consolidate the following discovery results from multiple agents:
 
                 Goal: {{goal}}
-                Agent Results: {{agentic_results}}
+                Discovery Results: {{discoveryResults}}
 
-                Based on this information and files you find on the repository, or information about the ticket,
-                decide how to divide up the discovery phase of the workflow.
+                Create a unified discovery document with:
+                - Architecture overview
+                - Key modules and components
+                - Data flow and dependencies
+                - Integration points
+                - Technology stack summary
+                - Test patterns and conventions
+                - Critical files and entry points
 
-                For example, based on the ticket, you may need to divide up to retrieve information about multiple
-                libraries, or modules, or the repository may be too big for one agent, so you decide how to divide
-                up this work.
-
-                Return how many agents to use to perform the discovery, and how to divide up the work, including an
-                an addition to the goal to send that agent.
-
-                Please use your tools to merge the skills file.
+                Return consolidated discovery in structured format suitable for planning phase.
                 """)
-        String kickOffAnyNumberOfAgentsForCodeSearch(@V("goal") String goal, @V("agentic_results") String agenticResults);
+        String consolidateDiscoveryFindings(@V("goal") String goal, @V("discoveryResults") String discoveryResults);
     }
 
+    /**
+     * Discovery agent that analyzes specific areas of the codebase.
+     */
     public interface DiscoveryAgent {
-        @Agent(value = "Decomposes high-level goals into structured work items with clear tasks and dependencies")
+        @Agent(value = "Discovers and analyzes codebase structure for specific domains")
         @UserMessage("""
-                Analyze the following goal and break it down into 3 work items:
-                1. Architecture & Setup - Design foundational structure
-                2. Implementation - Core functionality
-                3. Testing & Validation - Tests and validation
+                Discover and analyze the codebase for the following subdomain:
 
-                Goal: {{goal}}
+                Overall Goal: {{goal}}
+                Subdomain Focus: {{subdomainFocus}}
 
-                Provide a structured plan with clear sections for each work item.
+                Use your tools to:
+                1. Search for relevant files and modules
+                2. Analyze key source files
+                3. Understand dependencies and imports
+                4. Identify architectural patterns
+                5. Document test patterns
 
-                Please use your tools to create a skills file with name {{skeelz}}.
-                Please return the name of the skeelz file and any additional information or metadata
-                you'd like to add with regards to merging this skeelz file.
+                Generate comprehensive discovery findings including:
+                - Module overview
+                - Key classes and responsibilities
+                - Data flow patterns
+                - Integration points
+                - Technology stack
+                - Test patterns
+
+                Return findings as structured document suitable for merging.
                 """)
-        String searchThroughTheCodeBase(@V("goal") String goal, @V("skeelz") String skeelz);
+        String discoverCodebaseSection(@V("goal") String goal, @V("subdomainFocus") String subdomainFocus);
     }
 
+    /**
+     * Ticket orchestrator that coordinates ticket-based implementation.
+     */
     public interface TicketOrchestrator {
-        @Agent(value = "Generates code implementations based on goals and context from specifications")
+        @Agent(value = "Orchestrates ticket-based implementation workflow")
         @UserMessage("""
-                Generate code implementation for the following work item:
+                Orchestrate ticket-based implementation for the following tickets:
 
                 Goal: {{goal}}
+                Tickets: {{tickets}}
+                Discovery Context: {{discoveryContext}}
+                Planning Context: {{planningContext}}
 
-                Context from spec:
-                {{context}}
+                Coordinate execution of each ticket:
+                1. Determine ticket execution order and dependencies
+                2. Create ticket work details for each ticket
+                3. Prepare worktree context for ticket agents
+                4. Monitor ticket completion and quality
 
-                Provide complete, production-ready code with proper structure and error handling.
+                Return orchestration plan and ticket coordination strategy.
                 """)
-        String generateCode(@V("goal") String goal, @V("context") String context);
+        String orchestrateTicketExecution(@V("goal") String goal, @V("tickets") String tickets,
+                                         @V("discoveryContext") String discoveryContext,
+                                         @V("planningContext") String planningContext);
     }
 
 
     /**
-     * Editor agent that generates code based on specifications.
+     * Ticket agent that implements individual tickets.
      */
     public interface TicketAgent {
-        @Agent(value = "Generates code implementations based on goals and context from specifications")
+        @Agent(value = "Implements individual tickets with complete code generation")
         @UserMessage("""
-                Generate code implementation for the following work item:
+                Implement the following ticket with complete, production-ready code:
 
-                Goal: {{goal}}
+                Ticket Details: {{ticketDetails}}
+                Ticket File Path: {{ticketDetailsFilePath}}
 
-                Context from spec:
-                {{context}}
+                Discovery Context: {{discoveryContext}}
+                Planning Context: {{planningContext}}
+
+                Implementation requirements:
+                1. Read ticket details from the provided file path
+                2. Analyze discovery and planning context
+                3. Use tools to read existing code and understand patterns
+                4. Generate complete implementation
+                5. Create/modify files in the worktree
+                6. Run tests in the worktree
+                7. Commit implementation to feature branch
+
+                Return comprehensive implementation summary including:
+                - Files modified/created
+                - Key implementation decisions
+                - Test results
+                - Worktree state
 
                 Provide complete, production-ready code with proper structure and error handling.
                 """)
-        String generateCode(@V("goal") String goal, @V("context") String context);
+        String implementTicket(@V("ticketDetails") String ticketDetails,
+                              @V("ticketDetailsFilePath") String ticketDetailsFilePath,
+                              @V("discoveryContext") String discoveryContext,
+                              @V("planningContext") String planningContext);
     }
 
     /**

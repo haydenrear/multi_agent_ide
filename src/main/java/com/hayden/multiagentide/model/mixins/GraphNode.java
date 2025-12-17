@@ -89,7 +89,7 @@ public sealed interface GraphNode
         COMPLETED,         // Successfully completed
         FAILED,            // Execution failed
         CANCELED,          // Manually canceled
-        PRUNED             // Removed from graph
+        PRUNED,            // Removed from graph
     }
 
     /**

@@ -168,6 +168,192 @@ public class AgentLifecycleHandler {
      * Handle before-agent-invocation for Planning Agent.
      * Registers a planning node in the computation graph.
      */
+    /**
+     * Handle before-agent-invocation for Discovery Orchestrator.
+     * Registers a discovery orchestrator node in the computation graph.
+     */
+    public void beforeDiscoveryOrchestratorInvocation(String goal, String parentNodeId, String nodeId) {
+        DiscoveryOrchestratorNode discoveryOrchestratorNode = new DiscoveryOrchestratorNode(
+                nodeId,
+                "Discover & Divide",
+                goal,
+                GraphNode.NodeStatus.RUNNING,
+                parentNodeId,
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                "",
+                0,
+                0,
+                null
+        );
+
+        orchestrator.addChildNode(parentNodeId, discoveryOrchestratorNode);
+        log.info("Discovery orchestrator node {} registered for goal: {}", nodeId, goal);
+    }
+
+    /**
+     * Handle after-agent-invocation for Discovery Orchestrator.
+     * Updates discovery orchestrator node and may kick off multiple discovery agents.
+     */
+    public void afterDiscoveryOrchestratorInvocation(String divisionStrategy, String nodeId) {
+        if (nodeId == null) {
+            log.warn("No discovery orchestrator node ID found in context");
+            return;
+        }
+
+        Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof DiscoveryOrchestratorNode) {
+            DiscoveryOrchestratorNode node = (DiscoveryOrchestratorNode) nodeOpt.get();
+            DiscoveryOrchestratorNode updated = new DiscoveryOrchestratorNode(
+                    node.nodeId(),
+                    node.title(),
+                    node.goal(),
+                    node.status(),
+                    node.parentNodeId(),
+                    node.childNodeIds(),
+                    node.metadata(),
+                    node.createdAt(),
+                    Instant.now(),
+                    "",
+                    node.totalTasksCompleted(),
+                    node.totalTasksFailed(),
+                    node.specFileId()
+            );
+            // Division strategy parsing and agent kickoff would happen here
+            // For now, just update the node
+            orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
+                    updated.nodeType(), updated.parentNodeId());
+            log.info("Discovery orchestrator node {} updated with division strategy", nodeId);
+        }
+    }
+
+    /**
+     * Handle before-agent-invocation for Discovery Agent.
+     * Registers a discovery node in the computation graph.
+     */
+    public void beforeDiscoveryAgentInvocation(String goal, String subdomainFocus, String nodeId) {
+        DiscoveryNode discoveryNode = new DiscoveryNode(
+                nodeId,
+                "Discover: " + (subdomainFocus != null ? subdomainFocus : "codebase"),
+                goal,
+                GraphNode.NodeStatus.RUNNING,
+                null,
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                "",
+                0,
+                0,
+                null
+        );
+
+        graphRepository.save(discoveryNode);
+        log.info("Discovery node {} registered for subdomain focus: {}", nodeId, subdomainFocus);
+    }
+
+    /**
+     * Handle after-agent-invocation for Discovery Agent.
+     * Updates discovery node with findings and marks as completed.
+     */
+    public void afterDiscoveryAgentInvocation(String discoveryFindings, String metadata, String nodeId) {
+        if (nodeId == null) {
+            log.warn("No discovery node ID found in context");
+            return;
+        }
+
+        Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof DiscoveryNode) {
+            DiscoveryNode node = (DiscoveryNode) nodeOpt.get();
+            DiscoveryNode updated = new DiscoveryNode(
+                    node.nodeId(),
+                    node.title(),
+                    node.goal(),
+                    GraphNode.NodeStatus.COMPLETED,
+                    node.parentNodeId(),
+                    node.childNodeIds(),
+                    node.metadata(),
+                    node.createdAt(),
+                    Instant.now(),
+                    discoveryFindings,
+                    node.totalTasksCompleted(),
+                    node.totalTasksFailed(),
+                    node.specFileId()
+            );
+            graphRepository.save(updated);
+            
+            // Emit status changed event for workflow orchestration
+            orchestrator.emitStatusChangeEvent(
+                    updated.nodeId(),
+                    GraphNode.NodeStatus.RUNNING,
+                    GraphNode.NodeStatus.COMPLETED,
+                    "Discovery findings acquired"
+            );
+            
+            log.info("Discovery node {} updated with findings", nodeId);
+        }
+    }
+
+    /**
+     * Handle before-agent-invocation for Discovery Merger.
+     * Registers a discovery merger node in the computation graph.
+     */
+    public void beforeDiscoveryMergerInvocation(String allDiscoveryFindings, String parentNodeId, String nodeId) {
+        SkillArtifactMergeNode mergerNode = new SkillArtifactMergeNode(
+                nodeId,
+                "Merge Discovery",
+                "Consolidate discovery findings",
+                GraphNode.NodeStatus.RUNNING,
+                parentNodeId,
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                "",
+                0,
+                0,
+                null
+        );
+
+        orchestrator.addChildNode(parentNodeId, mergerNode);
+        log.info("Discovery merger node {} registered", nodeId);
+    }
+
+    /**
+     * Handle after-agent-invocation for Discovery Merger.
+     * Updates discovery merger node with merged findings and marks as completed.
+     */
+    public void afterDiscoveryMergerInvocation(String mergedDiscoveryFile, String nodeId) {
+        if (nodeId == null) {
+            log.warn("No discovery merger node ID found in context");
+            return;
+        }
+
+        Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof SkillArtifactMergeNode) {
+            SkillArtifactMergeNode node = (SkillArtifactMergeNode) nodeOpt.get();
+            SkillArtifactMergeNode updated = new SkillArtifactMergeNode(
+                    node.nodeId(),
+                    node.title(),
+                    node.goal(),
+                    GraphNode.NodeStatus.COMPLETED,
+                    node.parentNodeId(),
+                    node.childNodeIds(),
+                    node.metadata(),
+                    node.createdAt(),
+                    Instant.now(),
+                    mergedDiscoveryFile,
+                    node.totalTasksCompleted(),
+                    node.totalTasksFailed(),
+                    node.specFileId()
+            );
+            graphRepository.save(updated);
+            log.info("Discovery merger node {} updated with merged findings", nodeId);
+        }
+    }
+
     public void beforePlanningAgentInvocation(String goal, String parentNodeId, String nodeId) {
 
         PlanningNode planningNode = new PlanningNode(
@@ -230,6 +416,125 @@ public class AgentLifecycleHandler {
      * Handle before-agent-invocation for Editor Agent.
      * Registers an editor node in the computation graph.
      */
+    /**
+     * Handle before-agent-invocation for Planning Orchestrator.
+     * Registers a planning orchestrator node in the computation graph.
+     */
+    public void beforePlanningOrchestratorInvocation(String goal, String parentNodeId, String nodeId) {
+        PlanningOrchestratorNode planningOrchestratorNode = new PlanningOrchestratorNode(
+                nodeId,
+                "Plan & Divide",
+                goal,
+                GraphNode.NodeStatus.RUNNING,
+                parentNodeId,
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                new ArrayList<>(),
+                "",
+                null,
+                0,
+                0
+        );
+
+        orchestrator.addChildNode(parentNodeId, planningOrchestratorNode);
+        log.info("Planning orchestrator node {} registered for goal: {}", nodeId, goal);
+    }
+
+    /**
+     * Handle after-agent-invocation for Planning Orchestrator.
+     * Updates planning orchestrator node and kicks off multiple planning agents.
+     */
+    public void afterPlanningOrchestratorInvocation(String divisionStrategy, String nodeId) {
+        if (nodeId == null) {
+            log.warn("No planning orchestrator node ID found in context");
+            return;
+        }
+
+        Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof PlanningOrchestratorNode) {
+            PlanningOrchestratorNode node = (PlanningOrchestratorNode) nodeOpt.get();
+            PlanningOrchestratorNode updated = new PlanningOrchestratorNode(
+                    node.nodeId(),
+                    node.title(),
+                    node.goal(),
+                    node.status(),
+                    node.parentNodeId(),
+                    node.childNodeIds(),
+                    node.metadata(),
+                    node.createdAt(),
+                    Instant.now(),
+                    node.generatedTicketIds(),
+                    node.planContent(),
+                    node.specFileId(),
+                    node.estimatedSubtasks(),
+                    node.completedSubtasks()
+            );
+            orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
+                    updated.nodeType(), updated.parentNodeId());
+            log.info("Planning orchestrator node {} updated with division strategy", nodeId);
+        }
+    }
+
+    /**
+     * Handle before-agent-invocation for Planning Merger.
+     * Registers a planning merger node in the computation graph.
+     */
+    public void beforePlanningMergerInvocation(String allPlanningResults, String parentNodeId, String nodeId) {
+        SkillArtifactMergeNode mergerNode = new SkillArtifactMergeNode(
+                nodeId,
+                "Merge Planning",
+                "Consolidate planning results into tickets",
+                GraphNode.NodeStatus.RUNNING,
+                parentNodeId,
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                "",
+                0,
+                0,
+                null
+        );
+
+        orchestrator.addChildNode(parentNodeId, mergerNode);
+        log.info("Planning merger node {} registered", nodeId);
+    }
+
+    /**
+     * Handle after-agent-invocation for Planning Merger.
+     * Updates planning merger node with merged tickets and marks as completed.
+     */
+    public void afterPlanningMergerInvocation(String ticketsFile, String nodeId) {
+        if (nodeId == null) {
+            log.warn("No planning merger node ID found in context");
+            return;
+        }
+
+        Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof SkillArtifactMergeNode) {
+            SkillArtifactMergeNode node = (SkillArtifactMergeNode) nodeOpt.get();
+            SkillArtifactMergeNode updated = new SkillArtifactMergeNode(
+                    node.nodeId(),
+                    node.title(),
+                    node.goal(),
+                    GraphNode.NodeStatus.COMPLETED,
+                    node.parentNodeId(),
+                    node.childNodeIds(),
+                    node.metadata(),
+                    node.createdAt(),
+                    Instant.now(),
+                    ticketsFile,
+                    node.totalTasksCompleted(),
+                    node.totalTasksFailed(),
+                    node.specFileId()
+            );
+            graphRepository.save(updated);
+            log.info("Planning merger node {} updated with merged tickets", nodeId);
+        }
+    }
+
     public void beforeEditorAgentInvocation(String goal, String context, String parentNodeId, String nodeId) {
 
         EditorNode editorNode = new EditorNode(
@@ -363,6 +668,145 @@ public class AgentLifecycleHandler {
      * Handle before-agent-invocation for Review Agent.
      * Registers a review node in the computation graph.
      */
+    /**
+     * Handle before-agent-invocation for Ticket Orchestrator.
+     * Registers a ticket orchestrator node and creates worktrees for ticket implementation.
+     */
+    public void beforeTicketOrchestratorInvocation(String tickets, String parentNodeId, String nodeId) {
+        EditorNode ticketOrchestratorNode = new EditorNode(
+                nodeId,
+                "Execute Tickets",
+                "Orchestrate ticket-based implementation",
+                GraphNode.NodeStatus.RUNNING,
+                parentNodeId,
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                null,
+                new ArrayList<>(),
+                null,
+                0,
+                0,
+                "ticket_orchestrator",
+                "",
+                false,
+                0
+        );
+
+        orchestrator.addChildNode(parentNodeId, ticketOrchestratorNode);
+        log.info("Ticket orchestrator node {} registered", nodeId);
+    }
+
+    /**
+     * Handle after-agent-invocation for Ticket Orchestrator.
+     * Updates ticket orchestrator node and may kick off first TicketAgent.
+     */
+    public void afterTicketOrchestratorInvocation(String orchestrationPlan, String nodeId) {
+        if (nodeId == null) {
+            log.warn("No ticket orchestrator node ID found in context");
+            return;
+        }
+
+        Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof EditorNode) {
+            EditorNode node = (EditorNode) nodeOpt.get();
+            EditorNode updated = new EditorNode(
+                    node.nodeId(),
+                    node.title(),
+                    node.goal(),
+                    node.status(),
+                    node.parentNodeId(),
+                    node.childNodeIds(),
+                    node.metadata(),
+                    node.createdAt(),
+                    Instant.now(),
+                    node.mainWorktreeId(),
+                    node.submoduleWorktreeIds(),
+                    node.specFileId(),
+                    node.completedSubtasks(),
+                    node.totalSubtasks(),
+                    node.agentType(),
+                    orchestrationPlan,
+                    node.mergeRequired(),
+                    0
+            );
+            orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
+                    updated.nodeType(), updated.parentNodeId());
+            log.info("Ticket orchestrator node {} updated with orchestration plan", nodeId);
+        }
+    }
+
+    /**
+     * Handle before-agent-invocation for Ticket Agent.
+     * Registers a ticket node in the computation graph and creates feature branch.
+     */
+    public void beforeTicketAgentInvocation(String ticketDetails, String parentNodeId, String nodeId) {
+        EditorNode ticketNode = new EditorNode(
+                nodeId,
+                "Implement Ticket",
+                ticketDetails,
+                GraphNode.NodeStatus.RUNNING,
+                parentNodeId,
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                null,
+                new ArrayList<>(),
+                null,
+                0,
+                0,
+                "ticket_agent",
+                "",
+                false,
+                0
+        );
+
+        orchestrator.addChildNode(parentNodeId, ticketNode);
+        log.info("Ticket node {} registered for implementation", nodeId);
+    }
+
+    /**
+     * Handle after-agent-invocation for Ticket Agent.
+     * Updates ticket node with implementation summary and commits changes.
+     */
+    public void afterTicketAgentInvocation(String implementationSummary, String nodeId) {
+        if (nodeId == null) {
+            log.warn("No ticket node ID found in context");
+            return;
+        }
+
+        Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof EditorNode) {
+            EditorNode node = (EditorNode) nodeOpt.get();
+            EditorNode updated = new EditorNode(
+                    node.nodeId(),
+                    node.title(),
+                    node.goal(),
+                    GraphNode.NodeStatus.COMPLETED,
+                    node.parentNodeId(),
+                    node.childNodeIds(),
+                    node.metadata(),
+                    node.createdAt(),
+                    Instant.now(),
+                    node.mainWorktreeId(),
+                    node.submoduleWorktreeIds(),
+                    node.specFileId(),
+                    node.completedSubtasks(),
+                    node.totalSubtasks(),
+                    node.agentType(),
+                    implementationSummary,
+                    true,
+                    0
+            );
+            graphRepository.save(updated);
+            orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
+                    updated.nodeType(), updated.parentNodeId());
+            log.info("Ticket node {} updated with implementation summary", nodeId);
+        }
+    }
+
     public void beforeReviewAgentInvocation(String content, String criteria, String parentNodeId, String nodeId) {
         AgentReviewNode reviewNode = new AgentReviewNode(
                 nodeId,
@@ -385,66 +829,6 @@ public class AgentLifecycleHandler {
 
         orchestrator.addChildNode(parentNodeId, reviewNode);
         log.info("Review node {} registered", nodeId);
-    }
-
-    public void performSetup(GraphNode created) {
-        var parent = this.orchestrator.getNode(created.parentNodeId());
-
-        if (parent.isEmpty()) {
-
-        } else {
-            var parentRetrieved = parent.get();
-            var children = created.childNodeIds().stream()
-                    .flatMap(s -> this.orchestrator.getNode(s).stream())
-                    .toList();
-
-            switch(created) {
-                case AgentReviewNode agentReviewNode -> {
-                }
-                case HumanReviewNode humanReviewNode -> {
-                }
-                case OrchestratorNode orchestratorNode -> {
-                }
-                case PlanningNode planningNode -> {
-                }
-                case SummaryNode summaryNode -> {
-                }
-                case EditorNode editorNode -> {
-                }
-                case MergeNode mergeNode -> {
-                }
-            }
-        }
-    }
-
-    public void handleResult(GraphNode created) {
-        var parent = this.orchestrator.getNode(created.parentNodeId());
-
-        if (parent.isEmpty()) {
-
-        } else {
-            var parentRetrieved = parent.get();
-            var children = created.childNodeIds().stream()
-                    .flatMap(s -> this.orchestrator.getNode(s).stream())
-                    .toList();
-
-            switch(created) {
-                case AgentReviewNode agentReviewNode -> {
-                }
-                case HumanReviewNode humanReviewNode -> {
-                }
-                case OrchestratorNode orchestratorNode -> {
-                }
-                case PlanningNode planningNode -> {
-                }
-                case SummaryNode summaryNode -> {
-                }
-                case EditorNode editorNode -> {
-                }
-                case MergeNode mergeNode -> {
-                }
-            }
-        }
     }
 
     /**

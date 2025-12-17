@@ -145,6 +145,19 @@ public class ComputationGraphOrchestrator {
         eventBus.publish(event);
     }
 
+    public void emitErrorEvent(String s, String string, String simpleName, String errorMessage) {
+//        TODO: add event and implement
+//        Events.NodeStatusChangedEvent event = new Events.NodeStatusChangedEvent(
+//                UUID.randomUUID().toString(),
+//                Instant.now(),
+//                nodeId,
+//                oldStatus,
+//                newStatus,
+//                reason
+//        );
+//        eventBus.publish(event);
+    }
+
     /**
      * Emit worktree created event.
      */
