@@ -61,10 +61,10 @@ public class AgentRunner {
             case PlanningOrchestratorNode planningOrchestratorNode -> {
                 this.runPlanningOrchestratorAgent(planningOrchestratorNode, parent);
             }
-            case PlanningNode planningNode when planningNode.status() == GraphNode.NodeStatus.COMPLETED -> {
+            case PlanningNode planningNode when isNodeCompleted(planningNode) -> {
                 if (parent instanceof PlanningOrchestratorNode orch
                         && computationGraphOrchestrator.getChildNodes(orch.nodeId()).stream()
-                        .allMatch(s -> s.status() == GraphNode.NodeStatus.COMPLETED))
+                        .allMatch(AgentRunner::isNodeCompleted))
                     this.planningCollectorAgents(orch);
             }
             case PlanningNode planningNode when planningNode.status() ==  GraphNode.NodeStatus.READY -> {
@@ -75,6 +75,13 @@ public class AgentRunner {
             }
             case EditorNode editorNode -> {
                 this.runTicketAgent(editorNode, parent);
+            }
+            case AgentReviewNode agentReviewNode when isNodeCompleted(agentReviewNode) && !agentReviewNode.approved() -> {
+                throw new RuntimeException();
+//                this.runReviewAgent(agentReviewNode, parent);
+            }
+            case AgentReviewNode agentReviewNode when isNodeCompleted(agentReviewNode) -> {
+                this.runReviewAgent(agentReviewNode, parent);
             }
             case AgentReviewNode agentReviewNode -> {
                 this.runReviewAgent(agentReviewNode, parent);
@@ -98,6 +105,10 @@ public class AgentRunner {
             case SummaryNode summaryNode -> {
             }
         }
+    }
+
+    private static boolean isNodeCompleted(GraphNode agentReviewNode) {
+        return agentReviewNode.status() == GraphNode.NodeStatus.COMPLETED;
     }
 
     private static boolean isDiscoveryMerger(SkillArtifactMergeNode node) {

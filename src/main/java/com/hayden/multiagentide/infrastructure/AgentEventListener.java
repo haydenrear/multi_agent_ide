@@ -158,10 +158,6 @@ public class AgentEventListener implements EventListener {
         String nodeId = event.nodeId();
         GraphNode.NodeStatus newStatus = event.newStatus();
 
-        if (newStatus != GraphNode.NodeStatus.COMPLETED) {
-            return; // Only process COMPLETED transitions
-        }
-
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
         if (nodeOpt.isEmpty()) {
             log.warn("Node status changed but node not found: {}", nodeId);
@@ -200,7 +196,20 @@ public class AgentEventListener implements EventListener {
             case MergeNode mergeNode -> {
                 handleMergeNodeCompleted(mergeNode);
             }
-            default -> log.debug("No transition handler for completed node type: {}", completedNode.getClass().getSimpleName());
+            case CollectorNode collectorNode -> {
+            }
+            case DiscoveryCollectorNode discoveryCollectorNode -> {
+            }
+            case HumanReviewNode humanReviewNode -> {
+            }
+            case OrchestratorNode orchestratorNode -> {
+            }
+            case PlanningCollectorNode planningCollectorNode -> {
+            }
+            case SkillArtifactMergeNode skillArtifactMergeNode -> {
+            }
+            case SummaryNode summaryNode -> {
+            }
         }
     }
 
@@ -262,7 +271,8 @@ public class AgentEventListener implements EventListener {
             // Kick off mergerAgent
         } else {
             log.info("Review needs revision, kicking off revision cycle");
-            // Re-invoke TicketAgent with feedback
+            var parentOpt = orchestrator.getNode(node.parentNodeId()).orElse(null);
+            agentRunner.runAgent(new AgentRunner.AgentDispatchArgs(node, parentOpt, orchestrator.getChildNodes(node.nodeId())));
         }
     }
 

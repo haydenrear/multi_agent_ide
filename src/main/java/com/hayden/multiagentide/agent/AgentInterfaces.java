@@ -11,17 +11,17 @@ import dev.langchain4j.service.V;
 public class AgentInterfaces {
 
     public interface PlanningOrchestrator {
-        @Agent(value = "Decomposes high-level goals into structured work items with clear tasks and dependencies")
+        @Agent(value = "Split the goal into tickets according to the discovery context.")
         @UserMessage("""
-                Analyze the following goal and break it down into 3 work items:
-                1. Architecture & Setup - Design foundational structure
-                2. Implementation - Core functionality
-                3. Testing & Validation - Tests and validation
-
+                Decompose the planning for the goal according to the results from discovery.
+                Define tickets and update the spec file in .specify/.../spec.md.
+                
+                Then, for each ticket, return the information to be provided to the planning agent to
+                plan for this ticket.
+                
                 Goal: {{goal}}
-
-                Provide a structured plan with clear sections for each work item.
                 """)
+//       TODO: add discovery context, return
         String decomposePlanAndCreateWorkItems(@V("goal") String goal);
     }
 
@@ -239,6 +239,8 @@ public class AgentInterfaces {
                 - Overall assessment (APPROVED/NEEDS_REVISION)
                 - Specific feedback on quality
                 - Suggestions for improvement
+                
+                Additionally, if you have further questions, return an indicator for whether a human should review.
                 """)
         String evaluateContent(@V("content") String content, @V("criteria") String criteria);
     }
