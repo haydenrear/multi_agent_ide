@@ -110,7 +110,8 @@ public class LangChain4jConfiguration {
                 .beforeAgentInvocation(invocation -> {
                     lifecycleHandler.beforeDiscoveryOrchestratorInvocation(
                             invocation.inputs().toString(),
-                            null, UUID.randomUUID().toString());
+                            null,
+                            UUID.randomUUID().toString());
                 })
                 .afterAgentInvocation(invocation -> {
                     lifecycleHandler.afterDiscoveryOrchestratorInvocation(

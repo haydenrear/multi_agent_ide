@@ -51,6 +51,17 @@ public interface Events {
         }
     }
 
+    record InterruptAgentEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId
+    ) implements AgentEvent {
+        @Override
+        public String eventType() {
+            return "INTERRUPT_AGENT";
+        }
+    }
+
     record AddMessageEvent(
             String eventId,
             Instant timestamp,
@@ -91,10 +102,15 @@ public interface Events {
             String newGoal,
             String mainWorktreeId,
             List<String> submoduleWorktreeIds
-    ) implements Events.GraphEvent {
+    ) implements AgentEvent {
         @Override
         public String eventType() {
             return "NODE_BRANCHED";
+        }
+
+        @Override
+        public String nodeId() {
+            return branchedNodeId;
         }
     }
 

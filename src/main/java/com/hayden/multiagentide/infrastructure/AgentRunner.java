@@ -62,6 +62,18 @@ public class AgentRunner {
         switch(d.agentEvent) {
             case Events.AddMessageEvent addMessageEvent ->
                     addMessageToAgent(d, addMessageEvent);
+            case Events.InterruptAgentEvent addMessageEvent -> {
+                throw new RuntimeException("Not implemented!");
+            }
+            case Events.NodeBranchedEvent branched -> {
+//              Implement ability to split what the agent is doing in
+//              another screen and worktree and ask it to do it just a bit differently
+//              or with just a bit of a different goal
+//              NOTE - for this to work, this node ID must be added to the parent's child ID's,
+//                     so that the parent knows to wait for it - so that list must be synchronized
+//                     in memory.
+                throw new RuntimeException("Not implemented!");
+            }
             case Events.GraphEvent ignored ->
                     graphEvent(d, parent);
         }
