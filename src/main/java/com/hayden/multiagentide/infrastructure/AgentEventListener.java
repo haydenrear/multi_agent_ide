@@ -6,9 +6,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.Nullable;
-import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -103,6 +100,24 @@ public class AgentEventListener implements EventListener {
         doAgentRunner(event);
     }
 
+    private void handleNodeStatusChanged(Events.NodeStatusChangedEvent event) {
+        String nodeId = event.nodeId();
+        Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
+        if (nodeOpt.isEmpty()) {
+            log.warn("Node status changed but node not found: {}", nodeId);
+            return;
+        }
+
+        GraphNode node = nodeOpt.get();
+        log.info("Node completed: {} ({}), triggering next phase", node.title(), nodeId);
+
+        try {
+            agentRunner.runAgent(new AgentRunner.AgentDispatchArgs(node, orchestrator.getNode(node.parentNodeId()).orElse(null), orchestrator.getChildNodes(node.nodeId())));
+        } catch (Exception e) {
+            log.error("Failed to execute agent for node: {} ({}) during dispatch",
+                    node.title(), nodeId, e);
+        }
+    }
 
     private void doAgentRunner(Events.AgentEvent event) {
         String nodeId = event.nodeId();
@@ -140,176 +155,6 @@ public class AgentEventListener implements EventListener {
         }
     }
 
-    /**
-     * Handles NodeStatusChangedEvent: Triggers next workflow steps when nodes complete.
-     * Orchestrates transitions:
-     * - DiscoveryOrchestratorNode COMPLETED → kick off DiscoveryMerger
-     * - All DiscoveryNodes COMPLETED → kick off DiscoveryMerger
-     * - DiscoveryMergerNode COMPLETED → kick off PlanningOrchestrator
-     * - PlanningOrchestratorNode COMPLETED → kick off PlanningMerger
-     * - All PlanningNodes COMPLETED → kick off PlanningMerger
-     * - PlanningMergerNode COMPLETED → kick off TicketOrchestrator
-     * - EditorNode (TicketAgent) COMPLETED → kick off ReviewAgent
-     * - AgentReviewNode APPROVED → kick off MergerAgent
-     * - AgentReviewNode NEEDS_REVISION → kick off revision cycle (re-invoke TicketAgent)
-     * - MergeNode COMPLETED → proceed to next ticket or final review
-     */
-    private void handleNodeStatusChanged(Events.NodeStatusChangedEvent event) {
-        String nodeId = event.nodeId();
-        GraphNode.NodeStatus newStatus = event.newStatus();
-
-        Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isEmpty()) {
-            log.warn("Node status changed but node not found: {}", nodeId);
-            return;
-        }
-
-        GraphNode completedNode = nodeOpt.get();
-        log.info("Node completed: {} ({}), triggering next phase", completedNode.title(), nodeId);
-
-        // Route to appropriate handler based on node type
-        switch (completedNode) {
-            case DiscoveryOrchestratorNode discoveryOrchestratorNode -> {
-                handleDiscoveryOrchestratorCompleted(discoveryOrchestratorNode);
-            }
-            case DiscoveryNode discoveryNode -> {
-                handleDiscoveryNodeCompleted(discoveryNode);
-            }
-            case SkillArtifactMergeNode mergeNode when isDiscoveryMerger(mergeNode) -> {
-                handleDiscoveryMergerCompleted(mergeNode);
-            }
-            case PlanningOrchestratorNode planningOrchestratorNode -> {
-                handlePlanningOrchestratorCompleted(planningOrchestratorNode);
-            }
-            case PlanningNode planningNode -> {
-                handlePlanningNodeCompleted(planningNode);
-            }
-            case SkillArtifactMergeNode mergeNode when isPlanningMerger(mergeNode) -> {
-                handlePlanningMergerCompleted(mergeNode);
-            }
-            case EditorNode editorNode -> {
-                handleTicketAgentCompleted(editorNode);
-            }
-            case AgentReviewNode agentReviewNode -> {
-                handleReviewAgentCompleted(agentReviewNode);
-            }
-            case MergeNode mergeNode -> {
-                handleMergeNodeCompleted(mergeNode);
-            }
-            case CollectorNode collectorNode -> {
-            }
-            case DiscoveryCollectorNode discoveryCollectorNode -> {
-            }
-            case HumanReviewNode humanReviewNode -> {
-            }
-            case OrchestratorNode orchestratorNode -> {
-            }
-            case PlanningCollectorNode planningCollectorNode -> {
-            }
-            case SkillArtifactMergeNode skillArtifactMergeNode -> {
-            }
-            case SummaryNode summaryNode -> {
-            }
-        }
-    }
-
-    private void handleDiscoveryOrchestratorCompleted(DiscoveryOrchestratorNode node) {
-        log.info("Discovery orchestrator completed, checking if all discovery agents done");
-        // Check if all child DiscoveryNodes are completed
-        // If yes, kick off DiscoveryMerger
-    }
-
-    private void handleDiscoveryNodeCompleted(DiscoveryNode node) {
-        log.info("Discovery agent completed, checking if all discovery agents done");
-        Optional<GraphNode> parentOpt = orchestrator.getNode(node.parentNodeId());
-        if (parentOpt.isPresent() && parentOpt.get() instanceof DiscoveryOrchestratorNode) {
-            // Check if all discovery siblings are completed
-            // If yes, create and kick off DiscoveryMerger
-        }
-    }
-
-    private void handleDiscoveryMergerCompleted(SkillArtifactMergeNode node) {
-        log.info("Discovery merger completed, transitioning to Planning phase");
-        Optional<GraphNode> orchestratorOpt = findRootOrchestrator(node);
-        if (orchestratorOpt.isPresent()) {
-            // Create PlanningOrchestratorNode
-            // Kick off planningOrchestrator
-        }
-    }
-
-    private void handlePlanningOrchestratorCompleted(PlanningOrchestratorNode node) {
-        log.info("Planning orchestrator completed, checking if all planning agents done");
-        // Check if all child PlanningNodes are completed
-        // If yes, kick off PlanningMerger
-    }
-
-    private void handlePlanningNodeCompleted(PlanningNode node) {
-        log.info("Planning agent completed, checking if all planning agents done");
-        Optional<GraphNode> parentOpt = orchestrator.getNode(node.parentNodeId());
-        agentRunner.runAgent(new AgentRunner.AgentDispatchArgs(node, parentOpt.orElse(null), orchestrator.getChildNodes(node.nodeId())));
-    }
-
-    private void handlePlanningMergerCompleted(SkillArtifactMergeNode node) {
-        log.info("Planning merger completed, transitioning to Ticket Implementation phase");
-        Optional<GraphNode> orchestratorOpt = findRootOrchestrator(node);
-        if (orchestratorOpt.isPresent()) {
-            // Create TicketOrchestratorNode
-            // Kick off ticketOrchestrator
-        }
-    }
-
-    private void handleTicketAgentCompleted(EditorNode node) {
-        log.info("Ticket agent (editor) completed, kicking off review agent");
-        // Create AgentReviewNode
-        // Kick off reviewAgent with implementation content
-    }
-
-    private void handleReviewAgentCompleted(AgentReviewNode node) {
-        if (node.approved()) {
-            log.info("Review approved, kicking off merger agent");
-            // Create MergeNode
-            // Kick off mergerAgent
-        } else {
-            log.info("Review needs revision, kicking off revision cycle");
-            var parentOpt = orchestrator.getNode(node.parentNodeId()).orElse(null);
-            agentRunner.runAgent(new AgentRunner.AgentDispatchArgs(node, parentOpt, orchestrator.getChildNodes(node.nodeId())));
-        }
-    }
-
-    private void handleMergeNodeCompleted(MergeNode node) {
-        log.info("Merge completed, determining next ticket or final review");
-        // Check if more tickets exist
-        // If yes, kick off next TicketAgent
-        // If no, kick off final ReviewAgent or complete workflow
-    }
-
-    /**
-     * Finds the root OrchestratorNode from any descendant node by traversing up the parent chain.
-     */
-    private Optional<GraphNode> findRootOrchestrator(GraphNode node) {
-        String parentId = node.parentNodeId();
-        while (parentId != null) {
-            Optional<GraphNode> parentOpt = orchestrator.getNode(parentId);
-            if (parentOpt.isPresent()) {
-                GraphNode parent = parentOpt.get();
-                if (parent instanceof OrchestratorNode) {
-                    return Optional.of(parent);
-                }
-                parentId = parent.parentNodeId();
-            } else {
-                break;
-            }
-        }
-        return Optional.empty();
-    }
-
-    private static boolean isDiscoveryMerger(SkillArtifactMergeNode node) {
-        return node.title().contains("Discovery") || node.goal().contains("discovery");
-    }
-
-    private static boolean isPlanningMerger(SkillArtifactMergeNode node) {
-        return node.title().contains("Planning") || node.goal().contains("planning");
-    }
 
     @Override
     public boolean isInterestedIn(Events.GraphEvent eventType) {

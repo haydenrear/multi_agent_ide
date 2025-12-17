@@ -67,7 +67,7 @@ public class AgentRunner {
                         .allMatch(AgentRunner::isNodeCompleted))
                     this.planningCollectorAgents(orch);
             }
-            case PlanningNode planningNode when planningNode.status() ==  GraphNode.NodeStatus.READY -> {
+            case PlanningNode planningNode when isNodeReady(planningNode) -> {
                 this.runPlanningAgent(planningNode, parent);
             }
             case PlanningNode planningNode -> {
@@ -76,15 +76,19 @@ public class AgentRunner {
             case EditorNode editorNode -> {
                 this.runTicketAgent(editorNode, parent);
             }
-            case AgentReviewNode agentReviewNode when isNodeCompleted(agentReviewNode) && !agentReviewNode.approved() -> {
-                throw new RuntimeException();
+            case ReviewNode reviewNode when isNodeReady(reviewNode)-> {
+                this.runReviewAgent(reviewNode, parent);
+            }
+            case ReviewNode reviewNode when isNodeCompleted(reviewNode) && !reviewNode.approved() -> {
+                if (reviewNode.humanFeedbackRequested()) {
+                    this.runReviewAgent(reviewNode, parent);
+                }
+            }
+            case ReviewNode reviewNode when isNodeCompleted(reviewNode) && reviewNode.approved() -> {
 //                this.runReviewAgent(agentReviewNode, parent);
             }
-            case AgentReviewNode agentReviewNode when isNodeCompleted(agentReviewNode) -> {
-                this.runReviewAgent(agentReviewNode, parent);
-            }
-            case AgentReviewNode agentReviewNode -> {
-                this.runReviewAgent(agentReviewNode, parent);
+            case ReviewNode reviewNode -> {
+//                this.runReviewAgent(agentReviewNode, parent);
             }
             case MergeNode mergeNode -> {
                 this.runMergeAgent(mergeNode, parent);
@@ -98,13 +102,15 @@ public class AgentRunner {
             }
             case DiscoveryCollectorNode discoveryCollectorNode -> {
             }
-            case HumanReviewNode humanReviewNode -> {
-            }
             case PlanningCollectorNode planningCollectorNode -> {
             }
             case SummaryNode summaryNode -> {
             }
         }
+    }
+
+    private static boolean isNodeReady(GraphNode planningNode) {
+        return planningNode.status() == GraphNode.NodeStatus.READY;
     }
 
     private static boolean isNodeCompleted(GraphNode agentReviewNode) {
@@ -437,7 +443,7 @@ public class AgentRunner {
      * Next: If APPROVED: invoke MergerAgent to merge ticket.
      *       If NEEDS_REVISION: invoke TicketAgent again with feedback.
      */
-    public void runReviewAgent(AgentReviewNode node, GraphNode parent) {
+    public void runReviewAgent(ReviewNode node, GraphNode parent) {
         log.info("Executing ReviewAgent for node: {}", node.nodeId());
         try {
             String content = node.reviewContent();
@@ -466,7 +472,7 @@ public class AgentRunner {
     /**
      * Creates and kicks off MergerAgent for merging ticket work into orchestrator worktree.
      */
-    private void kickOffMerge(AgentReviewNode reviewNode) {
+    private void kickOffMerge(ReviewNode reviewNode) {
         log.info("Kicking off MergerAgent after approval for review: {}", reviewNode.nodeId());
         // Create MergeNode as child
         // Invoke mergerAgent
@@ -509,7 +515,7 @@ public class AgentRunner {
     /**
      * Handles revision cycle: Re-invokes TicketAgent with review feedback.
      */
-    private void kickOffRevisionCycle(AgentReviewNode reviewNode, String feedback) {
+    private void kickOffRevisionCycle(ReviewNode reviewNode, String feedback) {
         log.info("Kicking off revision cycle with feedback for review: {}", reviewNode.nodeId());
         // Find the associated TicketAgent node
         // Re-invoke it with feedback context
@@ -669,9 +675,30 @@ public class AgentRunner {
             case PlanningOrchestratorNode n -> (T) n.withStatus(newStatus);
             case PlanningNode n -> (T) n.withStatus(newStatus);
             case EditorNode n -> (T) n.withStatus(newStatus);
-            case AgentReviewNode n -> (T) n.withStatus(newStatus);
+            case ReviewNode n -> (T) n.withStatus(newStatus);
             case MergeNode n -> (T) n.withStatus(newStatus);
             default -> node;
         };
     }
+
+    /**
+     * Finds the root OrchestratorNode from any descendant node by traversing up the parent chain.
+     */
+    private Optional<GraphNode> findRootOrchestrator(GraphNode node) {
+        String parentId = node.parentNodeId();
+        while (parentId != null) {
+            Optional<GraphNode> parentOpt = computationGraphOrchestrator.getNode(parentId);
+            if (parentOpt.isPresent()) {
+                GraphNode parent = parentOpt.get();
+                if (parent instanceof OrchestratorNode) {
+                    return Optional.of(parent);
+                }
+                parentId = parent.parentNodeId();
+            } else {
+                break;
+            }
+        }
+        return Optional.empty();
+    }
+
 }

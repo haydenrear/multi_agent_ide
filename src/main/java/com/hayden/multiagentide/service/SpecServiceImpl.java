@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 /**
  * Implementation of SpecService with Markdown-based spec files.
  */
-@Service
+//@Service
 public class SpecServiceImpl implements SpecService {
 
     private final SpecRepository specRepository;

@@ -11,7 +11,7 @@ import java.util.Set;
  * Node for agent-based review of work.
  * Can be Reviewable, Summarizable.
  */
-public record AgentReviewNode(
+public record ReviewNode(
         String nodeId,
         String title,
         String goal,
@@ -26,13 +26,14 @@ public record AgentReviewNode(
         String reviewedNodeId,
         String reviewContent,
         boolean approved,
+        boolean humanFeedbackRequested,
         String agentFeedback,
         String reviewerAgentType,
         Instant reviewCompletedAt,
         String specFileId
 ) implements GraphNode, Reviewable, Summarizable, Viewable<String> {
 
-    public AgentReviewNode {
+    public ReviewNode {
         if (nodeId == null || nodeId.isEmpty()) throw new IllegalArgumentException("nodeId required");
         if (reviewedNodeId == null || reviewedNodeId.isEmpty()) throw new IllegalArgumentException("reviewedNodeId required");
         if (reviewerAgentType == null || reviewerAgentType.isEmpty()) throw new IllegalArgumentException("reviewerAgentType required");
@@ -58,11 +59,11 @@ public record AgentReviewNode(
     /**
      * Create an updated version with new status.
      */
-    public AgentReviewNode withStatus(GraphNode.NodeStatus newStatus) {
-        return new AgentReviewNode(
+    public ReviewNode withStatus(GraphNode.NodeStatus newStatus) {
+        return new ReviewNode(
                 nodeId, title, goal, newStatus, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                reviewedNodeId, reviewContent, approved, agentFeedback,
+                reviewedNodeId, reviewContent, approved, humanFeedbackRequested, agentFeedback,
                 reviewerAgentType, reviewCompletedAt, specFileId
         );
     }
@@ -70,11 +71,11 @@ public record AgentReviewNode(
     /**
      * Record review decision.
      */
-    public AgentReviewNode withReviewDecision(boolean approvalStatus, String feedback) {
-        return new AgentReviewNode(
+    public ReviewNode withReviewDecision(boolean approvalStatus, String feedback) {
+        return new ReviewNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                reviewedNodeId, reviewContent, approvalStatus, feedback,
+                reviewedNodeId, reviewContent, approvalStatus, humanFeedbackRequested, feedback,
                 reviewerAgentType, Instant.now(), specFileId
         );
     }

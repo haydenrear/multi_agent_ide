@@ -806,7 +806,7 @@ public class AgentLifecycleHandler {
     }
 
     public void beforeReviewAgentInvocation(String content, String criteria, String parentNodeId, String nodeId) {
-        AgentReviewNode reviewNode = new AgentReviewNode(
+        ReviewNode reviewNode = new ReviewNode(
                 nodeId,
                 "Code Review",
                 "Review and evaluate work",
@@ -818,6 +818,7 @@ public class AgentLifecycleHandler {
                 Instant.now(),
                 nodeId,
                 content,
+                false,
                 false,
                 "",
                 "agent",
@@ -840,11 +841,12 @@ public class AgentLifecycleHandler {
         }
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof AgentReviewNode) {
-            AgentReviewNode node = (AgentReviewNode) nodeOpt.get();
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof ReviewNode node) {
             boolean approved = evaluation.toLowerCase().contains("approved") ||
                     evaluation.toLowerCase().contains("pass");
-            AgentReviewNode updated = new AgentReviewNode(
+//            TODO: implement this better
+            boolean humanFeedbackRequested = false;
+            ReviewNode updated = new ReviewNode(
                     node.nodeId(),
                     node.title(),
                     node.goal(),
@@ -857,19 +859,17 @@ public class AgentLifecycleHandler {
                     node.reviewedNodeId(),
                     node.reviewContent(),
                     approved,
+                    humanFeedbackRequested,
                     evaluation,
                     node.reviewerAgentType(),
                     Instant.now(),
                     node.specFileId()
             );
+
+            graphRepository.save(updated);
+            orchestrator.emitStatusChangeEvent(node.nodeId(), node.status(), updated.status(), "Review node changed to completed.");
             log.info("Review node {} updated with evaluation", nodeId);
         }
 
-    }
-
-    /**
-     * Clear current node context (for error cases).
-     */
-    public void clearContext() {
     }
 }
