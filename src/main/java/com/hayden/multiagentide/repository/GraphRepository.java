@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.repository;
 
-import com.hayden.multiagentide.model.mixins.GraphNode;
+import com.hayden.multiagentide.model.nodes.GraphNode;
 import java.util.List;
 import java.util.Optional;
 

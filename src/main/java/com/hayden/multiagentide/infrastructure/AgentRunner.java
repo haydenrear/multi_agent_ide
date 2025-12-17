@@ -1,7 +1,8 @@
 package com.hayden.multiagentide.infrastructure;
 
 import com.hayden.multiagentide.agent.AgentInterfaces;
-import com.hayden.multiagentide.model.mixins.*;
+import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentide.model.nodes.*;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,15 @@ import javax.annotation.Nullable;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+
+import static com.hayden.multiagentide.agent.AgentInterfaces.DiscoveryAgent.DISCOVERY_AGENT_START_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.DiscoveryMerger.DISCOVERY_MERGER_START_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.DiscoveryOrchestrator.DISCOVERY_ORCHESTRATOR_START_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.MergerAgent.MERGER_AGENT_START_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.OrchestratorAgent.ORCHESTRATOR_AGENT_START_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.ReviewAgent.REVIEW_AGENT_START_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.TicketAgent.TICKET_AGENT_START_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.TicketOrchestrator.TICKET_ORCHESTRATOR_START_MESSAGE;
 
 /**
  * Executes agents and orchestrates workflow transitions.
@@ -41,10 +51,23 @@ public class AgentRunner {
     private final ComputationGraphOrchestrator computationGraphOrchestrator;
     private final GraphRepository graphRepository;
 
-    public record AgentDispatchArgs(GraphNode self, @Nullable GraphNode parent, List<GraphNode> children) { }
 
-    public void runAgent(AgentDispatchArgs d) {
+    public record AgentDispatchArgs(GraphNode self, @Nullable GraphNode parent, List<GraphNode> children,
+                                    Events.AgentEvent agentEvent) { }
+
+    public void runOnAgent(AgentDispatchArgs d) {
         var parent = d.parent;
+
+        // TODO: wrap in an exception - propagate error event
+        switch(d.agentEvent) {
+            case Events.AddMessageEvent addMessageEvent ->
+                    addMessageToAgent(d, addMessageEvent);
+            case Events.GraphEvent ignored ->
+                    graphEvent(d, parent);
+        }
+    }
+
+    private void graphEvent(AgentDispatchArgs d, GraphNode parent) {
         switch (d.self) {
             case DiscoveryNode discoveryNode -> {
                 this.runDiscoveryAgent(discoveryNode, parent);
@@ -64,7 +87,7 @@ public class AgentRunner {
             case PlanningNode planningNode when isNodeCompleted(planningNode) -> {
                 if (parent instanceof PlanningOrchestratorNode orch
                         && computationGraphOrchestrator.getChildNodes(orch.nodeId()).stream()
-                        .allMatch(AgentRunner::isNodeCompleted))
+                            .allMatch(AgentRunner::isNodeCompleted))
                     this.planningCollectorAgents(orch);
             }
             case PlanningNode planningNode when isNodeReady(planningNode) -> {
@@ -135,6 +158,8 @@ public class AgentRunner {
         log.info("Executing OrchestratorAgent for node: {}", orchestratorNode.nodeId());
         try {
             String result = orchestratorAgent.coordinateWorkflow(
+                    orchestratorNode.nodeId(),
+                    ORCHESTRATOR_AGENT_START_MESSAGE,
                     orchestratorNode.goal(),
                     "DISCOVERY"
             );
@@ -168,8 +193,7 @@ public class AgentRunner {
         log.info("Executing DiscoveryOrchestratorAgent for node: {}", node.nodeId());
         try {
             String divisionStrategy = discoveryOrchestrator.kickOffAnyNumberOfAgentsForCodeSearch(
-                    node.goal()
-            );
+                    node.nodeId(), node.goal(), DISCOVERY_ORCHESTRATOR_START_MESSAGE);
             log.info("DiscoveryOrchestrator determined strategy: {}", divisionStrategy);
 
             // Next: Kick off DiscoveryAgent(s) based on strategy
@@ -191,6 +215,41 @@ public class AgentRunner {
         // Invoke each discoveryAgent with appropriate parameters
     }
 
+    public void addMessageToAgent(AgentDispatchArgs dispatchArgs,
+                                  Events.AddMessageEvent addMessageEvent) {
+//        TODO: do this for the rest of the node types
+        switch (dispatchArgs.self) {
+            case DiscoveryNode node -> {
+                discoveryAgent.discoverCodebaseSection(node.nodeId(), addMessageEvent.toAddMessage(), null, null);
+            }
+            case CollectorNode node -> {
+
+            }
+            case DiscoveryCollectorNode node -> {
+            }
+            case DiscoveryOrchestratorNode node -> {
+            }
+            case EditorNode node -> {
+            }
+            case MergeNode node -> {
+            }
+            case OrchestratorNode node -> {
+            }
+            case PlanningCollectorNode node -> {
+            }
+            case PlanningNode node -> {
+            }
+            case PlanningOrchestratorNode node -> {
+            }
+            case ReviewNode node -> {
+            }
+            case SkillArtifactMergeNode node -> {
+            }
+            case SummaryNode node -> {
+            }
+        }
+    }
+
     /**
      * Runs individual DiscoveryAgent to analyze a specific subdomain of the codebase.
      * Output: discovery findings for this subdomain.
@@ -205,6 +264,8 @@ public class AgentRunner {
         try {
             String subdomainFocus = node.title();
             String findings = discoveryAgent.discoverCodebaseSection(
+                    node.nodeId(),
+                    DISCOVERY_AGENT_START_MESSAGE,
                     node.goal(),
                     subdomainFocus
             );
@@ -233,6 +294,8 @@ public class AgentRunner {
             String allDiscoveryFindings = collectSiblingOutputs(node, DiscoveryNode.class);
 
             String mergedFindings = discoveryMerger.consolidateDiscoveryFindings(
+                    node.nodeId(),
+                    DISCOVERY_MERGER_START_MESSAGE,
                     node.goal(),
                     allDiscoveryFindings
             );
@@ -372,6 +435,8 @@ public class AgentRunner {
             String tickets = extractTicketsFromContext(planningContext);
 
             String orchestrationPlan = ticketOrchestrator.orchestrateTicketExecution(
+                    node.nodeId(),
+                    TICKET_ORCHESTRATOR_START_MESSAGE,
                     node.goal(),
                     tickets,
                     discoveryContext,
@@ -414,6 +479,8 @@ public class AgentRunner {
             String ticketDetailsFilePath = "/path/to/ticket/details.md"; // In real implementation, resolve from node
 
             String implementation = ticketAgent.implementTicket(
+                    node.nodeId(),
+                    TICKET_AGENT_START_MESSAGE,
                     ticketDetails,
                     ticketDetailsFilePath,
                     discoveryContext,
@@ -450,6 +517,8 @@ public class AgentRunner {
             String criteria = "Code quality, test coverage, spec compliance";
 
             String evaluation = reviewAgent.evaluateContent(
+                    node.nodeId(),
+                    REVIEW_AGENT_START_MESSAGE,
                     content,
                     criteria
             );
@@ -492,7 +561,7 @@ public class AgentRunner {
         log.info("Executing MergerAgent for node: {}", node.nodeId());
         try {
             String conflictFiles = node.goal();
-            String mergeResult = mergerAgent.performMerge(conflictFiles);
+            String mergeResult = mergerAgent.performMerge(node.nodeId(), MERGER_AGENT_START_MESSAGE, conflictFiles);
             log.info("MergerAgent completed merge for node: {}", node.nodeId());
 
             // Next: Determine if this is per-ticket or final merge, proceed accordingly
@@ -577,7 +646,7 @@ public class AgentRunner {
     }
 
     private String performMerge(MergeNode mergeNode) {
-        return mergerAgent.performMerge(mergeNode.goal());
+        return mergerAgent.performMerge(mergeNode.nodeId(), MERGER_AGENT_START_MESSAGE, mergeNode.goal());
     }
 
     // ===== STATE MANAGEMENT & EVENT EMISSION =====

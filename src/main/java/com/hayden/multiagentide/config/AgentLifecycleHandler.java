@@ -1,10 +1,10 @@
 package com.hayden.multiagentide.config;
 
-import com.hayden.multiagentide.model.MainWorktreeContext;
-import com.hayden.multiagentide.model.Spec;
-import com.hayden.multiagentide.model.SubmoduleNode;
-import com.hayden.multiagentide.model.SubmoduleWorktreeContext;
-import com.hayden.multiagentide.model.mixins.*;
+import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
+import com.hayden.multiagentide.model.spec.Spec;
+import com.hayden.multiagentide.model.nodes.SubmoduleNode;
+import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
+import com.hayden.multiagentide.model.nodes.*;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.SpecRepository;

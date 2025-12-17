@@ -1,9 +1,9 @@
 package com.hayden.multiagentide.service;
 
-import com.hayden.multiagentide.model.MainWorktreeContext;
-import com.hayden.multiagentide.model.SubmoduleWorktreeContext;
+import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
+import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
 import com.hayden.multiagentide.model.MergeResult;
-import com.hayden.multiagentide.model.WorktreeContext;
+import com.hayden.multiagentide.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import org.springframework.stereotype.Service;
 import java.io.BufferedReader;

@@ -1,8 +1,10 @@
 package com.hayden.multiagentide.orchestration;
 
 import com.hayden.multiagentide.infrastructure.EventBus;
-import com.hayden.multiagentide.model.*;
-import com.hayden.multiagentide.model.mixins.*;
+import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentide.model.nodes.*;
+import com.hayden.multiagentide.model.spec.Spec;
+import com.hayden.multiagentide.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;

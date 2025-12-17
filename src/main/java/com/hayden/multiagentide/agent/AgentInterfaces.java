@@ -1,6 +1,7 @@
 package com.hayden.multiagentide.agent;
 
 import dev.langchain4j.agentic.Agent;
+import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 
@@ -67,8 +68,7 @@ public class AgentInterfaces {
     }
 
     public interface DiscoveryOrchestrator {
-        @Agent(value = "")
-        @UserMessage("""
+        String DISCOVERY_ORCHESTRATOR_START_MESSAGE = """
                 Coordinate the following multi-agent workflow:
 
                 Goal: {{goal}}
@@ -82,16 +82,21 @@ public class AgentInterfaces {
 
                 Return how many agents to use to perform the discovery, and how to divide up the work, including an
                 an addition to the goal to send that agent.
-                """)
-        String kickOffAnyNumberOfAgentsForCodeSearch(@V("goal") String goal);
+                """ ;
+
+        @Agent(value = "")
+        @UserMessage()
+        String kickOffAnyNumberOfAgentsForCodeSearch(@MemoryId String memId,
+                                                     @UserMessage String msg,
+                                                     @V("goal") String goal);
     }
 
     /**
      * Merger agent that consolidates discovery findings from multiple agents.
      */
     public interface DiscoveryMerger {
-        @Agent(value = "Consolidates discovery findings into unified codebase understanding")
-        @UserMessage("""
+
+        String DISCOVERY_MERGER_START_MESSAGE = """
                 Merge and consolidate the following discovery results from multiple agents:
 
                 Goal: {{goal}}
@@ -107,16 +112,21 @@ public class AgentInterfaces {
                 - Critical files and entry points
 
                 Return consolidated discovery in structured format suitable for planning phase.
-                """)
-        String consolidateDiscoveryFindings(@V("goal") String goal, @V("discoveryResults") String discoveryResults);
+                """;
+
+        @Agent(value = "Consolidates discovery findings into unified codebase understanding")
+        String consolidateDiscoveryFindings(@MemoryId String memId,
+                                            @UserMessage String msg,
+                                            @V("goal") String goal,
+                                            @V("discoveryResults") String discoveryResults);
     }
 
     /**
      * Discovery agent that analyzes specific areas of the codebase.
      */
     public interface DiscoveryAgent {
-        @Agent(value = "Discovers and analyzes codebase structure for specific domains")
-        @UserMessage("""
+
+        String DISCOVERY_AGENT_START_MESSAGE = """
                 Discover and analyze the codebase for the following subdomain:
 
                 Overall Goal: {{goal}}
@@ -138,16 +148,20 @@ public class AgentInterfaces {
                 - Test patterns
 
                 Return findings as structured document suitable for merging.
-                """)
-        String discoverCodebaseSection(@V("goal") String goal, @V("subdomainFocus") String subdomainFocus);
+                """;
+
+        @Agent(value = "Discovers and analyzes codebase structure for specific domains")
+        String discoverCodebaseSection(@MemoryId String memId,
+                                       @UserMessage String msg,
+                                       @V("goal") String goal,
+                                       @V("subdomainFocus") String subdomainFocus);
     }
 
     /**
      * Ticket orchestrator that coordinates ticket-based implementation.
      */
     public interface TicketOrchestrator {
-        @Agent(value = "Orchestrates ticket-based implementation workflow")
-        @UserMessage("""
+        String TICKET_ORCHESTRATOR_START_MESSAGE = """
                 Orchestrate ticket-based implementation for the following tickets:
 
                 Goal: {{goal}}
@@ -162,10 +176,16 @@ public class AgentInterfaces {
                 4. Monitor ticket completion and quality
 
                 Return orchestration plan and ticket coordination strategy.
-                """)
-        String orchestrateTicketExecution(@V("goal") String goal, @V("tickets") String tickets,
-                                         @V("discoveryContext") String discoveryContext,
-                                         @V("planningContext") String planningContext);
+                """;
+
+        @Agent(value = "Orchestrates ticket-based implementation workflow")
+        @UserMessage()
+        String orchestrateTicketExecution(@MemoryId String memId,
+                                          @UserMessage String msg,
+                                          @V("goal") String goal,
+                                          @V("tickets") String tickets,
+                                          @V("discoveryContext") String discoveryContext,
+                                          @V("planningContext") String planningContext);
     }
 
 
@@ -173,8 +193,8 @@ public class AgentInterfaces {
      * Ticket agent that implements individual tickets.
      */
     public interface TicketAgent {
-        @Agent(value = "Implements individual tickets with complete code generation")
-        @UserMessage("""
+
+        String TICKET_AGENT_START_MESSAGE = """
                 Implement the following ticket with complete, production-ready code:
 
                 Ticket Details: {{ticketDetails}}
@@ -199,11 +219,15 @@ public class AgentInterfaces {
                 - Worktree state
 
                 Provide complete, production-ready code with proper structure and error handling.
-                """)
-        String implementTicket(@V("ticketDetails") String ticketDetails,
-                              @V("ticketDetailsFilePath") String ticketDetailsFilePath,
-                              @V("discoveryContext") String discoveryContext,
-                              @V("planningContext") String planningContext);
+                """;
+
+        @Agent(value = "Implements individual tickets with complete code generation")
+        String implementTicket(@MemoryId String memId,
+                               @UserMessage String msg,
+                               @V("ticketDetails") String ticketDetails,
+                               @V("ticketDetailsFilePath") String ticketDetailsFilePath,
+                               @V("discoveryContext") String discoveryContext,
+                               @V("planningContext") String planningContext);
     }
 
     /**
@@ -211,23 +235,25 @@ public class AgentInterfaces {
      */
     public interface MergerAgent {
 
-        @Agent(value = "Resolves merge conflicts based on strategy and context")
-        @UserMessage("""
+        String MERGER_AGENT_START_MESSAGE = """
                 Resolve the following merge conflicts
 
                 Conflicting files: {{conflictFiles}}
 
                 Provide resolution approach for each conflict.
-                """)
-        String performMerge(@V("conflictFiles") String conflictFiles);
+                """;
+
+        @Agent(value = "Resolves merge conflicts based on strategy and context")
+        String performMerge(@MemoryId String memId,
+                            @UserMessage String msg,
+                            @V("conflictFiles") String conflictFiles);
     }
 
     /**
      * Review agent that evaluates code quality and completeness.
      */
     public interface ReviewAgent {
-        @Agent(value = "Evaluates content quality, completeness, and adherence to requirements")
-        @UserMessage("""
+        String REVIEW_AGENT_START_MESSAGE = """
                 Review the following content against these criteria:
 
                 Content:
@@ -241,16 +267,21 @@ public class AgentInterfaces {
                 - Suggestions for improvement
                 
                 Additionally, if you have further questions, return an indicator for whether a human should review.
-                """)
-        String evaluateContent(@V("content") String content, @V("criteria") String criteria);
+                """;
+
+        @Agent(value = "Evaluates content quality, completeness, and adherence to requirements")
+        String evaluateContent(@MemoryId String memId,
+                               @UserMessage String msg,
+                               @V("content") String content,
+                               @V("criteria") String criteria);
     }
 
     /**
      * Orchestrator agent that coordinates multi-agent workflows.
      */
     public interface OrchestratorAgent {
-        @Agent(value = "Coordinates multiple agents to accomplish complex goals")
-        @UserMessage("""
+
+        String ORCHESTRATOR_AGENT_START_MESSAGE = """
                 Coordinate the following multi-agent workflow:
 
                 Goal: {{goal}}
@@ -261,7 +292,12 @@ public class AgentInterfaces {
                 1. Next agent to invoke
                 2. Input for that agent
                 3. Success criteria
-                """)
-        String coordinateWorkflow(@V("goal") String goal, @V("phase") String phase);
+                """;
+
+        @Agent(value = "Coordinates multiple agents to accomplish complex goals")
+        String coordinateWorkflow(@MemoryId String memId,
+                                  @UserMessage String msg,
+                                  @V("goal") String goal,
+                                  @V("phase") String phase);
     }
 }

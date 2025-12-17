@@ -1,19 +1,17 @@
 package com.hayden.multiagentide.service;
 
-import com.hayden.multiagentide.model.Spec;
-import com.hayden.multiagentide.model.SpecSection;
-import com.hayden.multiagentide.model.SpecSummary;
-import com.hayden.multiagentide.model.SpecValidationResult;
+import com.hayden.multiagentide.model.spec.Spec;
+import com.hayden.multiagentide.model.spec.SpecSection;
+import com.hayden.multiagentide.model.spec.SpecSummary;
+import com.hayden.multiagentide.model.spec.SpecValidationResult;
 import com.hayden.multiagentide.repository.SpecRepository;
-import org.springframework.stereotype.Service;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Implementation of SpecService with Markdown-based spec files.

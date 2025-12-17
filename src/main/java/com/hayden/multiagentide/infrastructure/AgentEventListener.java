@@ -1,6 +1,7 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.hayden.multiagentide.model.mixins.*;
+import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentide.model.nodes.*;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,9 @@ public class AgentEventListener implements EventListener {
     @Override
     public void onEvent(Events.GraphEvent event) {
         switch (event) {
+            case Events.AddMessageEvent nodeAddedEvent -> {
+                doAgentRunner(nodeAddedEvent);
+            }
             case Events.NodeAddedEvent nodeAddedEvent -> {
                 handleNodeAdded(nodeAddedEvent);
             }
@@ -112,7 +116,7 @@ public class AgentEventListener implements EventListener {
         log.info("Node completed: {} ({}), triggering next phase", node.title(), nodeId);
 
         try {
-            agentRunner.runAgent(new AgentRunner.AgentDispatchArgs(node, orchestrator.getNode(node.parentNodeId()).orElse(null), orchestrator.getChildNodes(node.nodeId())));
+            agentRunner.runOnAgent(new AgentRunner.AgentDispatchArgs(node, orchestrator.getNode(node.parentNodeId()).orElse(null), orchestrator.getChildNodes(node.nodeId()), event));
         } catch (Exception e) {
             log.error("Failed to execute agent for node: {} ({}) during dispatch",
                     node.title(), nodeId, e);
@@ -130,13 +134,6 @@ public class AgentEventListener implements EventListener {
 
         GraphNode node = nodeOpt.get();
 
-        // Only dispatch nodes that are in READY status
-        if (node.status() != GraphNode.NodeStatus.READY) {
-            log.debug("Node added but not in READY status: {} ({}) - status: {}",
-                    node.title(), nodeId, node.status());
-            return;
-        }
-
         log.info("Node added and ready for execution: {} ({})", node.title(), nodeId);
 
         Optional<GraphNode> parentOpt = Optional.empty();
@@ -145,10 +142,10 @@ public class AgentEventListener implements EventListener {
         }
 
         var children = orchestrator.getChildNodes(nodeId);
-        var dispatch = new AgentRunner.AgentDispatchArgs(node, parentOpt.orElse(null), children);
+        var dispatch = new AgentRunner.AgentDispatchArgs(node, parentOpt.orElse(null), children, event);
 
         try {
-            agentRunner.runAgent(dispatch);
+            agentRunner.runOnAgent(dispatch);
         } catch (Exception e) {
             log.error("Failed to execute agent for node: {} ({}) during dispatch",
                     node.title(), nodeId, e);
@@ -158,7 +155,7 @@ public class AgentEventListener implements EventListener {
 
     @Override
     public boolean isInterestedIn(Events.GraphEvent eventType) {
-        return eventType instanceof Events.NodeAddedEvent || 
+        return eventType instanceof Events.NodeAddedEvent ||
                eventType instanceof Events.NodeStatusChangedEvent;
     }
 }

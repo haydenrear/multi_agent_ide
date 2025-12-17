@@ -2,7 +2,7 @@ package com.hayden.multiagentide.adapter;
 
 import com.hayden.multiagentide.infrastructure.EventAdapter;
 import com.hayden.multiagentide.infrastructure.EventBus;
-import com.hayden.multiagentide.model.mixins.Events;
+import com.hayden.multiagentide.model.events.Events;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;

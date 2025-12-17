@@ -1,9 +1,9 @@
 package com.hayden.multiagentide.service;
 
-import com.hayden.multiagentide.model.Spec;
-import com.hayden.multiagentide.model.SpecSection;
-import com.hayden.multiagentide.model.SpecSummary;
-import com.hayden.multiagentide.model.SpecValidationResult;
+import com.hayden.multiagentide.model.spec.Spec;
+import com.hayden.multiagentide.model.spec.SpecSection;
+import com.hayden.multiagentide.model.spec.SpecSummary;
+import com.hayden.multiagentide.model.spec.SpecValidationResult;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;

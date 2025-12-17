@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.hayden.multiagentide.model.mixins.Events;
+import com.hayden.multiagentide.model.events.Events;
 
 /**
  * Listener for graph events.

@@ -9,8 +9,13 @@ import dev.langchain4j.agentic.planner.PlanningContext;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.http.client.spring.restclient.SpringRestClientBuilder;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.listener.ChatModelErrorContext;
+import dev.langchain4j.model.chat.listener.ChatModelListener;
+import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
+import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -21,6 +26,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -100,6 +106,7 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryOrchestrator.class)
                 .chatModel(chatModel)
                 .tools(tools)
+                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
                 .beforeAgentInvocation(invocation -> {
                     lifecycleHandler.beforeDiscoveryOrchestratorInvocation(
                             invocation.inputs().toString(),

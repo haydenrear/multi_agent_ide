@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.repository;
 
-import com.hayden.multiagentide.model.Spec;
+import com.hayden.multiagentide.model.spec.Spec;
 import java.util.List;
 import java.util.Optional;
 
