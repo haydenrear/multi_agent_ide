@@ -3,7 +3,7 @@ package com.hayden.multiagentide.model.mixins;
 /**
  * Capability mixin: Nodes that support annotations/metadata.
  */
-public sealed interface Annotatable permits OrchestratorNode, PlanningNode, PlanningOrchestratorNode, EditorNode {
+public sealed interface Annotatable permits CollectorNode, EditorNode, OrchestratorNode, PlanningCollectorNode, PlanningNode, PlanningOrchestratorNode {
     /**
      * Add or update annotation on this node.
      */

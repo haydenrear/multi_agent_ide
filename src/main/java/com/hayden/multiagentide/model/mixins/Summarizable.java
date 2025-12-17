@@ -4,9 +4,7 @@ package com.hayden.multiagentide.model.mixins;
  * Capability mixin: Nodes that can be summarized.
  */
 public sealed interface Summarizable
-        permits
-            AgentReviewNode, DiscoveryNode, DiscoveryOrchestratorNode, HumanReviewNode, MergeNode,
-            OrchestratorNode, PlanningNode, PlanningOrchestratorNode, SummaryNode, EditorNode {
+        permits AgentReviewNode, CollectorNode, DiscoveryCollectorNode, DiscoveryNode, DiscoveryOrchestratorNode, EditorNode, HumanReviewNode, MergeNode, OrchestratorNode, PlanningCollectorNode, PlanningNode, PlanningOrchestratorNode, SkillArtifactMergeNode, SummaryNode {
     /**
      * Get summary of node work and status.
      */

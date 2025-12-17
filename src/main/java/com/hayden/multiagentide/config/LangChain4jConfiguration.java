@@ -122,11 +122,11 @@ public class LangChain4jConfiguration {
      * After invocation: updates node with generated code
      */
     @Bean
-    public AgentInterfaces.EditorAgent editorAgent(
+    public AgentInterfaces.TicketAgent editorAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler) {
-        return AgenticServices.agentBuilder(AgentInterfaces.EditorAgent.class)
+        return AgenticServices.agentBuilder(AgentInterfaces.TicketAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .beforeAgentInvocation(invocation -> {

@@ -54,7 +54,7 @@ class MultiAgentIntegrationTest {
         assertNotNull(planningAgent, "Planning agent should be registered");
 
         // Verify Editor Agent is registered
-        AgentInterfaces.EditorAgent editorAgent = applicationContext.getBean(AgentInterfaces.EditorAgent.class);
+        AgentInterfaces.TicketAgent editorAgent = applicationContext.getBean(AgentInterfaces.TicketAgent.class);
         assertNotNull(editorAgent, "Editor agent should be registered");
 
         // Verify Merger Agent is registered
@@ -94,10 +94,10 @@ class MultiAgentIntegrationTest {
     @Test
     void testPlanningAgentResponse() {
         AgentInterfaces.PlanningAgent planningAgent = applicationContext.getBean(AgentInterfaces.PlanningAgent.class);
-        
+
         // Call planning agent - should return mocked response
         String result = planningAgent.decomposePlanAndCreateWorkItems("Implement user authentication system");
-        
+
         assertNotNull(result, "Planning agent should return a result");
         assertFalse(result.isEmpty(), "Planning agent response should not be empty");
         assertTrue(result.length() > 0, "Planning agent should provide structured plan");
@@ -108,14 +108,14 @@ class MultiAgentIntegrationTest {
      */
     @Test
     void testEditorAgentResponse() {
-        AgentInterfaces.EditorAgent editorAgent = applicationContext.getBean(AgentInterfaces.EditorAgent.class);
-        
+        AgentInterfaces.TicketAgent editorAgent = applicationContext.getBean(AgentInterfaces.TicketAgent.class);
+
         // Call editor agent - should return mocked code generation
         String result = editorAgent.generateCode(
                 "Implement login endpoint",
                 "Create REST endpoint for user login with JWT token generation"
         );
-        
+
         assertNotNull(result, "Editor agent should return generated code");
         assertFalse(result.isEmpty(), "Editor agent response should not be empty");
     }
@@ -126,13 +126,13 @@ class MultiAgentIntegrationTest {
     @Test
     void testMergerAgentResponse() {
         AgentInterfaces.MergerAgent mergerAgent = applicationContext.getBean(AgentInterfaces.MergerAgent.class);
-        
+
         // Call merger agent - should return mocked merge strategy
         String strategy = mergerAgent.determineMergeStrategy(
                 "Implement database schema changes",
                 "Implement API endpoints"
         );
-        
+
         assertNotNull(strategy, "Merger agent should return merge strategy");
         assertFalse(strategy.isEmpty(), "Merger agent response should not be empty");
     }
@@ -143,13 +143,13 @@ class MultiAgentIntegrationTest {
     @Test
     void testMergerAgentConflictResolution() {
         AgentInterfaces.MergerAgent mergerAgent = applicationContext.getBean(AgentInterfaces.MergerAgent.class);
-        
+
         // Call merger agent conflict resolution - should return mocked resolution
         String resolution = mergerAgent.resolveConflicts(
                 "pom.xml, Application.java, config.yml",
                 "recursive"
         );
-        
+
         assertNotNull(resolution, "Merger agent should return conflict resolution");
         assertFalse(resolution.isEmpty(), "Merger agent resolution should not be empty");
     }
@@ -160,13 +160,13 @@ class MultiAgentIntegrationTest {
     @Test
     void testReviewAgentResponse() {
         AgentInterfaces.ReviewAgent reviewAgent = applicationContext.getBean(AgentInterfaces.ReviewAgent.class);
-        
+
         // Call review agent - should return mocked evaluation
         String evaluation = reviewAgent.evaluateContent(
                 "public class UserController { ... }",
                 "Code quality, test coverage, documentation"
         );
-        
+
         assertNotNull(evaluation, "Review agent should return evaluation");
         assertFalse(evaluation.isEmpty(), "Review agent response should not be empty");
     }
@@ -177,13 +177,13 @@ class MultiAgentIntegrationTest {
     @Test
     void testOrchestratorAgentResponse() {
         AgentInterfaces.OrchestratorAgent orchestratorAgent = applicationContext.getBean(AgentInterfaces.OrchestratorAgent.class);
-        
+
         // Call orchestrator agent - should return mocked workflow coordination
         String coordination = orchestratorAgent.coordinateWorkflow(
                 "Build e-commerce system",
                 "planning"
         );
-        
+
         assertNotNull(coordination, "Orchestrator agent should return workflow coordination");
         assertFalse(coordination.isEmpty(), "Orchestrator agent response should not be empty");
     }
@@ -195,35 +195,35 @@ class MultiAgentIntegrationTest {
     @Test
     void testMultiAgentWorkflowSequence() {
         AgentInterfaces.PlanningAgent planningAgent = applicationContext.getBean(AgentInterfaces.PlanningAgent.class);
-        AgentInterfaces.EditorAgent editorAgent = applicationContext.getBean(AgentInterfaces.EditorAgent.class);
+        AgentInterfaces.TicketAgent editorAgent = applicationContext.getBean(AgentInterfaces.TicketAgent.class);
         AgentInterfaces.MergerAgent mergerAgent = applicationContext.getBean(AgentInterfaces.MergerAgent.class);
         AgentInterfaces.ReviewAgent reviewAgent = applicationContext.getBean(AgentInterfaces.ReviewAgent.class);
-        
+
         // Phase 1: Planning
         String plan = planningAgent.decomposePlanAndCreateWorkItems("Build authentication system");
         assertNotNull(plan, "Plan should be generated");
-        
+
         // Phase 2: Editor generates implementation
         String code = editorAgent.generateCode(
                 "Implement JWT authentication",
                 plan
         );
         assertNotNull(code, "Code should be generated");
-        
+
         // Phase 3: Merger determines strategy
         String mergeStrategy = mergerAgent.determineMergeStrategy(
                 "Implement JWT authentication",
                 "Existing user management code"
         );
         assertNotNull(mergeStrategy, "Merge strategy should be determined");
-        
+
         // Phase 4: Review evaluates work
         String review = reviewAgent.evaluateContent(
                 code,
                 "Security, performance, maintainability"
         );
         assertNotNull(review, "Review should be completed");
-        
+
         // Verify all phases completed successfully
         assertTrue(plan.length() > 0);
         assertTrue(code.length() > 0);
@@ -237,10 +237,10 @@ class MultiAgentIntegrationTest {
     @Test
     void testAgentToolsIntegration() {
         LangChain4jAgentTools tools = applicationContext.getBean(LangChain4jAgentTools.class);
-        
+
         // Verify tool methods are available
         assertNotNull(tools, "Tools should be available");
-        
+
         // These would normally interact with mocked repositories
         assertTrue(true, "Agent tools integration successful");
     }
@@ -251,12 +251,12 @@ class MultiAgentIntegrationTest {
     @Test
     void testParallelAgentInvocation() {
         AgentInterfaces.PlanningAgent planningAgent = applicationContext.getBean(AgentInterfaces.PlanningAgent.class);
-        AgentInterfaces.EditorAgent editorAgent = applicationContext.getBean(AgentInterfaces.EditorAgent.class);
-        
+        AgentInterfaces.TicketAgent editorAgent = applicationContext.getBean(AgentInterfaces.TicketAgent.class);
+
         // Simulate parallel execution
         String planResult = planningAgent.decomposePlanAndCreateWorkItems("Feature A");
         String codeResult = editorAgent.generateCode("Feature B", "Context for Feature B");
-        
+
         // Both should complete independently
         assertNotNull(planResult);
         assertNotNull(codeResult);
@@ -271,7 +271,7 @@ class MultiAgentIntegrationTest {
     void testLangChain4jConfiguration() {
         ChatModel chatModel = applicationContext.getBean(ChatModel.class);
         assertNotNull(chatModel, "ChatModel should be configured");
-        
+
         // Verify it's the mock implementation when no API key is configured
         assertNotNull(chatModel.getClass(), "ChatModel should have a valid class");
     }
