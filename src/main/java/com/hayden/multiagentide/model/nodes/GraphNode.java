@@ -11,7 +11,9 @@ import java.util.Map;
  */
 public sealed interface GraphNode
         permits ReviewNode, CollectorNode, DiscoveryCollectorNode, DiscoveryNode, DiscoveryOrchestratorNode, EditorNode, MergeNode,
-                OrchestratorNode, PlanningCollectorNode, PlanningNode, PlanningOrchestratorNode, SkillArtifactMergeNode, SummaryNode {
+                OrchestratorNode, PlanningCollectorNode, PlanningNode, PlanningOrchestratorNode, SummaryNode {
+
+    GraphNode withStatus(NodeStatus nodeStatus);
 
     /**
      * Unique identifier for this node.

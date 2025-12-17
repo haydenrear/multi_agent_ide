@@ -152,16 +152,17 @@ public class AgentLifecycleHandler {
             orchestrator.submodules().add(submodule);
         }
 
-        // Emit events
-        this.orchestrator.emitNodeAddedEvent(orchestrator.nodeId(), orchestrator.title(),
-                orchestrator.nodeType(), orchestrator.parentNodeId());
-        this.orchestrator.emitWorktreeCreatedEvent(mainWorktree.worktreeId(), nodeId,
-                mainWorktree.worktreePath().toString(), "main", null);
 
         // Save to repositories
         graphRepository.save(orchestrator);
         worktreeRepository.save(mainWorktree);
         specRepository.save(baseSpec);
+
+        // Emit events
+        this.orchestrator.emitNodeAddedEvent(orchestrator.nodeId(), orchestrator.title(),
+                orchestrator.nodeType(), orchestrator.parentNodeId());
+        this.orchestrator.emitWorktreeCreatedEvent(mainWorktree.worktreeId(), nodeId,
+                mainWorktree.worktreePath().toString(), "main", null);
     }
 
     /**
@@ -189,7 +190,7 @@ public class AgentLifecycleHandler {
                 null
         );
 
-        orchestrator.addChildNode(parentNodeId, discoveryOrchestratorNode);
+        orchestrator.addChildNodeAndEmitEvent(parentNodeId, discoveryOrchestratorNode);
         log.info("Discovery orchestrator node {} registered for goal: {}", nodeId, goal);
     }
 
@@ -204,8 +205,7 @@ public class AgentLifecycleHandler {
         }
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof DiscoveryOrchestratorNode) {
-            DiscoveryOrchestratorNode node = (DiscoveryOrchestratorNode) nodeOpt.get();
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof DiscoveryOrchestratorNode node) {
             DiscoveryOrchestratorNode updated = new DiscoveryOrchestratorNode(
                     node.nodeId(),
                     node.title(),
@@ -221,8 +221,7 @@ public class AgentLifecycleHandler {
                     node.totalTasksFailed(),
                     node.specFileId()
             );
-            // Division strategy parsing and agent kickoff would happen here
-            // For now, just update the node
+//            TODO: need to save the node before emitting the event!
             orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
                     updated.nodeType(), updated.parentNodeId());
             log.info("Discovery orchestrator node {} updated with division strategy", nodeId);
@@ -251,6 +250,7 @@ public class AgentLifecycleHandler {
         );
 
         graphRepository.save(discoveryNode);
+//        TODO: Must emit the event!
         log.info("Discovery node {} registered for subdomain focus: {}", nodeId, subdomainFocus);
     }
 
@@ -283,7 +283,7 @@ public class AgentLifecycleHandler {
             );
 
             graphRepository.save(updated);
-            
+
             // Emit status changed event for workflow orchestration
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
@@ -301,7 +301,7 @@ public class AgentLifecycleHandler {
      * Registers a discovery merger node in the computation graph.
      */
     public void beforeDiscoveryMergerInvocation(String allDiscoveryFindings, String parentNodeId, String nodeId) {
-        SkillArtifactMergeNode mergerNode = new SkillArtifactMergeNode(
+        DiscoveryCollectorNode mergerNode = new DiscoveryCollectorNode(
                 nodeId,
                 "Merge Discovery",
                 "Consolidate discovery findings",
@@ -317,7 +317,7 @@ public class AgentLifecycleHandler {
                 null
         );
 
-        orchestrator.addChildNode(parentNodeId, mergerNode);
+        orchestrator.addChildNodeAndEmitEvent(parentNodeId, mergerNode);
         log.info("Discovery merger node {} registered", nodeId);
     }
 
@@ -332,8 +332,8 @@ public class AgentLifecycleHandler {
         }
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof SkillArtifactMergeNode node) {
-            SkillArtifactMergeNode updated = new SkillArtifactMergeNode(
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof DiscoveryCollectorNode node) {
+            DiscoveryCollectorNode updated = new DiscoveryCollectorNode(
                     node.nodeId(),
                     node.title(),
                     node.goal(),
@@ -349,6 +349,7 @@ public class AgentLifecycleHandler {
                     node.specFileId()
             );
             graphRepository.save(updated);
+//        TODO: Must emit the event!
             log.info("Discovery merger node {} updated with merged findings", nodeId);
         }
     }
@@ -372,7 +373,7 @@ public class AgentLifecycleHandler {
                 0
         );
 
-        orchestrator.addChildNode(parentNodeId, planningNode);
+        orchestrator.addChildNodeAndEmitEvent(parentNodeId, planningNode);
         log.info("Planning node {} registered for goal: {}", nodeId, goal);
     }
 
@@ -404,7 +405,8 @@ public class AgentLifecycleHandler {
                     node.estimatedSubtasks(),
                     node.completedSubtasks()
             );
-            // Save updated node to repository (would be done through orchestrator)
+            // TODO: Must save the node to memory and then must emit the event!
+            // TODO: Must emit the event!
             log.info("Planning node {} updated with plan content", nodeId);
         }
 
@@ -436,7 +438,7 @@ public class AgentLifecycleHandler {
                 0
         );
 
-        orchestrator.addChildNode(parentNodeId, planningOrchestratorNode);
+        orchestrator.addChildNodeAndEmitEvent(parentNodeId, planningOrchestratorNode);
         log.info("Planning orchestrator node {} registered for goal: {}", nodeId, goal);
     }
 
@@ -451,8 +453,7 @@ public class AgentLifecycleHandler {
         }
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof PlanningOrchestratorNode) {
-            PlanningOrchestratorNode node = (PlanningOrchestratorNode) nodeOpt.get();
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof PlanningOrchestratorNode node) {
             PlanningOrchestratorNode updated = new PlanningOrchestratorNode(
                     node.nodeId(),
                     node.title(),
@@ -469,6 +470,7 @@ public class AgentLifecycleHandler {
                     node.estimatedSubtasks(),
                     node.completedSubtasks()
             );
+            // TODO: Must save the node to memory and then must emit the event!
             orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
                     updated.nodeType(), updated.parentNodeId());
             log.info("Planning orchestrator node {} updated with division strategy", nodeId);
@@ -480,7 +482,7 @@ public class AgentLifecycleHandler {
      * Registers a planning merger node in the computation graph.
      */
     public void beforePlanningMergerInvocation(String allPlanningResults, String parentNodeId, String nodeId) {
-        SkillArtifactMergeNode mergerNode = new SkillArtifactMergeNode(
+        PlanningCollectorNode mergerNode = new PlanningCollectorNode(
                 nodeId,
                 "Merge Planning",
                 "Consolidate planning results into tickets",
@@ -490,13 +492,14 @@ public class AgentLifecycleHandler {
                 new HashMap<>(),
                 Instant.now(),
                 Instant.now(),
+                new ArrayList<>(),
+                "",
                 "",
                 0,
-                0,
-                null
+                0
         );
 
-        orchestrator.addChildNode(parentNodeId, mergerNode);
+        orchestrator.addChildNodeAndEmitEvent(parentNodeId, mergerNode);
         log.info("Planning merger node {} registered", nodeId);
     }
 
@@ -511,9 +514,8 @@ public class AgentLifecycleHandler {
         }
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof SkillArtifactMergeNode) {
-            SkillArtifactMergeNode node = (SkillArtifactMergeNode) nodeOpt.get();
-            SkillArtifactMergeNode updated = new SkillArtifactMergeNode(
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof PlanningCollectorNode node) {
+            PlanningCollectorNode updated = new PlanningCollectorNode(
                     node.nodeId(),
                     node.title(),
                     node.goal(),
@@ -523,12 +525,14 @@ public class AgentLifecycleHandler {
                     node.metadata(),
                     node.createdAt(),
                     Instant.now(),
+                    new ArrayList<>(),
                     ticketsFile,
-                    node.totalTasksCompleted(),
-                    node.totalTasksFailed(),
-                    node.specFileId()
+                    node.specFileId(),
+                    node.estimatedSubtasks(),
+                    node.completedSubtasks()
             );
             graphRepository.save(updated);
+//        TODO: Must emit the event!
             log.info("Planning merger node {} updated with merged tickets", nodeId);
         }
     }
@@ -556,7 +560,7 @@ public class AgentLifecycleHandler {
                 0
         );
 
-        orchestrator.addChildNode(parentNodeId, editorNode);
+        orchestrator.addChildNodeAndEmitEvent(parentNodeId, editorNode);
         log.info("Editor node {} registered for goal: {}", nodeId, goal);
     }
 
@@ -622,7 +626,7 @@ public class AgentLifecycleHandler {
                 "merger"
         );
 
-        orchestrator.addChildNode(parentNodeId, mergerNode);
+        orchestrator.addChildNodeAndEmitEvent(parentNodeId, mergerNode);
         log.info("Merger node {} registered for merge", nodeId);
     }
 
@@ -658,6 +662,7 @@ public class AgentLifecycleHandler {
                     node.mergeRequired(),
                     0
             );
+//        TODO: Must save the node and then emit the event!
             log.info("Merger node {} updated with merge strategy", nodeId);
         }
     }
@@ -692,7 +697,7 @@ public class AgentLifecycleHandler {
                 0
         );
 
-        orchestrator.addChildNode(parentNodeId, ticketOrchestratorNode);
+        orchestrator.addChildNodeAndEmitEvent(parentNodeId, ticketOrchestratorNode);
         log.info("Ticket orchestrator node {} registered", nodeId);
     }
 
@@ -707,8 +712,7 @@ public class AgentLifecycleHandler {
         }
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof EditorNode) {
-            EditorNode node = (EditorNode) nodeOpt.get();
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof EditorNode node) {
             EditorNode updated = new EditorNode(
                     node.nodeId(),
                     node.title(),
@@ -729,6 +733,7 @@ public class AgentLifecycleHandler {
                     node.mergeRequired(),
                     0
             );
+//        TODO: Must save the node and then emit the event!
             orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
                     updated.nodeType(), updated.parentNodeId());
             log.info("Ticket orchestrator node {} updated with orchestration plan", nodeId);
@@ -761,7 +766,7 @@ public class AgentLifecycleHandler {
                 0
         );
 
-        orchestrator.addChildNode(parentNodeId, ticketNode);
+        orchestrator.addChildNodeAndEmitEvent(parentNodeId, ticketNode);
         log.info("Ticket node {} registered for implementation", nodeId);
     }
 
@@ -826,7 +831,7 @@ public class AgentLifecycleHandler {
                 null
         );
 
-        orchestrator.addChildNode(parentNodeId, reviewNode);
+        orchestrator.addChildNodeAndEmitEvent(parentNodeId, reviewNode);
         log.info("Review node {} registered", nodeId);
     }
 

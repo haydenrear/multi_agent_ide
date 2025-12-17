@@ -75,10 +75,12 @@ public class AgentRunner {
             case DiscoveryOrchestratorNode discoveryOrchestratorNode -> {
                 this.runDiscoveryOrchestratorAgent(discoveryOrchestratorNode, parent);
             }
-            case SkillArtifactMergeNode mergeNode when isDiscoveryMerger(mergeNode) -> {
-                this.runDiscoveryMergerAgent(mergeNode, parent);
+//          TODO:  replace with planning collector
+            case DiscoveryCollectorNode mergeNode when isDiscoveryMerger(mergeNode) -> {
+                this.runDiscoveryCollector(mergeNode, parent);
             }
-            case SkillArtifactMergeNode mergeNode when isPlanningMerger(mergeNode) -> {
+//          TODO:  replace with planning collector
+            case PlanningCollectorNode mergeNode when isPlanningMerger(mergeNode) -> {
                 this.runPlanningMergerAgent(mergeNode, parent);
             }
             case PlanningOrchestratorNode planningOrchestratorNode -> {
@@ -119,8 +121,6 @@ public class AgentRunner {
             case OrchestratorNode orchestratorNode -> {
                 this.runOrchestratorAgent(orchestratorNode);
             }
-            case SkillArtifactMergeNode skillArtifactMergeNode -> {
-            }
             case CollectorNode collectorNode -> {
             }
             case DiscoveryCollectorNode discoveryCollectorNode -> {
@@ -140,11 +140,11 @@ public class AgentRunner {
         return agentReviewNode.status() == GraphNode.NodeStatus.COMPLETED;
     }
 
-    private static boolean isDiscoveryMerger(SkillArtifactMergeNode node) {
+    private static boolean isDiscoveryMerger(GraphNode node) {
         return node.title().contains("Discovery") || node.goal().contains("discovery");
     }
 
-    private static boolean isPlanningMerger(SkillArtifactMergeNode node) {
+    private static boolean isPlanningMerger(GraphNode node) {
         return node.title().contains("Planning") || node.goal().contains("planning");
     }
 
@@ -243,8 +243,6 @@ public class AgentRunner {
             }
             case ReviewNode node -> {
             }
-            case SkillArtifactMergeNode node -> {
-            }
             case SummaryNode node -> {
             }
         }
@@ -287,7 +285,7 @@ public class AgentRunner {
      * Output: unified discovery document.
      * Next: Kick off Planning phase (PlanningOrchestrator).
      */
-    public void runDiscoveryMergerAgent(SkillArtifactMergeNode node, GraphNode parent) {
+    public void runDiscoveryCollector(DiscoveryCollectorNode node, GraphNode parent) {
         log.info("Executing DiscoveryMergerAgent for node: {}", node.nodeId());
         try {
             // Collect all discovery findings from sibling DiscoveryNodes
@@ -315,7 +313,7 @@ public class AgentRunner {
      * Input: discovery findings from Phase 1.
      * Creates division strategy and kicks off multiple PlanningAgent(s).
      */
-    private void kickOffPlanningPhase(SkillArtifactMergeNode discoveryMergerNode, String discoveryContext) {
+    private void kickOffPlanningPhase(DiscoveryCollectorNode discoveryMergerNode, String discoveryContext) {
         log.info("Starting PHASE 2: Planning with discovery context from: {}", discoveryMergerNode.nodeId());
         // Create PlanningOrchestratorNode as child of discovery merger
         // Then invoke planningOrchestrator
@@ -384,7 +382,7 @@ public class AgentRunner {
      * Output: structured tickets ready for implementation.
      * Next: Kick off Ticket Implementation phase (TicketOrchestrator).
      */
-    public void runPlanningMergerAgent(SkillArtifactMergeNode node, GraphNode parent) {
+    public void runPlanningMergerAgent(PlanningCollectorNode node, GraphNode parent) {
         log.info("Executing PlanningMergerAgent for node: {}", node.nodeId());
         try {
             // Collect all planning outputs from sibling PlanningNodes
@@ -409,7 +407,7 @@ public class AgentRunner {
      * Initiates the Ticket Implementation phase by running TicketOrchestrator.
      * Input: tickets from Phase 2 + discovery context from Phase 1.
      */
-    private void kickOffTicketPhase(SkillArtifactMergeNode planningMergerNode, String tickets) {
+    private void kickOffTicketPhase(PlanningCollectorNode planningMergerNode, String tickets) {
         log.info("Starting PHASE 3: Ticket Implementation with tickets from: {}", planningMergerNode.nodeId());
         // Get discovery context from parent chain
         String discoveryContext = extractDiscoveryContext(planningMergerNode);
@@ -736,18 +734,7 @@ public class AgentRunner {
      */
     @SuppressWarnings("unchecked")
     private <T extends GraphNode> T updateNodeStatus(T node, GraphNode.NodeStatus newStatus) {
-        return switch (node) {
-            case OrchestratorNode n -> (T) n.withStatus(newStatus);
-            case DiscoveryOrchestratorNode n -> (T) n.withStatus(newStatus);
-            case DiscoveryNode n -> (T) n.withStatus(newStatus);
-            case SkillArtifactMergeNode n -> (T) n.withStatus(newStatus);
-            case PlanningOrchestratorNode n -> (T) n.withStatus(newStatus);
-            case PlanningNode n -> (T) n.withStatus(newStatus);
-            case EditorNode n -> (T) n.withStatus(newStatus);
-            case ReviewNode n -> (T) n.withStatus(newStatus);
-            case MergeNode n -> (T) n.withStatus(newStatus);
-            default -> node;
-        };
+        return (T) node.withStatus(newStatus);
     }
 
     /**

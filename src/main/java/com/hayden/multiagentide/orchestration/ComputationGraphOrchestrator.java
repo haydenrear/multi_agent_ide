@@ -53,7 +53,7 @@ public class ComputationGraphOrchestrator {
     /**
      * Add a child node to parent.
      */
-    public void addChildNode(String parentNodeId, GraphNode childNode) {
+    public void addChildNodeAndEmitEvent(String parentNodeId, GraphNode childNode) {
         Optional<GraphNode> parentOpt = graphRepository.findById(parentNodeId);
         if (parentOpt.isEmpty()) {
             throw new RuntimeException("Parent node not found: " + parentNodeId);
