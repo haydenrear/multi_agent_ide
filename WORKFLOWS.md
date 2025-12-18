@@ -397,6 +397,8 @@ OrchestratorAgent receives tickets
     │   │      ├→ Mark completed ticket
     │   │      └→ Update TicketOrchestrator worktree state
     │   │
+    │   ├→ TicketOrchestrator updates ticket queue metadata (pointer + queue) after each merge; conflicts mark MergeNode as WAITING_INPUT with conflict files recorded.
+    │   │
     │   └→ [Ready for next ticket]
     │
     ├→ [Repeat for each remaining TicketAgent]
@@ -707,4 +709,3 @@ Each child agent receives:
 - [ ] Wire both agents into LangChain4jConfiguration
 - [ ] Add lifecycle handlers to AgentLifecycleHandler
 - [ ] Test review + merge + revision cycles
-

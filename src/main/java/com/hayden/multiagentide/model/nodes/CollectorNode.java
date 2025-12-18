@@ -1,5 +1,7 @@
 package com.hayden.multiagentide.model.nodes;
 
+import lombok.Builder;
+
 import java.time.Instant;
 import java.util.*;
 
@@ -7,6 +9,7 @@ import java.util.*;
  * Root node in the computation graph that orchestrates the overall goal.
  * Can be Branchable, and Viewable.
  */
+@Builder(toBuilder = true)
 public record CollectorNode(
         String nodeId,
         String title,

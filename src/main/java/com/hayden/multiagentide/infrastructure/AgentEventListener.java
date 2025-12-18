@@ -3,11 +3,10 @@ package com.hayden.multiagentide.infrastructure;
 import com.hayden.multiagentide.model.events.Events;
 import com.hayden.multiagentide.model.nodes.*;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
-import java.util.Optional;
 
 /**
  * Event-driven listener that orchestrates multi-agent workflows.
@@ -96,7 +95,7 @@ public class AgentEventListener implements EventListener {
     /**
      * Handles NodeAddedEvent: Dispatches agent for execution if node is in READY status.
      * This triggers the initial execution of nodes that have been registered and are ready to run.
-     * 
+     *
      * Only nodes with READY status are dispatched. Other statuses (FAILED, WAITING_INPUT, etc.)
      * require different handling and are ignored here.
      */
@@ -152,10 +151,8 @@ public class AgentEventListener implements EventListener {
         }
     }
 
-
     @Override
     public boolean isInterestedIn(Events.GraphEvent eventType) {
-        return eventType instanceof Events.NodeAddedEvent ||
-               eventType instanceof Events.NodeStatusChangedEvent;
+        return true;
     }
 }
