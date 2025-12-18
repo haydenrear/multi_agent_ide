@@ -3,19 +3,12 @@ package com.hayden.multiagentide.config;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.LangChain4jAgentTools;
 import dev.langchain4j.agentic.AgenticServices;
-import dev.langchain4j.agentic.planner.Action;
-import dev.langchain4j.agentic.planner.Planner;
-import dev.langchain4j.agentic.planner.PlanningContext;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.http.client.spring.restclient.SpringRestClientBuilder;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
-import dev.langchain4j.model.chat.listener.ChatModelErrorContext;
-import dev.langchain4j.model.chat.listener.ChatModelListener;
-import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
-import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -26,7 +19,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -156,12 +148,12 @@ public class LangChain4jConfiguration {
      * After invocation: updates node with merged discovery
      */
     @Bean
-    public AgentInterfaces.DiscoveryMerger discoveryMergerAgent(
+    public AgentInterfaces.DiscoveryCollector discoveryMergerAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler
     ) {
-        return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryMerger.class)
+        return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryCollector.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .beforeAgentInvocation(invocation -> {
@@ -242,12 +234,12 @@ public class LangChain4jConfiguration {
      * After invocation: updates node with merged tickets
      */
     @Bean
-    public AgentInterfaces.PlanningMerger planningMergerAgent(
+    public AgentInterfaces.PlanningCollector planningMergerAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler
     ) {
-        return AgenticServices.agentBuilder(AgentInterfaces.PlanningMerger.class)
+        return AgenticServices.agentBuilder(AgentInterfaces.PlanningCollector.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .beforeAgentInvocation(invocation -> {

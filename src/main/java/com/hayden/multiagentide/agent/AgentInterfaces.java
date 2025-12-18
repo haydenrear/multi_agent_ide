@@ -12,8 +12,8 @@ import dev.langchain4j.service.V;
 public class AgentInterfaces {
 
     public interface PlanningOrchestrator {
-        @Agent(value = "Split the goal into tickets according to the discovery context.")
-        @UserMessage("""
+
+        String PLANNING_ORCHESTRATOR_MESSAGE = """
                 Decompose the planning for the goal according to the results from discovery.
                 Define tickets and update the spec file in .specify/.../spec.md.
                 
@@ -21,17 +21,21 @@ public class AgentInterfaces {
                 plan for this ticket.
                 
                 Goal: {{goal}}
-                """)
+                """;
+
+        @Agent(value = "Split the goal into tickets according to the discovery context.")
 //       TODO: add discovery context, return
-        String decomposePlanAndCreateWorkItems(@V("goal") String goal);
+        String decomposePlanAndCreateWorkItems(@MemoryId String memId,
+                                               @UserMessage String msg,
+                                               @V("goal") String goal);
     }
 
     /**
      * Merger agent that consolidates planning results from multiple agents into tickets.
      */
-    public interface PlanningMerger {
-        @Agent(value = "Consolidates planning outputs into structured tickets")
-        @UserMessage("""
+    public interface PlanningCollector {
+
+        String PLANNING_COLLECTOR_MESSAGE = """
                 Merge and consolidate the following planning results from multiple agents:
 
                 Goal: {{goal}}
@@ -45,16 +49,21 @@ public class AgentInterfaces {
                 - Estimated effort
 
                 Return merged tickets in structured format.
-                """)
-        String consolidatePlansIntoTickets(@V("goal") String goal, @V("planningResults") String planningResults);
+                """;
+
+        @Agent(value = "Consolidates planning outputs into structured tickets")
+        String consolidatePlansIntoTickets(@MemoryId String memId,
+                                           @UserMessage String msg,
+                                           @V("goal") String goal,
+                                           @V("planningResults") String planningResults);
     }
 
     /**
      * Planning agent that decomposes goals into work items.
      */
     public interface PlanningAgent {
-        @Agent(value = "Decomposes high-level goals into structured work items with clear tasks and dependencies")
-        @UserMessage("""
+
+        String PLANNING_AGENT_USER_MESSAGE = """
                 Analyze the following goal and break it down into 3 work items:
                 1. Architecture & Setup - Design foundational structure
                 2. Implementation - Core functionality
@@ -63,8 +72,12 @@ public class AgentInterfaces {
                 Goal: {{goal}}
 
                 Provide a structured plan with clear sections for each work item.
-                """)
-        String decomposePlanAndCreateWorkItems(@V("goal") String goal);
+                """;
+
+        @Agent(value = "Decomposes high-level goals into structured work items with clear tasks and dependencies")
+        String decomposePlanAndCreateWorkItems(@MemoryId String memId,
+                                               @UserMessage String msg,
+                                               @V("goal") String goal);
     }
 
     public interface DiscoveryOrchestrator {
@@ -85,7 +98,6 @@ public class AgentInterfaces {
                 """ ;
 
         @Agent(value = "")
-        @UserMessage()
         String kickOffAnyNumberOfAgentsForCodeSearch(@MemoryId String memId,
                                                      @UserMessage String msg,
                                                      @V("goal") String goal);
@@ -94,9 +106,9 @@ public class AgentInterfaces {
     /**
      * Merger agent that consolidates discovery findings from multiple agents.
      */
-    public interface DiscoveryMerger {
+    public interface DiscoveryCollector {
 
-        String DISCOVERY_MERGER_START_MESSAGE = """
+        String DISCOVERY_COLLECTOR_START_MESSAGE = """
                 Merge and consolidate the following discovery results from multiple agents:
 
                 Goal: {{goal}}

@@ -1,10 +1,13 @@
 package com.hayden.multiagentide.infrastructure;
 
 import static com.hayden.multiagentide.agent.AgentInterfaces.DiscoveryAgent.DISCOVERY_AGENT_START_MESSAGE;
-import static com.hayden.multiagentide.agent.AgentInterfaces.DiscoveryMerger.DISCOVERY_MERGER_START_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.DiscoveryCollector.DISCOVERY_COLLECTOR_START_MESSAGE;
 import static com.hayden.multiagentide.agent.AgentInterfaces.DiscoveryOrchestrator.DISCOVERY_ORCHESTRATOR_START_MESSAGE;
 import static com.hayden.multiagentide.agent.AgentInterfaces.MergerAgent.MERGER_AGENT_START_MESSAGE;
 import static com.hayden.multiagentide.agent.AgentInterfaces.OrchestratorAgent.ORCHESTRATOR_AGENT_START_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.PlanningAgent.PLANNING_AGENT_USER_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.PlanningCollector.PLANNING_COLLECTOR_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.PlanningOrchestrator.PLANNING_ORCHESTRATOR_MESSAGE;
 import static com.hayden.multiagentide.agent.AgentInterfaces.ReviewAgent.REVIEW_AGENT_START_MESSAGE;
 import static com.hayden.multiagentide.agent.AgentInterfaces.TicketAgent.TICKET_AGENT_START_MESSAGE;
 import static com.hayden.multiagentide.agent.AgentInterfaces.TicketOrchestrator.TICKET_ORCHESTRATOR_START_MESSAGE;
@@ -46,11 +49,11 @@ public class AgentRunner {
 
     private final AgentInterfaces.DiscoveryAgent discoveryAgent;
     private final AgentInterfaces.DiscoveryOrchestrator discoveryOrchestrator;
-    private final AgentInterfaces.DiscoveryMerger discoveryMerger;
+    private final AgentInterfaces.DiscoveryCollector discoveryCollector;
 
     private final AgentInterfaces.PlanningAgent planningAgent;
     private final AgentInterfaces.PlanningOrchestrator planningOrchestrator;
-    private final AgentInterfaces.PlanningMerger planningMerger;
+    private final AgentInterfaces.PlanningCollector planningMerger;
 
     private final AgentInterfaces.TicketOrchestrator ticketOrchestrator;
     private final AgentInterfaces.TicketAgent ticketAgent;
@@ -434,9 +437,9 @@ public class AgentRunner {
             );
 
             String mergedFindings =
-                discoveryMerger.consolidateDiscoveryFindings(
+                discoveryCollector.consolidateDiscoveryFindings(
                     running.nodeId(),
-                    DISCOVERY_MERGER_START_MESSAGE,
+                        DISCOVERY_COLLECTOR_START_MESSAGE,
                     running.goal(),
                     allDiscoveryFindings
                 );
@@ -530,9 +533,11 @@ public class AgentRunner {
             String discoveryContext = extractDiscoveryContext(node);
 
             String divisionStrategy =
-                planningOrchestrator.decomposePlanAndCreateWorkItems(
-                    running.goal()
-                );
+                    planningOrchestrator.decomposePlanAndCreateWorkItems(
+                            running.nodeId(),
+                            PLANNING_ORCHESTRATOR_MESSAGE,
+                            running.goal()
+                    );
             log.info(
                 "PlanningOrchestrator determined strategy: {}",
                 divisionStrategy
@@ -611,7 +616,9 @@ public class AgentRunner {
         PlanningNode running = markNodeRunning(node);
         try {
             String plan = planningAgent.decomposePlanAndCreateWorkItems(
-                running.goal()
+                    running.nodeId(),
+                    PLANNING_AGENT_USER_MESSAGE,
+                    running.goal()
             );
             log.info("PlanningAgent completed plan for goal: {}", node.goal());
 
@@ -650,8 +657,10 @@ public class AgentRunner {
             );
 
             String tickets = planningMerger.consolidatePlansIntoTickets(
-                running.goal(),
-                allPlanningResults
+                    node.nodeId(),
+                    PLANNING_COLLECTOR_MESSAGE,
+                    running.goal(),
+                    allPlanningResults
             );
             log.info(
                 "PlanningMerger consolidated tickets for goal: {}",
