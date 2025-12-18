@@ -219,11 +219,14 @@ public class AgentLifecycleHandler {
                     "",
                     node.totalTasksCompleted(),
                     node.totalTasksFailed(),
-                    node.specFileId()
+                    node.specFileId());
+            graphRepository.save(updated);
+            orchestrator.emitStatusChangeEvent(
+                    updated.nodeId(),
+                    node.status(),
+                    updated.status(),
+                    "%s status updated".formatted(node.getClass().getSimpleName())
             );
-//            TODO: need to save the node before emitting the event!
-            orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
-                    updated.nodeType(), updated.parentNodeId());
             log.info("Discovery orchestrator node {} updated with division strategy", nodeId);
         }
     }
@@ -283,15 +286,13 @@ public class AgentLifecycleHandler {
             );
 
             graphRepository.save(updated);
-
-            // Emit status changed event for workflow orchestration
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
-                    GraphNode.NodeStatus.RUNNING,
-                    GraphNode.NodeStatus.COMPLETED,
-                    "Discovery findings acquired"
+                    node.status(),
+                    updated.status(),
+                    "%s status updated".formatted(node.getClass().getSimpleName())
             );
-            
+
             log.info("Discovery node {} updated with findings", nodeId);
         }
     }
@@ -300,7 +301,7 @@ public class AgentLifecycleHandler {
      * Handle before-agent-invocation for Discovery Merger.
      * Registers a discovery merger node in the computation graph.
      */
-    public void beforeDiscoveryMergerInvocation(String allDiscoveryFindings, String parentNodeId, String nodeId) {
+    public void beforeDiscoveryCollectorInvocation(String allDiscoveryFindings, String parentNodeId, String nodeId) {
         DiscoveryCollectorNode mergerNode = new DiscoveryCollectorNode(
                 nodeId,
                 "Merge Discovery",
@@ -325,7 +326,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Discovery Merger.
      * Updates discovery merger node with merged findings and marks as completed.
      */
-    public void afterDiscoveryMergerInvocation(String mergedDiscoveryFile, String nodeId) {
+    public void afterDiscoveryCollectorInvocation(String mergedDiscoveryFile, String nodeId) {
         if (nodeId == null) {
             log.warn("No discovery merger node ID found in context");
             return;
@@ -349,7 +350,12 @@ public class AgentLifecycleHandler {
                     node.specFileId()
             );
             graphRepository.save(updated);
-//        TODO: Must emit the event!
+            orchestrator.emitStatusChangeEvent(
+                    updated.nodeId(),
+                    node.status(),
+                    updated.status(),
+                    "Discovery collector status updated"
+            );
             log.info("Discovery merger node {} updated with merged findings", nodeId);
         }
     }
@@ -405,8 +411,14 @@ public class AgentLifecycleHandler {
                     node.estimatedSubtasks(),
                     node.completedSubtasks()
             );
-            // TODO: Must save the node to memory and then must emit the event!
-            // TODO: Must emit the event!
+            graphRepository.save(updated);
+            orchestrator.emitStatusChangeEvent(
+                    updated.nodeId(),
+                    node.status(),
+                    updated.status(),
+                    "%s status updated".formatted(node.getClass().getSimpleName())
+            );
+
             log.info("Planning node {} updated with plan content", nodeId);
         }
 
@@ -470,9 +482,13 @@ public class AgentLifecycleHandler {
                     node.estimatedSubtasks(),
                     node.completedSubtasks()
             );
-            // TODO: Must save the node to memory and then must emit the event!
-            orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
-                    updated.nodeType(), updated.parentNodeId());
+            graphRepository.save(updated);
+            orchestrator.emitStatusChangeEvent(
+                    updated.nodeId(),
+                    node.status(),
+                    updated.status(),
+                    "%s status updated".formatted(node.getClass().getSimpleName())
+            );
             log.info("Planning orchestrator node {} updated with division strategy", nodeId);
         }
     }
@@ -481,7 +497,7 @@ public class AgentLifecycleHandler {
      * Handle before-agent-invocation for Planning Merger.
      * Registers a planning merger node in the computation graph.
      */
-    public void beforePlanningMergerInvocation(String allPlanningResults, String parentNodeId, String nodeId) {
+    public void beforePlanningCollectorInvocation(String allPlanningResults, String parentNodeId, String nodeId) {
         PlanningCollectorNode mergerNode = new PlanningCollectorNode(
                 nodeId,
                 "Merge Planning",
@@ -507,7 +523,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Planning Merger.
      * Updates planning merger node with merged tickets and marks as completed.
      */
-    public void afterPlanningMergerInvocation(String ticketsFile, String nodeId) {
+    public void afterPlanningCollectorInvocation(String ticketsFile, String nodeId) {
         if (nodeId == null) {
             log.warn("No planning merger node ID found in context");
             return;
@@ -532,76 +548,14 @@ public class AgentLifecycleHandler {
                     node.completedSubtasks()
             );
             graphRepository.save(updated);
-//        TODO: Must emit the event!
+            orchestrator.emitStatusChangeEvent(
+                    updated.nodeId(),
+                    node.status(),
+                    updated.status(),
+                    "%s status updated".formatted(node.getClass().getSimpleName())
+            );
             log.info("Planning merger node {} updated with merged tickets", nodeId);
         }
-    }
-
-    public void beforeEditorAgentInvocation(String goal, String context, String parentNodeId, String nodeId) {
-
-        EditorNode editorNode = new EditorNode(
-                nodeId,
-                "Code Generation",
-                goal,
-                GraphNode.NodeStatus.RUNNING,
-                parentNodeId,
-                new ArrayList<>(),
-                new HashMap<>(),
-                Instant.now(),
-                Instant.now(),
-                null,
-                new ArrayList<>(),
-                null,
-                0,
-                1,
-                "editor",
-                "",
-                false,
-                0
-        );
-
-        orchestrator.addChildNodeAndEmitEvent(parentNodeId, editorNode);
-        log.info("Editor node {} registered for goal: {}", nodeId, goal);
-    }
-
-    /**
-     * Handle after-agent-invocation for Editor Agent.
-     * Updates editor node with generated code and marks as completed.
-     */
-    public void afterEditorAgentInvocation(String generatedCode, String nodeId) {
-        if (nodeId == null) {
-            log.warn("No editor node ID found in context");
-            return;
-        }
-
-        Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof EditorNode node) {
-            EditorNode updated = new EditorNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    GraphNode.NodeStatus.COMPLETED,
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    node.mainWorktreeId(),
-                    node.submoduleWorktreeIds(),
-                    node.specFileId(),
-                    1,
-                    1,
-                    node.agentType(),
-                    generatedCode,
-                    node.mergeRequired(),
-                    0
-            );
-            this.graphRepository.save(updated);
-            this.orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
-                    updated.nodeType(), updated.parentNodeId());
-            log.info("Editor node {} updated with generated code", nodeId);
-        }
-
     }
 
     /**
@@ -662,7 +616,13 @@ public class AgentLifecycleHandler {
                     node.mergeRequired(),
                     0
             );
-//        TODO: Must save the node and then emit the event!
+            graphRepository.save(updated);
+            orchestrator.emitStatusChangeEvent(
+                    updated.nodeId(),
+                    node.status(),
+                    updated.status(),
+                    "%s status updated".formatted(node.getClass().getSimpleName())
+            );
             log.info("Merger node {} updated with merge strategy", nodeId);
         }
     }
@@ -733,9 +693,13 @@ public class AgentLifecycleHandler {
                     node.mergeRequired(),
                     0
             );
-//        TODO: Must save the node and then emit the event!
-            orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
-                    updated.nodeType(), updated.parentNodeId());
+            graphRepository.save(updated);
+            orchestrator.emitStatusChangeEvent(
+                    updated.nodeId(),
+                    node.status(),
+                    updated.status(),
+                    "%s status updated".formatted(node.getClass().getSimpleName())
+            );
             log.info("Ticket orchestrator node {} updated with orchestration plan", nodeId);
         }
     }
@@ -781,8 +745,7 @@ public class AgentLifecycleHandler {
         }
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
-        if (nodeOpt.isPresent() && nodeOpt.get() instanceof EditorNode) {
-            EditorNode node = (EditorNode) nodeOpt.get();
+        if (nodeOpt.isPresent() && nodeOpt.get() instanceof EditorNode node) {
             EditorNode updated = new EditorNode(
                     node.nodeId(),
                     node.title(),
@@ -804,8 +767,11 @@ public class AgentLifecycleHandler {
                     0
             );
             graphRepository.save(updated);
-            orchestrator.emitNodeAddedEvent(updated.nodeId(), updated.title(),
-                    updated.nodeType(), updated.parentNodeId());
+            orchestrator.emitStatusChangeEvent(
+                    updated.nodeId(),
+                    node.status(),
+                    updated.status(),
+                    "Completed editor agent");
             log.info("Ticket node {} updated with implementation summary", nodeId);
         }
     }
@@ -872,7 +838,12 @@ public class AgentLifecycleHandler {
             );
 
             graphRepository.save(updated);
-            orchestrator.emitStatusChangeEvent(node.nodeId(), node.status(), updated.status(), "Review node changed to completed.");
+            orchestrator.emitStatusChangeEvent(
+                    updated.nodeId(),
+                    node.status(),
+                    updated.status(),
+                    "%s status updated".formatted(node.getClass().getSimpleName())
+            );
             log.info("Review node {} updated with evaluation", nodeId);
         }
 

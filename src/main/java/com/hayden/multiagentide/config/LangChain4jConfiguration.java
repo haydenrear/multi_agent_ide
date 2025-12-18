@@ -157,12 +157,12 @@ public class LangChain4jConfiguration {
                 .chatModel(chatModel)
                 .tools(tools)
                 .beforeAgentInvocation(invocation -> {
-                    lifecycleHandler.beforeDiscoveryMergerInvocation(
+                    lifecycleHandler.beforeDiscoveryCollectorInvocation(
                             invocation.inputs().toString(),
                             null, UUID.randomUUID().toString());
                 })
                 .afterAgentInvocation(invocation -> {
-                    lifecycleHandler.afterDiscoveryMergerInvocation(
+                    lifecycleHandler.afterDiscoveryCollectorInvocation(
                             invocation.output().toString(),
                             null);
                 })
@@ -243,12 +243,12 @@ public class LangChain4jConfiguration {
                 .chatModel(chatModel)
                 .tools(tools)
                 .beforeAgentInvocation(invocation -> {
-                    lifecycleHandler.beforePlanningMergerInvocation(
+                    lifecycleHandler.beforePlanningCollectorInvocation(
                             invocation.inputs().toString(),
                             null, UUID.randomUUID().toString());
                 })
                 .afterAgentInvocation(invocation -> {
-                    lifecycleHandler.afterPlanningMergerInvocation(
+                    lifecycleHandler.afterPlanningCollectorInvocation(
                             invocation.output().toString(),
                             null);
                 })
@@ -311,38 +311,6 @@ public class LangChain4jConfiguration {
                 .build();
     }
 
-    /**
-     * Build Editor Agent using AgenticServices with lifecycle management.
-     * Generates code based on specifications.
-     * Before invocation: registers editor node
-     * After invocation: updates node with generated code
-     */
-    @Bean
-    public AgentInterfaces.TicketAgent editorAgent(
-            ChatModel chatModel,
-            LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler) {
-        return AgenticServices.agentBuilder(AgentInterfaces.TicketAgent.class)
-                .chatModel(chatModel)
-                .tools(tools)
-                .beforeAgentInvocation(invocation -> {
-                    // Register editor node before agent executes
-                    lifecycleHandler.beforeEditorAgentInvocation(
-                            invocation.inputs().toString(),
-                            "",
-                            null,
-                            null
-                    );
-                })
-                .afterAgentInvocation(invocation -> {
-                    // Update node with generated code after agent completes
-                    lifecycleHandler.afterEditorAgentInvocation(
-                            invocation.output().toString(),
-                            null
-                    );
-                })
-                .build();
-    }
 
     /**
      * Build Merger Agent using AgenticServices with lifecycle management.
