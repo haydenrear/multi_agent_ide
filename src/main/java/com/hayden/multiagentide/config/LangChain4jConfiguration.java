@@ -401,6 +401,26 @@ public class LangChain4jConfiguration {
                 .build();
     }
 
+    @Bean
+    public AgentInterfaces.OrchestratorCollectorAgent orchestratorCollectorAgent(ChatModel chatModel,
+                                                                                 LangChain4jAgentTools tools,
+                                                                                 @Lazy AgentLifecycleHandler lifecycleHandler) {
+        return AgenticServices.agentBuilder(AgentInterfaces.OrchestratorCollectorAgent.class)
+                .beforeAgentInvocation(invocation -> {
+                    // Register planning node before agent executes
+                    lifecycleHandler.beforeOrchestratorCollector(
+                            invocation.inputs().toString(),
+                            null, null, null);
+                })
+                .afterAgentInvocation(invocation -> {
+                    // Update node with planning results after agent completes
+                    lifecycleHandler.afterOrchestratorCollector(invocation.output().toString());
+                })
+                .chatModel(chatModel)
+                .tools(tools)
+                .build();
+    }
+
     /**
      * Mock ChatLanguageModel for testing without OpenAI API key.
      */

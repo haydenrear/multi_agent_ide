@@ -43,6 +43,16 @@ public class AgentLifecycleHandler {
     }
 
     public void afterOrchestrator(String s) {
+//      TODO: should go to orchestrator collector
+        throw new RuntimeException("Not implemented yet");
+    }
+
+    public void beforeOrchestratorCollector(String repositoryUrl, String baseBranch,
+                                            String goal, String title) {
+
+    }
+
+    public void afterOrchestratorCollector(String s) {
         throw new RuntimeException("Not implemented yet");
     }
 

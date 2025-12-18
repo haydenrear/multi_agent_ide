@@ -312,4 +312,17 @@ public class AgentInterfaces {
                                   @V("goal") String goal,
                                   @V("phase") String phase);
     }
+
+    public interface OrchestratorCollectorAgent {
+
+        String ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE = """
+//                TODO:
+                """;
+
+        @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
+        String coordinateWorkflow(@MemoryId String memId,
+                                  @UserMessage String msg,
+                                  @V("goal") String goal,
+                                  @V("phase") String phase);
+    }
 }
