@@ -220,7 +220,7 @@ class OrchestratorEndToEndTest extends AgentTestBase {
             .thenReturn(hasSubmodules ? List.of("submodule-a") : List.of());
 
         when(worktreeService.getSubmodulePath(any(), anyString()))
-            .thenAnswer(invocation -> Path.of("modules").resolve(invocation.getArgument(1)));
+            .thenAnswer(invocation -> Path.of("modules").resolve(invocation.getArgument(1).toString()));
 
         doAnswer(invocation -> {
             SubmoduleWorktreeContext context = new SubmoduleWorktreeContext(

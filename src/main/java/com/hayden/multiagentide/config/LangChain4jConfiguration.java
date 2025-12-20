@@ -3,6 +3,10 @@ package com.hayden.multiagentide.config;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.agent.LangChain4jAgentTools;
+import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
+import dev.langchain4j.agentic.agent.AgentRequest;
+import dev.langchain4j.agentic.agent.AgentResponse;
+import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
@@ -20,7 +24,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 
-import java.util.UUID;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * LangChain4j configuration for Chat Language Models and Agentic Services.
@@ -29,6 +34,25 @@ import java.util.UUID;
  */
 @Configuration
 public class LangChain4jConfiguration {
+
+    private static final String KEY_DISCOVERY_CONTEXT = "discoveryContext";
+    private static final String KEY_DISCOVERY_RESULTS = "discoveryResults";
+
+    private static final String KEY_PLANNING_CONTEXT = "planningContext";
+    private static final String KEY_PLANNING_RESULTS = "planningResults";
+
+    private static final String OUTPUT_DISCOVERY_DIVISION = "discoveryDivisionStrategy";
+    private static final String OUTPUT_DISCOVERY_RESULTS = KEY_DISCOVERY_RESULTS;
+    private static final String OUTPUT_DISCOVERY_CONTEXT = KEY_DISCOVERY_CONTEXT;
+    private static final String OUTPUT_PLANNING_DIVISION = "planningDivisionStrategy";
+    private static final String OUTPUT_PLANNING_RESULTS = KEY_PLANNING_RESULTS;
+    private static final String OUTPUT_PLANNING_CONTEXT = KEY_PLANNING_CONTEXT;
+    private static final String OUTPUT_TICKET_ORCHESTRATION = "ticketOrchestrationPlan";
+    private static final String OUTPUT_TICKET_IMPLEMENTATION = "ticketImplementationSummary";
+    private static final String OUTPUT_MERGE_STRATEGY = "mergeStrategy";
+    private static final String OUTPUT_REVIEW_EVALUATION = "reviewEvaluation";
+    private static final String OUTPUT_ORCHESTRATOR = "orchestratorOutput";
+    private static final String OUTPUT_ORCHESTRATOR_COLLECTOR = "orchestratorCollectorOutput";
 
     @Value("${langchain4j.openai.chat-model.api-key:}")
     private String apiKey;
@@ -41,6 +65,12 @@ public class LangChain4jConfiguration {
 
     @Value("${langchain4j.openai.chat-model.max-tokens:2000}")
     private Integer maxTokens;
+
+    private final ComputationGraphOrchestrator orchestrator;
+
+    public LangChain4jConfiguration(ComputationGraphOrchestrator orchestrator) {
+        this.orchestrator = orchestrator;
+    }
 
     /**
      * Create OpenAI Chat Language Model for non-streaming calls.
@@ -99,17 +129,15 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryOrchestrator.class)
                 .chatModel(chatModel)
                 .tools(tools)
+                .outputKey(OUTPUT_DISCOVERY_DIVISION)
                 .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
-                .beforeAgentInvocation(invocation -> {
-                    lifecycleHandler.beforeDiscoveryOrchestratorInvocation(
-                            invocation.inputs().toString(),
-                            null,
-                            UUID.randomUUID().toString());
+                .beforeAgentInvocation(request -> {
+                    lifecycleHandler.beforeDiscoveryOrchestratorInvocation(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
-                    lifecycleHandler.afterDiscoveryOrchestratorInvocation(
-                            invocation.output().toString(),
-                            null);
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.DiscoveryOrchestratorResult result =
+                            toDiscoveryOrchestratorResult(response.output(), nodeId(response));
+                    lifecycleHandler.afterDiscoveryOrchestratorInvocation(result, nodeId(response));
                 })
                 .build();
     }
@@ -129,15 +157,14 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
-                .beforeAgentInvocation(invocation -> {
-                    lifecycleHandler.beforeDiscoveryAgentInvocation(
-                            invocation.inputs().toString(),
-                            null, UUID.randomUUID().toString());
+                .outputKey(OUTPUT_DISCOVERY_RESULTS)
+                .beforeAgentInvocation(request -> {
+                    lifecycleHandler.beforeDiscoveryAgentInvocation(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
-                    lifecycleHandler.afterDiscoveryAgentInvocation(
-                            invocation.output().toString(),
-                            null, null);
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.DiscoveryAgentResult result =
+                            toDiscoveryAgentResult(response.output(), nodeId(response));
+                    lifecycleHandler.afterDiscoveryAgentInvocation(result, nodeId(response));
                 })
                 .build();
     }
@@ -157,15 +184,14 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryCollector.class)
                 .chatModel(chatModel)
                 .tools(tools)
-                .beforeAgentInvocation(invocation -> {
-                    lifecycleHandler.beforeDiscoveryCollectorInvocation(
-                            invocation.inputs().toString(),
-                            null, UUID.randomUUID().toString());
+                .outputKey(OUTPUT_DISCOVERY_CONTEXT)
+                .beforeAgentInvocation(request -> {
+                    lifecycleHandler.beforeDiscoveryCollectorInvocation(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
-                    lifecycleHandler.afterDiscoveryCollectorInvocation(
-                            invocation.output().toString(),
-                            null);
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.DiscoveryCollectorResult result =
+                            toDiscoveryCollectorResult(response.output(), nodeId(response));
+                    lifecycleHandler.afterDiscoveryCollectorInvocation(result, nodeId(response));
                 })
                 .build();
     }
@@ -185,15 +211,14 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.PlanningOrchestrator.class)
                 .chatModel(chatModel)
                 .tools(tools)
-                .beforeAgentInvocation(invocation -> {
-                    lifecycleHandler.beforePlanningOrchestratorInvocation(
-                            invocation.inputs().toString(),
-                            null, UUID.randomUUID().toString());
+                .outputKey(OUTPUT_PLANNING_DIVISION)
+                .beforeAgentInvocation(request -> {
+                    lifecycleHandler.beforePlanningOrchestratorInvocation(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
-                    lifecycleHandler.afterPlanningOrchestratorInvocation(
-                            invocation.output().toString(),
-                            null);
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.PlanningOrchestratorResult result =
+                            toPlanningOrchestratorResult(response.output(), nodeId(response));
+                    lifecycleHandler.afterPlanningOrchestratorInvocation(result, nodeId(response));
                 })
                 .build();
     }
@@ -213,17 +238,16 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.PlanningAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
-                .beforeAgentInvocation(invocation -> {
+                .outputKey(OUTPUT_PLANNING_RESULTS)
+                .beforeAgentInvocation(request -> {
                     // Register planning node before agent executes
-                    lifecycleHandler.beforePlanningAgentInvocation(
-                            invocation.inputs().toString(),
-                            null, UUID.randomUUID().toString());
+                    lifecycleHandler.beforePlanningAgentInvocation(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.PlanningAgentResult result =
+                            toPlanningAgentResult(response.output(), nodeId(response));
                     // Update node with planning results after agent completes
-                    lifecycleHandler.afterPlanningAgentInvocation(
-                            invocation.output().toString(),
-                            null);
+                    lifecycleHandler.afterPlanningAgentInvocation(result, nodeId(response));
                 })
                 .build();
     }
@@ -243,15 +267,14 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.PlanningCollector.class)
                 .chatModel(chatModel)
                 .tools(tools)
-                .beforeAgentInvocation(invocation -> {
-                    lifecycleHandler.beforePlanningCollectorInvocation(
-                            invocation.inputs().toString(),
-                            null, UUID.randomUUID().toString());
+                .outputKey(OUTPUT_PLANNING_CONTEXT)
+                .beforeAgentInvocation(request -> {
+                    lifecycleHandler.beforePlanningCollectorInvocation(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
-                    lifecycleHandler.afterPlanningCollectorInvocation(
-                            invocation.output().toString(),
-                            null);
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.PlanningCollectorResult result =
+                            toPlanningCollectorResult(response.output(), nodeId(response));
+                    lifecycleHandler.afterPlanningCollectorInvocation(result, nodeId(response));
                 })
                 .build();
     }
@@ -271,15 +294,14 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.TicketOrchestrator.class)
                 .chatModel(chatModel)
                 .tools(tools)
-                .beforeAgentInvocation(invocation -> {
-                    lifecycleHandler.beforeTicketOrchestratorInvocation(
-                            invocation.inputs().toString(),
-                            null, UUID.randomUUID().toString());
+                .outputKey(OUTPUT_TICKET_ORCHESTRATION)
+                .beforeAgentInvocation(request -> {
+                    lifecycleHandler.beforeTicketOrchestratorInvocation(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
-                    lifecycleHandler.afterTicketOrchestratorInvocation(
-                            invocation.output().toString(),
-                            null);
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.TicketOrchestratorResult result =
+                            toTicketOrchestratorResult(response.output(), nodeId(response));
+                    lifecycleHandler.afterTicketOrchestratorInvocation(result, nodeId(response));
                 })
                 .build();
     }
@@ -299,15 +321,14 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.TicketAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
-                .beforeAgentInvocation(invocation -> {
-                    lifecycleHandler.beforeTicketAgentInvocation(
-                            invocation.inputs().toString(),
-                            null, UUID.randomUUID().toString());
+                .outputKey(OUTPUT_TICKET_IMPLEMENTATION)
+                .beforeAgentInvocation(request -> {
+                    lifecycleHandler.beforeTicketAgentInvocation(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
-                    lifecycleHandler.afterTicketAgentInvocation(
-                            invocation.output().toString(),
-                            null);
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.TicketAgentResult result =
+                            toTicketAgentResult(response.output(), nodeId(response));
+                    lifecycleHandler.afterTicketAgentInvocation(result, nodeId(response));
                 })
                 .build();
     }
@@ -327,21 +348,16 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.MergerAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
-                .beforeAgentInvocation(invocation -> {
+                .outputKey(OUTPUT_MERGE_STRATEGY)
+                .beforeAgentInvocation(request -> {
                     // Register merger node before agent executes
-                    lifecycleHandler.beforeMergerAgentInvocation(
-                            invocation.inputs().toString(),
-                            "",
-                            null,
-                            UUID.randomUUID().toString()
-                    );
+                    lifecycleHandler.beforeMergerAgentInvocation(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.MergerAgentResult result =
+                            toMergerAgentResult(response.output(), nodeId(response));
                     // Update node with merge strategy after agent completes
-                    lifecycleHandler.afterMergerAgentInvocation(
-                            invocation.output().toString(),
-                            null
-                    );
+                    lifecycleHandler.afterMergerAgentInvocation(result, nodeId(response));
                 })
                 .build();
     }
@@ -360,20 +376,16 @@ public class LangChain4jConfiguration {
         return AgenticServices.agentBuilder(AgentInterfaces.ReviewAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
-                .beforeAgentInvocation(invocation -> {
+                .outputKey(OUTPUT_REVIEW_EVALUATION)
+                .beforeAgentInvocation(request -> {
                     // Register review node before agent executes
-                    lifecycleHandler.beforeReviewAgentInvocation(
-                            invocation.inputs().toString(),
-                            "",
-                            null, UUID.randomUUID().toString()
-                    );
+                    lifecycleHandler.beforeReviewAgentInvocation(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.ReviewAgentResult result =
+                            toReviewAgentResult(response.output(), nodeId(response));
                     // Update node with evaluation after agent completes
-                    lifecycleHandler.afterReviewAgentInvocation(
-                            invocation.output().toString(),
-                            null
-                    );
+                    lifecycleHandler.afterReviewAgentInvocation(result, nodeId(response));
                 })
                 .build();
     }
@@ -387,15 +399,16 @@ public class LangChain4jConfiguration {
                                                                LangChain4jAgentTools tools,
                                                                 @Lazy AgentLifecycleHandler lifecycleHandler) {
         return AgenticServices.agentBuilder(AgentInterfaces.OrchestratorAgent.class)
-                .beforeAgentInvocation(invocation -> {
+                .outputKey(OUTPUT_ORCHESTRATOR)
+                .beforeAgentInvocation(request -> {
                     // Register planning node before agent executes
-                    lifecycleHandler.beforeOrchestrator(
-                            invocation.inputs().toString(),
-                            null, null, null);
+                    lifecycleHandler.beforeOrchestrator(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.OrchestratorAgentResult result =
+                            toOrchestratorAgentResult(response.output(), nodeId(response));
                     // Update node with planning results after agent completes
-                    lifecycleHandler.afterOrchestrator(invocation.output().toString());
+                    lifecycleHandler.afterOrchestrator(result, nodeId(response));
                 })
                 .chatModel(chatModel)
                 .tools(tools)
@@ -407,15 +420,16 @@ public class LangChain4jConfiguration {
                                                                                  LangChain4jAgentTools tools,
                                                                                  @Lazy AgentLifecycleHandler lifecycleHandler) {
         return AgenticServices.agentBuilder(AgentInterfaces.OrchestratorCollectorAgent.class)
-                .beforeAgentInvocation(invocation -> {
+                .outputKey(OUTPUT_ORCHESTRATOR_COLLECTOR)
+                .beforeAgentInvocation(request -> {
                     // Register planning node before agent executes
-                    lifecycleHandler.beforeOrchestratorCollector(
-                            invocation.inputs().toString(),
-                            null, null, null);
+                    lifecycleHandler.beforeOrchestratorCollector(nodeId(request));
                 })
-                .afterAgentInvocation(invocation -> {
+                .afterAgentInvocation(response -> {
+                    AgentInterfaces.OrchestratorCollectorResult result =
+                            toOrchestratorCollectorResult(response.output(), nodeId(response));
                     // Update node with planning results after agent completes
-                    lifecycleHandler.afterOrchestratorCollector(invocation.output().toString());
+                    lifecycleHandler.afterOrchestratorCollector(result, nodeId(response));
                 })
                 .chatModel(chatModel)
                 .tools(tools)
@@ -458,5 +472,90 @@ public class LangChain4jConfiguration {
                     .aiMessage(AiMessage.from("Mock streaming response for " + messages.size() + " messages"))
                     .build());
         }
+    }
+
+    private static String nodeId(AgentRequest request) {
+        if (request == null) {
+            return null;
+        }
+        return nodeId(request.agenticScope());
+    }
+
+    private static String nodeId(AgentResponse response) {
+        if (response == null) {
+            return null;
+        }
+        return nodeId(response.agenticScope());
+    }
+
+    private static String nodeId(AgenticScope scope) {
+        if (scope == null || scope.memoryId() == null) {
+            return null;
+        }
+        return scope.memoryId().toString();
+    }
+
+    private <T> T castResult(Object output, String nodeId, Class<T> expectedType) {
+        if (output == null) {
+            return null;
+        }
+        if (expectedType.isInstance(output)) {
+            return expectedType.cast(output);
+        }
+        orchestrator.emitErrorEvent(
+                nodeId,
+                "result_cast",
+                expectedType.getSimpleName(),
+                "Expected " + expectedType.getSimpleName() + " but received " + output.getClass().getSimpleName()
+        );
+        return null;
+    }
+
+    private AgentInterfaces.DiscoveryOrchestratorResult toDiscoveryOrchestratorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.DiscoveryOrchestratorResult.class);
+    }
+
+    private AgentInterfaces.DiscoveryAgentResult toDiscoveryAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.DiscoveryAgentResult.class);
+    }
+
+    private AgentInterfaces.DiscoveryCollectorResult toDiscoveryCollectorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.DiscoveryCollectorResult.class);
+    }
+
+    private AgentInterfaces.PlanningOrchestratorResult toPlanningOrchestratorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.PlanningOrchestratorResult.class);
+    }
+
+    private AgentInterfaces.PlanningAgentResult toPlanningAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.PlanningAgentResult.class);
+    }
+
+    private AgentInterfaces.PlanningCollectorResult toPlanningCollectorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.PlanningCollectorResult.class);
+    }
+
+    private AgentInterfaces.TicketOrchestratorResult toTicketOrchestratorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.TicketOrchestratorResult.class);
+    }
+
+    private AgentInterfaces.TicketAgentResult toTicketAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.TicketAgentResult.class);
+    }
+
+    private AgentInterfaces.MergerAgentResult toMergerAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.MergerAgentResult.class);
+    }
+
+    private AgentInterfaces.ReviewAgentResult toReviewAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.ReviewAgentResult.class);
+    }
+
+    private AgentInterfaces.OrchestratorAgentResult toOrchestratorAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.OrchestratorAgentResult.class);
+    }
+
+    private AgentInterfaces.OrchestratorCollectorResult toOrchestratorCollectorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentInterfaces.OrchestratorCollectorResult.class);
     }
 }
