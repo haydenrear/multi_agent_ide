@@ -25,8 +25,7 @@ public record SummaryNode(
         List<String> summarizedNodeIds,
         String summaryContent,
         int totalTasksCompleted,
-        int totalTasksFailed,
-        String specFileId
+        int totalTasksFailed
 ) implements GraphNode, Viewable<String> {
 
     public SummaryNode {
@@ -54,7 +53,7 @@ public record SummaryNode(
                 nodeId, title, goal, newStatus, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 summarizedNodeIds, summaryContent,
-                totalTasksCompleted, totalTasksFailed, specFileId
+                totalTasksCompleted, totalTasksFailed
         );
     }
 
@@ -66,7 +65,7 @@ public record SummaryNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 summarizedNodeIds, content,
-                totalTasksCompleted, totalTasksFailed, specFileId
+                totalTasksCompleted, totalTasksFailed
         );
     }
 
@@ -80,7 +79,7 @@ public record SummaryNode(
                 this.nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 newSummarized, summaryContent,
-                totalTasksCompleted, totalTasksFailed, specFileId
+                totalTasksCompleted, totalTasksFailed
         );
     }
 }

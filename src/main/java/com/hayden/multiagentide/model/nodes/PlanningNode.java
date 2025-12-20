@@ -24,7 +24,6 @@ public record PlanningNode(
         // Planning-specific fields
         List<String> generatedTicketIds,
         String planContent,
-        String specFileId,
         int estimatedSubtasks,
         int completedSubtasks
 ) implements GraphNode, Viewable<String> {
@@ -54,7 +53,7 @@ public record PlanningNode(
         return new PlanningNode(
                 nodeId, title, goal, newStatus, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, planContent, specFileId,
+                generatedTicketIds, planContent,
                 estimatedSubtasks, completedSubtasks
         );
     }
@@ -68,7 +67,7 @@ public record PlanningNode(
         return new PlanningNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                newTickets, planContent, specFileId,
+                newTickets, planContent,
                 estimatedSubtasks, completedSubtasks
         );
     }
@@ -80,7 +79,7 @@ public record PlanningNode(
         return new PlanningNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, content, specFileId,
+                generatedTicketIds, content,
                 estimatedSubtasks, completedSubtasks
         );
     }
@@ -92,7 +91,7 @@ public record PlanningNode(
         return new PlanningNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, planContent, specFileId,
+                generatedTicketIds, planContent,
                 total, completed
         );
     }

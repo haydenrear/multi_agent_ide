@@ -24,7 +24,6 @@ public record EditorNode(
         // Work-specific fields
         String mainWorktreeId,
         List<String> submoduleWorktreeIds,
-        String specFileId,
         int completedSubtasks,
         int totalSubtasks,
         String agentType,  // Type of agent handling this work
@@ -59,7 +58,7 @@ public record EditorNode(
         return new EditorNode(
                 nodeId, title, goal, newStatus, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                mainWorktreeId, submoduleWorktreeIds, specFileId,
+                mainWorktreeId, submoduleWorktreeIds,
                 completedSubtasks, totalSubtasks, agentType,
                 workOutput, mergeRequired, streamingTokenCount
         );
@@ -74,7 +73,7 @@ public record EditorNode(
         return new EditorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                mainWorktreeId, newSubmodules, specFileId,
+                mainWorktreeId, newSubmodules,
                 completedSubtasks, totalSubtasks, agentType,
                 workOutput, mergeRequired, streamingTokenCount
         );
@@ -87,7 +86,7 @@ public record EditorNode(
         return new EditorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                mainWorktreeId, submoduleWorktreeIds, specFileId,
+                mainWorktreeId, submoduleWorktreeIds,
                 completedSubtasks, totalSubtasks, agentType,
                 output, mergeRequired, tokens
         );
@@ -100,7 +99,7 @@ public record EditorNode(
         return new EditorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                mainWorktreeId, submoduleWorktreeIds, specFileId,
+                mainWorktreeId, submoduleWorktreeIds,
                 completed, total, agentType,
                 workOutput, mergeRequired, streamingTokenCount
         );
@@ -113,7 +112,7 @@ public record EditorNode(
         return new EditorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                mainWorktreeId, submoduleWorktreeIds, specFileId,
+                mainWorktreeId, submoduleWorktreeIds,
                 completedSubtasks, totalSubtasks, agentType,
                 workOutput, true, streamingTokenCount
         );
@@ -128,7 +127,7 @@ public record EditorNode(
         return new EditorNode(
                 nodeId, title, goal, status, parentNodeId,
                 newChildren, metadata, createdAt, Instant.now(),
-                mainWorktreeId, submoduleWorktreeIds, specFileId,
+                mainWorktreeId, submoduleWorktreeIds,
                 completedSubtasks, totalSubtasks, agentType,
                 workOutput, mergeRequired, streamingTokenCount
         );

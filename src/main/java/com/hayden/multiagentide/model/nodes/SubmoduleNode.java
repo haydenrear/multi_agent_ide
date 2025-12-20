@@ -25,7 +25,6 @@ public record SubmoduleNode(
         List<String> submoduleNames,
         String mainWorktreeId,
         List<String> submoduleWorktreeIds,
-        String specFileId,
         String orchestratorOutput
 )  {
 
@@ -46,7 +45,7 @@ public record SubmoduleNode(
                 nodeId, title, goal, newStatus, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, specFileId, orchestratorOutput
+                mainWorktreeId, submoduleWorktreeIds, orchestratorOutput
         );
     }
 
@@ -60,7 +59,7 @@ public record SubmoduleNode(
                 nodeId, title, goal, status, parentNodeId,
                 newChildren, metadata, createdAt, Instant.now(),
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, specFileId, orchestratorOutput
+                mainWorktreeId, submoduleWorktreeIds, orchestratorOutput
         );
     }
 
@@ -72,7 +71,7 @@ public record SubmoduleNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, specFileId, output
+                mainWorktreeId, submoduleWorktreeIds, output
         );
     }
 }

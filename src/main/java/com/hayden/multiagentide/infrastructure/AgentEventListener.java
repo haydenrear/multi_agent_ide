@@ -88,7 +88,6 @@ public class AgentEventListener implements EventListener {
             case Events.WorktreeMergedEvent worktreeMergedEvent -> {
                 log.debug("Worktree merged: {}", worktreeMergedEvent.eventId());
             }
-            default -> log.warn("Unhandled event type: {}", event.getClass().getSimpleName());
         }
     }
 

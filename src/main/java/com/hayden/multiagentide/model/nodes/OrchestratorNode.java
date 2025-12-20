@@ -26,14 +26,13 @@ public record OrchestratorNode(
         List<String> submoduleNames,
         String mainWorktreeId,
         List<String> submoduleWorktreeIds,
-        String specFileId,
         String orchestratorOutput,
         List<SubmoduleNode> submodules
 ) implements GraphNode, Viewable<String>, Orchestrator {
 
-    public OrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String specFileId, String orchestratorOutput) {
+    public OrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, specFileId, orchestratorOutput,
+                repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
                 new ArrayList<>());
     }
 
@@ -64,7 +63,7 @@ public record OrchestratorNode(
                 nodeId, title, goal, newStatus, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, specFileId, orchestratorOutput
+                mainWorktreeId, submoduleWorktreeIds, orchestratorOutput
         );
     }
 
@@ -78,7 +77,7 @@ public record OrchestratorNode(
                 nodeId, title, goal, status, parentNodeId,
                 newChildren, metadata, createdAt, Instant.now(),
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, specFileId, orchestratorOutput
+                mainWorktreeId, submoduleWorktreeIds, orchestratorOutput
         );
     }
 
@@ -90,7 +89,7 @@ public record OrchestratorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, specFileId, output
+                mainWorktreeId, submoduleWorktreeIds, output
         );
     }
 }

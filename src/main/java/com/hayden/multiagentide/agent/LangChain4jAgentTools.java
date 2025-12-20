@@ -2,7 +2,6 @@ package com.hayden.multiagentide.agent;
 
 import dev.langchain4j.agent.tool.Tool;
 import com.hayden.multiagentide.repository.GraphRepository;
-import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.WorktreeService;
 import org.springframework.stereotype.Component;
@@ -16,20 +15,15 @@ public class LangChain4jAgentTools {
 
     private final GraphRepository graphRepository;
     private final WorktreeRepository worktreeRepository;
-    private final SpecRepository specRepository;
     private final WorktreeService worktreeService;
 
     public LangChain4jAgentTools(GraphRepository graphRepository,
                                 WorktreeRepository worktreeRepository,
-                                SpecRepository specRepository,
                                 WorktreeService worktreeService) {
         this.graphRepository = graphRepository;
         this.worktreeRepository = worktreeRepository;
-        this.specRepository = specRepository;
         this.worktreeService = worktreeService;
     }
-
-    // ========== SPEC TOOLS ==========
 
     // ========== WORKTREE TOOLS ==========
 

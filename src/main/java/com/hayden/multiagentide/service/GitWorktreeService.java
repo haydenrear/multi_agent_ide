@@ -6,6 +6,7 @@ import com.hayden.multiagentide.model.MergeResult;
 import com.hayden.multiagentide.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -27,9 +28,16 @@ public class GitWorktreeService implements WorktreeService {
     private final WorktreeRepository worktreeRepository;
     private final String baseWorktreesPath;
 
-    public GitWorktreeService(WorktreeRepository worktreeRepository) {
+    public GitWorktreeService(
+            WorktreeRepository worktreeRepository,
+            @Value("${multiagentide.worktrees.base-path:}") String baseWorktreesPath
+    ) {
         this.worktreeRepository = worktreeRepository;
-        this.baseWorktreesPath = System.getProperty("user.home") + "/.multi-agent-ide/worktrees";
+        if (baseWorktreesPath == null || baseWorktreesPath.isBlank()) {
+            this.baseWorktreesPath = System.getProperty("user.home") + "/.multi-agent-ide/worktrees";
+        } else {
+            this.baseWorktreesPath = baseWorktreesPath;
+        }
     }
 
     @Override
@@ -61,7 +69,6 @@ public class GitWorktreeService implements WorktreeService {
                     repositoryUrl,
                     hasSubmodulesInternal(worktreePath),
                     new ArrayList<>(),
-                    null,
                     new HashMap<>()
             );
 
@@ -80,7 +87,17 @@ public class GitWorktreeService implements WorktreeService {
 
         try {
             // Initialize submodule if not already done
-            executeGitCommand(parentWorktreePath.toString(), "git", "submodule", "update", "--init", "--recursive", submodulePath);
+            executeGitCommand(
+                    parentWorktreePath.toString(),
+                    "git",
+                    "-c",
+                    "protocol.file.allow=always",
+                    "submodule",
+                    "update",
+                    "--init",
+                    "--recursive",
+                    submodulePath
+            );
 
             String commitHash = getCurrentCommitHashInternal(submoduleFullPath);
 
@@ -96,7 +113,6 @@ public class GitWorktreeService implements WorktreeService {
                     submoduleName,
                     "", // submoduleUrl - will be fetched from .gitmodules if needed
                     parentWorktreeId,  // mainWorktreeId
-                    null,  // specSectionId
                     new HashMap<>()
             );
 
@@ -279,7 +295,6 @@ public class GitWorktreeService implements WorktreeService {
                     source.get().repositoryUrl(),
                     source.get().hasSubmodules(),
                     new ArrayList<>(),
-                    null,
                     new HashMap<>()
             );
 
@@ -315,7 +330,6 @@ public class GitWorktreeService implements WorktreeService {
                     source.get().submoduleName(),
                     source.get().submoduleUrl(),
                     source.get().mainWorktreeId(),
-                    source.get().specSectionId(),
                     new HashMap<>()
             );
 

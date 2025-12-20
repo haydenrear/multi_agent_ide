@@ -19,8 +19,7 @@ public record DiscoveryNode(
         Instant lastUpdatedAt,
         String summaryContent,
         int totalTasksCompleted,
-        int totalTasksFailed,
-        String specFileId
+        int totalTasksFailed
 ) implements GraphNode, Viewable<String> {
 
     public DiscoveryNode {
@@ -47,7 +46,7 @@ public record DiscoveryNode(
                 nodeId, title, goal, newStatus, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 summaryContent,
-                totalTasksCompleted, totalTasksFailed, specFileId
+                totalTasksCompleted, totalTasksFailed
         );
     }
 
@@ -59,7 +58,7 @@ public record DiscoveryNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                  content,
-                totalTasksCompleted, totalTasksFailed, specFileId
+                totalTasksCompleted, totalTasksFailed
         );
     }
 

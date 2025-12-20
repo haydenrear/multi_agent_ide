@@ -28,8 +28,7 @@ public record ReviewNode(
         boolean humanFeedbackRequested,
         String agentFeedback,
         String reviewerAgentType,
-        Instant reviewCompletedAt,
-        String specFileId
+        Instant reviewCompletedAt
 ) implements GraphNode, Viewable<String> {
 
     public ReviewNode {
@@ -58,7 +57,7 @@ public record ReviewNode(
                 nodeId, title, goal, newStatus, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 reviewedNodeId, reviewContent, approved, humanFeedbackRequested, agentFeedback,
-                reviewerAgentType, reviewCompletedAt, specFileId
+                reviewerAgentType, reviewCompletedAt
         );
     }
 
@@ -70,7 +69,7 @@ public record ReviewNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
                 reviewedNodeId, reviewContent, approvalStatus, humanFeedbackRequested, feedback,
-                reviewerAgentType, Instant.now(), specFileId
+                reviewerAgentType, Instant.now()
         );
     }
 

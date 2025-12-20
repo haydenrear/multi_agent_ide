@@ -19,7 +19,6 @@ import com.hayden.multiagentide.model.nodes.*;
 import com.hayden.multiagentide.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
-import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.WorktreeService;
 import java.time.Instant;
@@ -66,7 +65,6 @@ public class AgentRunner {
     private final GraphRepository graphRepository;
     private final WorktreeService worktreeService;
     private final WorktreeRepository worktreeRepository;
-    private final SpecRepository specRepository;
 
     private static final String META_TICKET_QUEUE = "ticket_queue";
     private static final String META_TICKET_POINTER = "ticket_pointer";
@@ -287,8 +285,7 @@ public class AgentRunner {
                 Instant.now(),
                 "",
                 0,
-                0,
-                orchestratorNode.specFileId()
+                0
             );
 
         computationGraphOrchestrator.addChildNodeAndEmitEvent(
@@ -369,8 +366,7 @@ public class AgentRunner {
                 Instant.now(),
                 "",
                 0,
-                0,
-                orchestratorNode.specFileId()
+                0
             );
             computationGraphOrchestrator.addChildNodeAndEmitEvent(
                 orchestratorNode.nodeId(),
@@ -502,7 +498,6 @@ public class AgentRunner {
                 Instant.now(),
                 new ArrayList<>(),
                 discoveryContext,
-                discoveryMergerNode.specFileId(),
                 0,
                 0
             );
@@ -594,7 +589,6 @@ public class AgentRunner {
                 Instant.now(),
                 new ArrayList<>(),
                 "",
-                orchestratorNode.specFileId(),
                 0,
                 0
             );
@@ -773,7 +767,6 @@ public class AgentRunner {
             Instant.now(),
             ticketMainWorktreeId,
             branchedSubmodules,
-            root.specFileId(),
             0,
             0,
             "ticket-orchestrator",
@@ -939,7 +932,6 @@ public class AgentRunner {
             Instant.now(),
             mainWorktreeId,
             submoduleWorktrees,
-            orchestratorNode.specFileId(),
             0,
             0,
             "ticket-agent",
@@ -1011,13 +1003,6 @@ public class AgentRunner {
     ) {
         log.info("Kicking off ReviewAgent for ticket: {}", ticketNode.nodeId());
 
-        String specContext = loadSpecContext(ticketNode.specFileId());
-        String reviewPayload =
-            implementation +
-            (specContext.isBlank()
-                ? ""
-                : "\n\nRelevant spec context:\n" + specContext);
-
         ReviewNode reviewNode = new ReviewNode(
             newNodeId(),
             "Review: " + ticketNode.title(),
@@ -1029,13 +1014,12 @@ public class AgentRunner {
             Instant.now(),
             Instant.now(),
             ticketNode.nodeId(),
-            reviewPayload,
+            implementation,
             false,
             false,
             "",
             "agent-review",
-            null,
-            ticketNode.specFileId()
+            null
         );
 
         computationGraphOrchestrator.addChildNodeAndEmitEvent(
@@ -1055,7 +1039,7 @@ public class AgentRunner {
         try {
             ReviewNode running = markNodeRunning(node);
             String content = running.reviewContent();
-            String criteria = buildReviewCriteria(running.specFileId());
+            String criteria = buildReviewCriteria();
 
             String evaluation = reviewAgent.evaluateContent(
                 running.nodeId(),
@@ -1158,8 +1142,7 @@ public class AgentRunner {
             Instant.now(),
             "",
             0,
-            0,
-            reviewNode.specFileId()
+            0
         );
 
         computationGraphOrchestrator.addChildNodeAndEmitEvent(
@@ -1343,7 +1326,6 @@ public class AgentRunner {
             Instant.now(),
             original.mainWorktreeId(),
             original.submoduleWorktreeIds(),
-            original.specFileId(),
             original.completedSubtasks(),
             original.totalSubtasks(),
             original.agentType(),
@@ -1442,8 +1424,7 @@ public class AgentRunner {
             Instant.now(),
             "",
             0,
-            0,
-            parent.specFileId()
+            0
         );
         computationGraphOrchestrator.addChildNodeAndEmitEvent(
             parent.nodeId(),
@@ -1471,7 +1452,6 @@ public class AgentRunner {
             Instant.now(),
             new ArrayList<>(),
             parent.planContent(),
-            parent.specFileId(),
             parent.estimatedSubtasks(),
             parent.completedSubtasks()
         );
@@ -1688,28 +1668,8 @@ public class AgentRunner {
         return Optional.empty();
     }
 
-    private String loadSpecContext(String specId) {
-        return specRepository
-            .findById(specId)
-            .map(spec ->
-                spec.sections()
-                    .stream()
-                    .filter(section ->
-                        section.headerPath().toLowerCase().contains("acceptance") ||
-                        section.headerPath().toLowerCase().contains("requirement")
-                    )
-                    .map(section -> section.content())
-                    .collect(Collectors.joining("\n\n"))
-            )
-            .orElse("");
-    }
-
-    private String buildReviewCriteria(String specId) {
-        String specContext = loadSpecContext(specId);
-        if (specContext.isBlank()) {
-            return "Code quality, tests, spec compliance";
-        }
-        return "Code quality, tests, spec compliance\n\nRelevant spec sections:\n" + specContext;
+    private String buildReviewCriteria() {
+        return "Code quality, tests, requirements compliance";
     }
 
     private String resolveTargetWorktree(ReviewNode reviewNode, GraphNode reviewed) {
@@ -1801,7 +1761,6 @@ public class AgentRunner {
             Instant.now(),
             node.mainWorktreeId(),
             node.submoduleWorktreeIds(),
-            node.specFileId(),
             node.completedSubtasks(),
             node.totalSubtasks(),
             node.agentType(),
@@ -1850,7 +1809,6 @@ public class AgentRunner {
                 Instant.now(),
                 orchestratorNode.mainWorktreeId(),
                 orchestratorNode.submoduleWorktreeIds(),
-                orchestratorNode.specFileId(),
                 orchestratorNode.completedSubtasks(),
                 orchestratorNode.totalSubtasks(),
                 orchestratorNode.agentType(),
@@ -1902,8 +1860,7 @@ public class AgentRunner {
             false,
             "",
             "agent-review",
-            null,
-            orchestratorNode.specFileId()
+            null
         );
 
         computationGraphOrchestrator.addChildNodeAndEmitEvent(

@@ -22,14 +22,12 @@ public record SubmoduleWorktreeContext(
         String submoduleName,
         String submoduleUrl,
         String mainWorktreeId,  // Reference to parent main worktree
-        String specSectionId,
         Map<String, String> metadata
 ) implements WorktreeContext {
 
     public SubmoduleWorktreeContext {
         if (worktreeId == null || worktreeId.isEmpty()) throw new IllegalArgumentException("worktreeId required");
         if (submoduleName == null || submoduleName.isEmpty()) throw new IllegalArgumentException("submoduleName required");
-        if (submoduleUrl == null || submoduleUrl.isEmpty()) throw new IllegalArgumentException("submoduleUrl required");
         if (worktreePath == null) throw new IllegalArgumentException("worktreePath required");
         if (metadata == null) metadata = new HashMap<>();
     }
@@ -41,7 +39,7 @@ public record SubmoduleWorktreeContext(
         return new SubmoduleWorktreeContext(
                 worktreeId, worktreePath, baseBranch, newStatus, parentWorktreeId,
                 associatedNodeId, createdAt, lastCommitHash,
-                submoduleName, submoduleUrl, mainWorktreeId, specSectionId, metadata
+                submoduleName, submoduleUrl, mainWorktreeId, metadata
         );
     }
 
@@ -52,7 +50,7 @@ public record SubmoduleWorktreeContext(
         return new SubmoduleWorktreeContext(
                 worktreeId, worktreePath, baseBranch, status, parentWorktreeId,
                 associatedNodeId, createdAt, commitHash,
-                submoduleName, submoduleUrl, mainWorktreeId, specSectionId, metadata
+                submoduleName, submoduleUrl, mainWorktreeId, metadata
         );
     }
 }

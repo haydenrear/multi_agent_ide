@@ -1,0 +1,39 @@
+package com.hayden.multiagentide.support;
+
+import com.hayden.multiagentide.infrastructure.EventListener;
+import com.hayden.multiagentide.model.events.Events;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
+
+public class TestEventListener implements EventListener {
+
+    private final CopyOnWriteArrayList<Events.GraphEvent> events =
+        new CopyOnWriteArrayList<>();
+
+    @Override
+    public String listenerId() {
+        return "test-event-listener";
+    }
+
+    @Override
+    public void onEvent(Events.GraphEvent event) {
+        events.add(event);
+    }
+
+    public void clear() {
+        events.clear();
+    }
+
+    public List<Events.GraphEvent> allEvents() {
+        return new ArrayList<>(events);
+    }
+
+    public <T extends Events.GraphEvent> List<T> eventsOfType(Class<T> type) {
+        return events.stream()
+            .filter(type::isInstance)
+            .map(type::cast)
+            .collect(Collectors.toList());
+    }
+}

@@ -21,7 +21,6 @@ public record PlanningCollectorNode(
         // Planning-specific fields
         List<String> generatedTicketIds,
         String planContent,
-        String specFileId,
         int estimatedSubtasks,
         int completedSubtasks
 ) implements GraphNode, Viewable<String>, Orchestrator {
@@ -51,7 +50,7 @@ public record PlanningCollectorNode(
         return new PlanningCollectorNode(
                 nodeId, title, goal, newStatus, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, planContent, specFileId,
+                generatedTicketIds, planContent,
                 estimatedSubtasks, completedSubtasks
         );
     }
@@ -65,7 +64,7 @@ public record PlanningCollectorNode(
         return new PlanningCollectorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                newTickets, planContent, specFileId,
+                newTickets, planContent,
                 estimatedSubtasks, completedSubtasks
         );
     }
@@ -77,7 +76,7 @@ public record PlanningCollectorNode(
         return new PlanningCollectorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, content, specFileId,
+                generatedTicketIds, content,
                 estimatedSubtasks, completedSubtasks
         );
     }
@@ -89,7 +88,7 @@ public record PlanningCollectorNode(
         return new PlanningCollectorNode(
                 nodeId, title, goal, status, parentNodeId,
                 childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, planContent, specFileId,
+                generatedTicketIds, planContent,
                 total, completed
         );
     }

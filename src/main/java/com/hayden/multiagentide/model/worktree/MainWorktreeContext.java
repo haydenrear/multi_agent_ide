@@ -24,7 +24,6 @@ public record MainWorktreeContext(
         String repositoryUrl,
         boolean hasSubmodules,
         List<String> submoduleWorktreeIds,
-        String specFileId,
         Map<String, String> metadata
 ) implements WorktreeContext {
 
@@ -43,7 +42,7 @@ public record MainWorktreeContext(
         return new MainWorktreeContext(
                 worktreeId, worktreePath, baseBranch, newStatus, parentWorktreeId,
                 associatedNodeId, createdAt, lastCommitHash,
-                repositoryUrl, hasSubmodules, submoduleWorktreeIds, specFileId, metadata
+                repositoryUrl, hasSubmodules, submoduleWorktreeIds, metadata
         );
     }
 
@@ -56,7 +55,7 @@ public record MainWorktreeContext(
         return new MainWorktreeContext(
                 worktreeId, worktreePath, baseBranch, status, parentWorktreeId,
                 associatedNodeId, createdAt, lastCommitHash,
-                repositoryUrl, hasSubmodules, newSubmodules, specFileId, metadata
+                repositoryUrl, hasSubmodules, newSubmodules, metadata
         );
     }
 
@@ -67,7 +66,7 @@ public record MainWorktreeContext(
         return new MainWorktreeContext(
                 worktreeId, worktreePath, baseBranch, status, parentWorktreeId,
                 associatedNodeId, createdAt, commitHash,
-                repositoryUrl, hasSubmodules, submoduleWorktreeIds, specFileId, metadata
+                repositoryUrl, hasSubmodules, submoduleWorktreeIds, metadata
         );
     }
 }

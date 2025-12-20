@@ -3,10 +3,8 @@ package com.hayden.multiagentide.orchestration;
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.events.Events;
 import com.hayden.multiagentide.model.nodes.*;
-import com.hayden.multiagentide.model.spec.Spec;
 import com.hayden.multiagentide.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.GraphRepository;
-import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 
 import java.time.Instant;
@@ -25,7 +23,6 @@ public class ComputationGraphOrchestrator {
 
     private final GraphRepository graphRepository;
     private final WorktreeRepository worktreeRepository;
-    private final SpecRepository specRepository;
     private final EventBus eventBus;
 
     /**
@@ -90,13 +87,6 @@ public class ComputationGraphOrchestrator {
      */
     public List<WorktreeContext> getWorktreesForNode(String nodeId) {
         return worktreeRepository.findByNodeId(nodeId);
-    }
-
-    /**
-     * Get all specs.
-     */
-    public List<Spec> getAllSpecs() {
-        return specRepository.findAll();
     }
 
     /**
@@ -249,7 +239,6 @@ public class ComputationGraphOrchestrator {
                             p.submoduleNames(),
                             p.mainWorktreeId(),
                             p.submoduleWorktreeIds(),
-                            p.specFileId(),
                             p.orchestratorOutput(),
                             p.submodules()
                     );
@@ -266,7 +255,6 @@ public class ComputationGraphOrchestrator {
                             p.lastUpdatedAt(),
                             p.generatedTicketIds(),
                             p.planContent(),
-                            p.specFileId(),
                             p.estimatedSubtasks(),
                             p.completedSubtasks()
                     );
@@ -282,7 +270,6 @@ public class ComputationGraphOrchestrator {
                     p.lastUpdatedAt(),
                     p.mainWorktreeId(),
                     p.submoduleWorktreeIds(),
-                    p.specFileId(),
                     p.completedSubtasks(),
                     p.totalSubtasks(),
                     p.agentType(),
@@ -303,8 +290,7 @@ public class ComputationGraphOrchestrator {
                             Instant.now(),
                             p.summaryContent(),
                             p.totalTasksCompleted(),
-                            p.totalTasksFailed(),
-                            p.specFileId()
+                            p.totalTasksFailed()
                     );
             case DiscoveryNode p ->
                     new DiscoveryNode(
@@ -319,8 +305,7 @@ public class ComputationGraphOrchestrator {
                             Instant.now(),
                             p.summaryContent(),
                             p.totalTasksCompleted(),
-                            p.totalTasksFailed(),
-                            p.specFileId()
+                            p.totalTasksFailed()
                     );
             case DiscoveryCollectorNode p ->
                     new DiscoveryCollectorNode(
@@ -335,8 +320,7 @@ public class ComputationGraphOrchestrator {
                             Instant.now(),
                             p.summaryContent(),
                             p.totalTasksCompleted(),
-                            p.totalTasksFailed(),
-                            p.specFileId()
+                            p.totalTasksFailed()
                     );
             case PlanningOrchestratorNode p ->
                     new PlanningOrchestratorNode(
@@ -351,7 +335,6 @@ public class ComputationGraphOrchestrator {
                             Instant.now(),
                             p.generatedTicketIds(),
                             p.planContent(),
-                            p.specFileId(),
                             p.estimatedSubtasks(),
                             p.completedSubtasks()
                     );
@@ -368,7 +351,6 @@ public class ComputationGraphOrchestrator {
                             Instant.now(),
                             p.generatedTicketIds(),
                             p.planContent(),
-                            p.specFileId(),
                             p.estimatedSubtasks(),
                             p.completedSubtasks()
                     );
@@ -388,8 +370,7 @@ public class ComputationGraphOrchestrator {
                     Instant.now(),
                     p.summaryContent(),
                     p.totalTasksCompleted(),
-                    p.totalTasksFailed(),
-                    p.specFileId()
+                    p.totalTasksFailed()
             );
             case ReviewNode p -> new ReviewNode(
                     p.nodeId(),
@@ -407,8 +388,7 @@ public class ComputationGraphOrchestrator {
                     p.humanFeedbackRequested(),
                     p.agentFeedback(),
                     p.reviewerAgentType(),
-                    p.reviewCompletedAt(),
-                    p.specFileId()
+                    p.reviewCompletedAt()
             );
             case SummaryNode p -> new SummaryNode(
                     p.nodeId(),
@@ -423,8 +403,7 @@ public class ComputationGraphOrchestrator {
                     p.summarizedNodeIds(),
                     p.summaryContent(),
                     p.totalTasksCompleted(),
-                    p.totalTasksFailed(),
-                    p.specFileId()
+                    p.totalTasksFailed()
             );
         };
     }

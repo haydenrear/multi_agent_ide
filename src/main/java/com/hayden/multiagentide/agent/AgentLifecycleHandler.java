@@ -6,7 +6,6 @@ import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
 import com.hayden.multiagentide.model.nodes.*;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
-import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.WorktreeService;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +30,6 @@ public class AgentLifecycleHandler {
     private final ComputationGraphOrchestrator orchestrator;
     private final GraphRepository graphRepository;
     private final WorktreeRepository worktreeRepository;
-    private final SpecRepository specRepository;
     private final WorktreeService worktreeService;
 
     public void beforeOrchestrator(String repositoryUrl, String baseBranch,
@@ -83,29 +81,6 @@ public class AgentLifecycleHandler {
                 mainWorktree.worktreeId(),
                 new ArrayList<>(),
                 null,
-                null,
-                new ArrayList<>()
-        );
-
-        // Update orchestrator with spec ID
-        orchestrator = new OrchestratorNode(
-                orchestrator.nodeId(),
-                orchestrator.title(),
-                orchestrator.goal(),
-                orchestrator.status(),
-                orchestrator.parentNodeId(),
-                orchestrator.childNodeIds(),
-                orchestrator.metadata(),
-                orchestrator.createdAt(),
-                orchestrator.lastUpdatedAt(),
-                orchestrator.repositoryUrl(),
-                orchestrator.baseBranch(),
-                orchestrator.hasSubmodules(),
-                orchestrator.submoduleNames(),
-                orchestrator.mainWorktreeId(),
-                orchestrator.submoduleWorktreeIds(),
-                null,
-                orchestrator.orchestratorOutput(),
                 new ArrayList<>()
         );
 
@@ -145,7 +120,6 @@ public class AgentLifecycleHandler {
                     orchestrator.submoduleNames(),
                     orchestrator.mainWorktreeId(),
                     submoduleWorktreeIds,
-                    orchestrator.specFileId(),
                     orchestrator.orchestratorOutput()
             );
 
@@ -185,8 +159,7 @@ public class AgentLifecycleHandler {
                 Instant.now(),
                 "",
                 0,
-                0,
-                null
+                0
         );
 
         orchestrator.addChildNodeAndEmitEvent(parentNodeId, discoveryOrchestratorNode);
@@ -217,8 +190,7 @@ public class AgentLifecycleHandler {
                     Instant.now(),
                     "",
                     node.totalTasksCompleted(),
-                    node.totalTasksFailed(),
-                    node.specFileId());
+                    node.totalTasksFailed());
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
@@ -280,8 +252,7 @@ public class AgentLifecycleHandler {
                     Instant.now(),
                     discoveryFindings,
                     node.totalTasksCompleted(),
-                    node.totalTasksFailed(),
-                    node.specFileId()
+                    node.totalTasksFailed()
             );
 
             graphRepository.save(updated);
@@ -345,8 +316,7 @@ public class AgentLifecycleHandler {
                     Instant.now(),
                     mergedDiscoveryFile,
                     node.totalTasksCompleted(),
-                    node.totalTasksFailed(),
-                    node.specFileId()
+                    node.totalTasksFailed()
             );
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
@@ -373,7 +343,6 @@ public class AgentLifecycleHandler {
                 Instant.now(),
                 new ArrayList<>(),
                 "",
-                null,
                 0,
                 0
         );
@@ -406,7 +375,6 @@ public class AgentLifecycleHandler {
                     Instant.now(),
                     node.generatedTicketIds(),
                     planContent,
-                    node.specFileId(),
                     node.estimatedSubtasks(),
                     node.completedSubtasks()
             );
@@ -444,7 +412,6 @@ public class AgentLifecycleHandler {
                 Instant.now(),
                 new ArrayList<>(),
                 "",
-                null,
                 0,
                 0
         );
@@ -477,7 +444,6 @@ public class AgentLifecycleHandler {
                     Instant.now(),
                     node.generatedTicketIds(),
                     node.planContent(),
-                    node.specFileId(),
                     node.estimatedSubtasks(),
                     node.completedSubtasks()
             );
@@ -508,7 +474,6 @@ public class AgentLifecycleHandler {
                 Instant.now(),
                 Instant.now(),
                 new ArrayList<>(),
-                "",
                 "",
                 0,
                 0
@@ -542,7 +507,6 @@ public class AgentLifecycleHandler {
                     Instant.now(),
                     new ArrayList<>(),
                     ticketsFile,
-                    node.specFileId(),
                     node.estimatedSubtasks(),
                     node.completedSubtasks()
             );
@@ -575,8 +539,7 @@ public class AgentLifecycleHandler {
                 Instant.now(),
                 null,
                 0,
-                1,
-                "merger"
+                1
         );
 
         orchestrator.addChildNodeAndEmitEvent(parentNodeId, mergerNode);
@@ -607,7 +570,6 @@ public class AgentLifecycleHandler {
                     Instant.now(),
                     node.mainWorktreeId(),
                     node.submoduleWorktreeIds(),
-                    node.specFileId(),
                     1,
                     1,
                     node.agentType(),
@@ -647,7 +609,6 @@ public class AgentLifecycleHandler {
                 Instant.now(),
                 null,
                 new ArrayList<>(),
-                null,
                 0,
                 0,
                 "ticket_orchestrator",
@@ -684,7 +645,6 @@ public class AgentLifecycleHandler {
                     Instant.now(),
                     node.mainWorktreeId(),
                     node.submoduleWorktreeIds(),
-                    node.specFileId(),
                     node.completedSubtasks(),
                     node.totalSubtasks(),
                     node.agentType(),
@@ -720,7 +680,6 @@ public class AgentLifecycleHandler {
                 Instant.now(),
                 null,
                 new ArrayList<>(),
-                null,
                 0,
                 0,
                 "ticket_agent",
@@ -757,7 +716,6 @@ public class AgentLifecycleHandler {
                     Instant.now(),
                     node.mainWorktreeId(),
                     node.submoduleWorktreeIds(),
-                    node.specFileId(),
                     node.completedSubtasks(),
                     node.totalSubtasks(),
                     node.agentType(),
@@ -792,7 +750,6 @@ public class AgentLifecycleHandler {
                 false,
                 "",
                 "agent",
-                null,
                 null
         );
 
@@ -832,8 +789,7 @@ public class AgentLifecycleHandler {
                     humanFeedbackRequested,
                     evaluation,
                     node.reviewerAgentType(),
-                    Instant.now(),
-                    node.specFileId()
+                    Instant.now()
             );
 
             graphRepository.save(updated);

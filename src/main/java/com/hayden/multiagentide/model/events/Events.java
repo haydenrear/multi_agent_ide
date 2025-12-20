@@ -273,60 +273,6 @@ public interface Events {
         }
     }
 
-// ============ SPEC EVENTS ============
-
-    /**
-     * Emitted when a spec is validated.
-     */
-    record SpecValidatedEvent(
-            String eventId,
-            Instant timestamp,
-            String specId,
-            boolean isValid,
-            List<String> validationErrors
-    ) implements Events.GraphEvent {
-        @Override
-        public String eventType() {
-            return "SPEC_VALIDATED";
-        }
-    }
-
-    /**
-     * Emitted when a spec is updated.
-     */
-    record SpecUpdatedEvent(
-            String eventId,
-            Instant timestamp,
-            String specId,
-            String worktreeId,
-            String updatedSections,
-            String updatedBy
-            // Agent type or "user"
-    ) implements Events.GraphEvent {
-        @Override
-        public String eventType() {
-            return "SPEC_UPDATED";
-        }
-    }
-
-    /**
-     * Emitted when a spec is merged.
-     */
-    record SpecMergedEvent(
-            String eventId,
-            Instant timestamp,
-            String childSpecId,
-            String parentSpecId,
-            String childWorktreeId,
-            String parentWorktreeId,
-            Map<String, String> mergedSections
-    ) implements Events.GraphEvent {
-        @Override
-        public String eventType() {
-            return "SPEC_MERGED";
-        }
-    }
-
 // ============ GENERIC GRAPH EVENTS ============
 
     /**
@@ -378,4 +324,3 @@ public interface Events {
 }
 
 // ============ NODE EVENTS ============
-
