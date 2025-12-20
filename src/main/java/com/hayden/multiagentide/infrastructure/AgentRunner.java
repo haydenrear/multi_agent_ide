@@ -114,8 +114,14 @@ public class AgentRunner {
             case DiscoveryNode discoveryNode when isNodeReady(discoveryNode) -> {
                 this.runDiscoveryAgent(discoveryNode, parent);
             }
+            case DiscoveryNode discoveryNode when isTerminalEvent(d.agentEvent) -> {
+                handleDiscoveryNodeTerminal(discoveryNode, parent);
+            }
             case DiscoveryCollectorNode discoveryCollectorNode when isNodeReady(discoveryCollectorNode) -> {
                 this.runDiscoveryCollector(discoveryCollectorNode, parent);
+            }
+            case DiscoveryCollectorNode discoveryCollectorNode when isCompletionEvent(d.agentEvent) -> {
+                handleDiscoveryCollectorCompleted(discoveryCollectorNode, parent);
             }
             case PlanningOrchestratorNode planningOrchestratorNode when isNodeReady(planningOrchestratorNode) -> {
                 this.runPlanningOrchestratorAgent(planningOrchestratorNode, parent);
@@ -123,8 +129,14 @@ public class AgentRunner {
             case PlanningNode planningNode when isNodeReady(planningNode) -> {
                 this.runPlanningAgent(planningNode, parent);
             }
+            case PlanningNode planningNode when isTerminalEvent(d.agentEvent) -> {
+                handlePlanningNodeTerminal(planningNode, parent);
+            }
             case PlanningCollectorNode planningCollectorNode when isNodeReady(planningCollectorNode) -> {
                 this.runPlanningMergerAgent(planningCollectorNode, parent);
+            }
+            case PlanningCollectorNode planningCollectorNode when isCompletionEvent(d.agentEvent) -> {
+                handlePlanningCollectorCompleted(planningCollectorNode, parent);
             }
             case EditorNode editorNode when isTicketOrchestrator(editorNode) && isNodeReady(editorNode) -> {
                 this.runTicketOrchestratorAgent(editorNode, parent);
@@ -137,6 +149,9 @@ public class AgentRunner {
             }
             case MergeNode mergeNode when isNodeReady(mergeNode) -> {
                 this.runMergeAgent(mergeNode, parent);
+            }
+            case MergeNode mergeNode when isNodeCompleted(mergeNode) && isCompletionEvent(d.agentEvent) -> {
+                handleMergeCompleted(mergeNode);
             }
             case CollectorNode collectorNode -> {
             }
@@ -201,6 +216,23 @@ public class AgentRunner {
 
     private static boolean isNodeCompleted(GraphNode agentReviewNode) {
         return agentReviewNode.status() == GraphNode.NodeStatus.COMPLETED;
+    }
+
+    private static boolean isTerminalStatus(GraphNode.NodeStatus status) {
+        return status == GraphNode.NodeStatus.COMPLETED ||
+            status == GraphNode.NodeStatus.FAILED ||
+            status == GraphNode.NodeStatus.CANCELED ||
+            status == GraphNode.NodeStatus.PRUNED;
+    }
+
+    private static boolean isTerminalEvent(Events.AgentEvent event) {
+        return event instanceof Events.NodeStatusChangedEvent statusChanged &&
+            isTerminalStatus(statusChanged.newStatus());
+    }
+
+    private static boolean isCompletionEvent(Events.AgentEvent event) {
+        return event instanceof Events.NodeStatusChangedEvent statusChanged &&
+            statusChanged.newStatus() == GraphNode.NodeStatus.COMPLETED;
     }
 
     private static boolean isTicketOrchestrator(EditorNode node) {
@@ -388,7 +420,8 @@ public class AgentRunner {
     /**
      * Runs individual DiscoveryAgent to analyze a specific subdomain of the codebase.
      * Output: discovery findings for this subdomain.
-     * Next: When all siblings complete, invoke DiscoveryMerger.
+     * Next: Discovery collector is inserted when all sibling discovery nodes
+     * reach a terminal status.
      */
     public void runDiscoveryAgent(DiscoveryNode node, GraphNode parent) {
         log.info("Executing DiscoveryAgent for node: {}", node.nodeId());
@@ -413,14 +446,7 @@ public class AgentRunner {
                 .withContent(findings);
             graphRepository.save(withContent);
 
-            DiscoveryNode completed = markNodeCompleted(withContent);
-
-            if (
-                parent instanceof DiscoveryOrchestratorNode discoveryParent &&
-                allChildrenCompletedOfType(discoveryParent, DiscoveryNode.class)
-            ) {
-                ensureDiscoveryCollector(discoveryParent);
-            }
+            markNodeCompleted(withContent);
         } catch (Exception e) {
             markNodeFailed(running, e);
             log.error("DiscoveryAgent failed for node: {}", node.nodeId(), e);
@@ -463,14 +489,6 @@ public class AgentRunner {
                 .withContent(mergedFindings);
             graphRepository.save(withContent);
             markNodeCompleted(withContent);
-
-            if (parent instanceof DiscoveryOrchestratorNode discoveryParent) {
-                DiscoveryOrchestratorNode updatedParent =
-                    discoveryParent.withContent(mergedFindings);
-                graphRepository.save(
-                    updatedParent.withStatus(GraphNode.NodeStatus.COMPLETED)
-                );
-            }
 
             // Next: Transition to Phase 2 - Planning
             kickOffPlanningPhase(withContent, mergedFindings);
@@ -624,7 +642,8 @@ public class AgentRunner {
      * Runs individual PlanningAgent to decompose goal into work items.
      * Input: goal + discovery context.
      * Output: structured plan with work items.
-     * Next: When all siblings complete, invoke PlanningMerger.
+     * Next: Planning collector is inserted when all sibling planning nodes
+     * reach a terminal status.
      */
     public void runPlanningAgent(PlanningNode node, GraphNode parent) {
         log.info("Executing PlanningAgent for node: {}", node.nodeId());
@@ -644,13 +663,6 @@ public class AgentRunner {
                 .withPlanContent(plan);
             graphRepository.save(withPlan);
             markNodeCompleted(withPlan);
-
-            if (
-                parent instanceof PlanningOrchestratorNode planningParent &&
-                allChildrenCompletedOfType(planningParent, PlanningNode.class)
-            ) {
-                ensurePlanningCollector(planningParent);
-            }
         } catch (Exception e) {
             markNodeFailed(running, e);
             log.error("PlanningAgent failed for node: {}", node.nodeId(), e);
@@ -693,12 +705,6 @@ public class AgentRunner {
                 .withPlanContent(tickets);
             graphRepository.save(withPlan);
             markNodeCompleted(withPlan);
-
-            if (parent instanceof PlanningOrchestratorNode planningParent) {
-                PlanningOrchestratorNode updatedParent =
-                    planningParent.withPlanContent(tickets);
-                graphRepository.save(updatedParent.withStatus(GraphNode.NodeStatus.COMPLETED));
-            }
 
             // Next: Transition to Phase 3 - Ticket Implementation
             kickOffTicketPhase(withPlan, tickets);
@@ -1194,9 +1200,7 @@ public class AgentRunner {
      * - Ticket feature branch into TicketOrchestrator worktree (per-ticket merge)
      * - TicketOrchestrator worktree into main repository (final merge)
      * Output: merge result.
-     * Next: If more tickets exist, invoke next TicketAgent.
-     *       If all tickets done, invoke final ReviewAgent for overall code.
-     *       If final merge, workflow complete.
+     * Next steps are handled in the merge-completed event handler.
      */
     public void runMergeAgent(MergeNode node, GraphNode parent) {
         log.info("Executing MergerAgent for node: {}", node.nodeId());
@@ -1262,22 +1266,16 @@ public class AgentRunner {
                 );
             }
 
-            MergeNode completed = markNodeCompleted(withContent);
-
-            // Next: Determine if this is per-ticket or final merge, proceed accordingly
-            proceedToNextTicketOrFinalReview(completed, mergeSummary);
+            markNodeCompleted(withContent);
         } catch (Exception e) {
             log.error("MergerAgent failed for node: {}", node.nodeId(), e);
         }
     }
 
     /**
-     * Determines whether to proceed to next ticket or final review.
+     * Handles merge-completed events by advancing ticket or final review flow.
      */
-    private void proceedToNextTicketOrFinalReview(
-        MergeNode mergeNode,
-        String mergeResult
-    ) {
+    private void handleMergeCompleted(MergeNode mergeNode) {
         log.info("Determining next step after merge: {}", mergeNode.nodeId());
         Optional<EditorNode> orchestratorOpt = findAncestorTicketOrchestrator(
             mergeNode
@@ -1455,7 +1453,7 @@ public class AgentRunner {
         return parseDivisionStrategy(fallback);
     }
 
-    private <T extends GraphNode> boolean allChildrenCompletedOfType(
+    private <T extends GraphNode> boolean allChildrenTerminalOfType(
         GraphNode parent,
         Class<T> type
     ) {
@@ -1471,7 +1469,61 @@ public class AgentRunner {
         }
         return matching
             .stream()
-            .allMatch(c -> c.status() == GraphNode.NodeStatus.COMPLETED);
+            .allMatch(c -> isTerminalStatus(c.status()));
+    }
+
+    private void handleDiscoveryNodeTerminal(
+        DiscoveryNode node,
+        GraphNode parent
+    ) {
+        if (
+            parent instanceof DiscoveryOrchestratorNode discoveryParent &&
+            allChildrenTerminalOfType(discoveryParent, DiscoveryNode.class)
+        ) {
+            ensureDiscoveryCollector(discoveryParent);
+        }
+    }
+
+    private void handlePlanningNodeTerminal(
+        PlanningNode node,
+        GraphNode parent
+    ) {
+        if (
+            parent instanceof PlanningOrchestratorNode planningParent &&
+            allChildrenTerminalOfType(planningParent, PlanningNode.class)
+        ) {
+            ensurePlanningCollector(planningParent);
+        }
+    }
+
+    private void handleDiscoveryCollectorCompleted(
+        DiscoveryCollectorNode node,
+        GraphNode parent
+    ) {
+        if (!(parent instanceof DiscoveryOrchestratorNode discoveryParent)) {
+            return;
+        }
+        String mergedFindings = Optional.ofNullable(node.summaryContent()).orElse("");
+        DiscoveryOrchestratorNode updatedParent =
+            discoveryParent.withContent(mergedFindings);
+        graphRepository.save(
+            updatedParent.withStatus(GraphNode.NodeStatus.COMPLETED)
+        );
+    }
+
+    private void handlePlanningCollectorCompleted(
+        PlanningCollectorNode node,
+        GraphNode parent
+    ) {
+        if (!(parent instanceof PlanningOrchestratorNode planningParent)) {
+            return;
+        }
+        String tickets = Optional.ofNullable(node.planContent()).orElse("");
+        PlanningOrchestratorNode updatedParent =
+            planningParent.withPlanContent(tickets);
+        graphRepository.save(
+            updatedParent.withStatus(GraphNode.NodeStatus.COMPLETED)
+        );
     }
 
     private void ensureDiscoveryCollector(DiscoveryOrchestratorNode parent) {
