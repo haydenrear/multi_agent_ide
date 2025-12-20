@@ -4,7 +4,6 @@ import dev.langchain4j.agent.tool.Tool;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
-import com.hayden.multiagentide.service.SpecService;
 import com.hayden.multiagentide.service.WorktreeService;
 import org.springframework.stereotype.Component;
 
@@ -18,69 +17,19 @@ public class LangChain4jAgentTools {
     private final GraphRepository graphRepository;
     private final WorktreeRepository worktreeRepository;
     private final SpecRepository specRepository;
-    private final SpecService specService;
     private final WorktreeService worktreeService;
 
     public LangChain4jAgentTools(GraphRepository graphRepository,
                                 WorktreeRepository worktreeRepository,
                                 SpecRepository specRepository,
-                                SpecService specService,
                                 WorktreeService worktreeService) {
         this.graphRepository = graphRepository;
         this.worktreeRepository = worktreeRepository;
         this.specRepository = specRepository;
-        this.specService = specService;
         this.worktreeService = worktreeService;
     }
 
     // ========== SPEC TOOLS ==========
-
-    @Tool("Validate a spec file against the standard structure")
-    public String validateSpec(String specId) {
-        var result = specService.validateSpec(specId);
-        if (result.isValid()) {
-            return "Spec " + specId + " is valid";
-        } else {
-            return "Spec validation failed: " + String.join(", ", result.validationErrors());
-        }
-    }
-
-    @Tool("Get a summary of a spec without loading the entire content")
-    public String getSpecSummary(String specId) {
-        var summary = specService.getSummary(specId);
-        return "Summary: " + summary.summary() + "\nSections: " + summary.sectionPaths();
-    }
-
-    @Tool("Get a specific section from a spec by header path (e.g., #/Plan, #/Status)")
-    public String getSpecSection(String specId, String headerPath) {
-        var section = specService.getSection(specId, headerPath);
-        return section.map(s -> "Section " + headerPath + ":\n" + s.content())
-                .orElse("Section not found: " + headerPath);
-    }
-
-    @Tool("Update a section in a spec")
-    public String updateSpecSection(String specId, String headerPath, String content) {
-        specService.updateSection(specId, headerPath, content);
-        return "Updated section " + headerPath + " in spec " + specId;
-    }
-
-    @Tool("Update the Plan section of a spec")
-    public String updateSpecPlan(String specId, String planContent) {
-        specService.updatePlan(specId, planContent);
-        return "Updated plan section in spec " + specId;
-    }
-
-    @Tool("Update the Status section of a spec")
-    public String updateSpecStatus(String specId, String statusContent) {
-        specService.updateStatus(specId, statusContent);
-        return "Updated status section in spec " + specId;
-    }
-
-    @Tool("Update a submodule-specific section in a spec")
-    public String updateSubmoduleSection(String specId, String submoduleName, String content) {
-        specService.updateSubmoduleSection(specId, submoduleName, content);
-        return "Updated submodule section for " + submoduleName + " in spec " + specId;
-    }
 
     // ========== WORKTREE TOOLS ==========
 

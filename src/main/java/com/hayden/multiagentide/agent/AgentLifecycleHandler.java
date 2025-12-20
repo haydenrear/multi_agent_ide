@@ -1,7 +1,6 @@
-package com.hayden.multiagentide.config;
+package com.hayden.multiagentide.agent;
 
 import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
-import com.hayden.multiagentide.model.spec.Spec;
 import com.hayden.multiagentide.model.nodes.SubmoduleNode;
 import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
 import com.hayden.multiagentide.model.nodes.*;
@@ -9,7 +8,6 @@ import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.SpecRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
-import com.hayden.multiagentide.service.SpecService;
 import com.hayden.multiagentide.service.WorktreeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,7 +33,6 @@ public class AgentLifecycleHandler {
     private final WorktreeRepository worktreeRepository;
     private final SpecRepository specRepository;
     private final WorktreeService worktreeService;
-    private final SpecService specService;
 
     public void beforeOrchestrator(String repositoryUrl, String baseBranch,
                                    String goal, String title) {
@@ -90,13 +87,6 @@ public class AgentLifecycleHandler {
                 new ArrayList<>()
         );
 
-        // Create spec
-        Spec baseSpec = specService.createSpec(
-                mainWorktree.worktreeId(),
-                mainWorktree.worktreePath().resolve("SPEC.md"),
-                goal
-        );
-
         // Update orchestrator with spec ID
         orchestrator = new OrchestratorNode(
                 orchestrator.nodeId(),
@@ -114,7 +104,7 @@ public class AgentLifecycleHandler {
                 orchestrator.submoduleNames(),
                 orchestrator.mainWorktreeId(),
                 orchestrator.submoduleWorktreeIds(),
-                baseSpec.specId(),
+                null,
                 orchestrator.orchestratorOutput(),
                 new ArrayList<>()
         );
@@ -166,7 +156,6 @@ public class AgentLifecycleHandler {
         // Save to repositories
         graphRepository.save(orchestrator);
         worktreeRepository.save(mainWorktree);
-        specRepository.save(baseSpec);
 
         // Emit events
         this.orchestrator.emitNodeAddedEvent(orchestrator.nodeId(), orchestrator.title(),

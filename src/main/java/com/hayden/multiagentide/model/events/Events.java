@@ -62,6 +62,25 @@ public interface Events {
         }
     }
 
+    /**
+     * Pause execution for an agent to view results.
+     * @param eventId
+     * @param timestamp
+     * @param nodeId
+     * @param toAddMessage
+     */
+    record PauseEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String toAddMessage
+    ) implements AgentEvent {
+        @Override
+        public String eventType() {
+            return "PAUSE_EVENT";
+        }
+    }
+
     record AddMessageEvent(
             String eventId,
             Instant timestamp,
@@ -92,7 +111,19 @@ public interface Events {
     }
 
     /**
-     * Emitted when a node is branched with modified goal.
+     * Emitted when a node is branched with modified goal, or the same goal.
+     *  Sometimes, we want to have another agent do the same thing, or do something
+     *  just a bit different to try it. Additionally, in the future, as agents become
+     *  more and more cheap, we'll even try with automated branching, where an meta-
+     *  orchestrator starts branching agents with modified goals to predict what the
+     *  user might want to see. This will be an experiment with coding entire architectures
+     *  generatively to test ideas, predicting how would this look, what's wrong with this
+     *  - that's a plugin point for being able to change entire code-bases to test a single
+     *    change - sort of like - adding a lifetime specifier to a rust codebase and that
+     *    propagating through the whole code base in an instance in a work-tree, or just
+     *    moving to an event based system - like - here's with events, and oh wow it ran
+     *    into a sever issue with consistency, nope, doesn't look good, etc.
+     *  - this helps sort of "test the attractors"
      */
     record NodeBranchedEvent(
             String eventId,

@@ -313,9 +313,92 @@ public class AgentInterfaces {
                                   @V("phase") String phase);
     }
 
+//    TODO:
     public interface OrchestratorCollectorAgent {
 
         String ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE = """
+                
+                """;
+
+        /**
+         * Takes the results of the workflow, reviews everything as a final step, decides if it's valid.
+         * It then massages the commits to make them more streamlined and easy to digest, adding any metadata,
+         *  updating the workflow outputs in the repository for cross-cutting concerns or to fill in any cross-
+         *  agent connections across the architecture.
+         * It then runs all tests, integration tests in test_graph making sure everything looks good there,
+         *  merging together all of those changes, massaging that commit.
+         * Then, it searches through the contexts and refines the memory episode for the commits. All
+         *  agents would have registered any context summary with the context agents, and they would have
+         *  their documentations and commits, so at this point, the orchestrator collector needs to
+         *  take all of that, and provide a memory episode that will be searchable and usable for future
+         *  commits. This, along with the code and docs, is the primary "output" of the process, so it's very
+         *  important - it will be searchable and retrievable for future commits.
+         * @param memId
+         * @param msg
+         * @param goal
+         * @param phase
+         * @return
+         */
+        @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
+        String coordinateWorkflow(@MemoryId String memId,
+                                  @UserMessage String msg,
+                                  @V("goal") String goal,
+                                  @V("phase") String phase);
+    }
+
+    /**
+     * Agent orchestrates as a check-in point for agents.
+     * Provided with the context toolset, which includes pruning,
+     *  saving, retrieving, etc., context items, and leaving an index/summary
+     *  where they were.
+     * This agent then delegates to multiple context agents to handle
+     *  parts of the managing the context.
+     * Agents will also call this agent when they need to expand a part of their context,
+     *  or retrieve a part of the context that was saved, by providing the id
+     *  that was left by these agents previously.
+     */
+    public interface ContextOrchestratorAgent {
+
+        String CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE = """
+//                TODO:
+                """;
+
+        @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
+        String coordinateWorkflow(@MemoryId String memId,
+                                  @UserMessage String msg,
+                                  @V("goal") String goal,
+                                  @V("phase") String phase);
+    }
+
+    /**
+     * Handles reviewing context, pruning context - makes recommendations for
+     *  operations, such as striking specific things from the tool calls,
+     *  registering results and leaving indexes (to check later),
+     *  summarizing specific pieces of the context, etc. It does this using
+     *  the context toolset in LLM Context Manager.
+     */
+    public interface ContextAgent {
+
+        String CONTEXT_AGENT_START_MESSAGE = """
+//                TODO:
+                """;
+
+        @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
+        String applyContextOperations(@MemoryId String memId,
+                                      @UserMessage String msg,
+                                      @V("goal") String goal,
+                                      @V("phase") String phase);
+    }
+
+    /**
+     * Merges together the results from ContextAgents, taking the previous context
+     *  and the actions that the ContextAgent's took and providing the next context
+     *  that operates as the full context used by the agent - meaning then the context
+     *  is reset for the agent calling this workflow to the item returned.
+     */
+    public interface ContextCollectorAgent {
+
+        String CONTEXT_COLLECTOR_START_MESSAGE = """
 //                TODO:
                 """;
 

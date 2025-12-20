@@ -1,6 +1,7 @@
 package com.hayden.multiagentide.config;
 
 import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.agent.LangChain4jAgentTools;
 import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.data.message.AiMessage;
