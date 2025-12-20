@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
+import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.infrastructure.AgentEventListener;
 import com.hayden.multiagentide.infrastructure.EventBus;
@@ -77,27 +78,64 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         eventBus.subscribe(testEventListener);
 
         when(orchestratorAgent.coordinateWorkflow(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn("orchestrator-ok");
+            .thenReturn(new AgentInterfaces.OrchestratorAgentResult(
+                null,
+                List.of(),
+                "orchestrator-ok"
+            ));
         when(discoveryOrchestrator.kickOffAnyNumberOfAgentsForCodeSearch(anyString(), anyString(), anyString()))
-            .thenReturn("- discovery");
+            .thenReturn(new AgentInterfaces.DiscoveryOrchestratorResult(
+                null,
+                List.of(),
+                "- discovery"
+            ));
         when(discoveryAgent.discoverCodebaseSection(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn("discovery-results");
+            .thenReturn(new AgentInterfaces.DiscoveryAgentResult(
+                "discovery-results",
+                List.of()
+            ));
         when(discoveryCollector.consolidateDiscoveryFindings(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn("discovery-summary");
+            .thenReturn(new AgentInterfaces.DiscoveryCollectorResult(
+                "discovery-summary",
+                List.of()
+            ));
         when(planningOrchestrator.decomposePlanAndCreateWorkItems(anyString(), anyString(), anyString()))
-            .thenReturn("- plan-segment");
+            .thenReturn(new AgentInterfaces.PlanningOrchestratorResult(
+                null,
+                List.of(),
+                "- plan-segment"
+            ));
         when(planningAgent.decomposePlanAndCreateWorkItems(anyString(), anyString(), anyString()))
-            .thenReturn("- plan-segment");
+            .thenReturn(new AgentInterfaces.PlanningAgentResult(
+                "- plan-segment",
+                List.of()
+            ));
         when(planningCollector.consolidatePlansIntoTickets(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn("- Ticket 1");
+            .thenReturn(new AgentInterfaces.PlanningCollectorResult(
+                "- Ticket 1",
+                List.of()
+            ));
         when(ticketOrchestrator.orchestrateTicketExecution(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
-            .thenReturn("ticket-orchestration");
+            .thenReturn(new AgentInterfaces.TicketOrchestratorResult(
+                null,
+                List.of(),
+                "ticket-orchestration"
+            ));
         when(ticketAgent.implementTicket(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
-            .thenReturn("implementation");
+            .thenReturn(new AgentInterfaces.TicketAgentResult(
+                "implementation",
+                List.of()
+            ));
         when(reviewAgent.evaluateContent(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn("approved");
+            .thenReturn(new AgentInterfaces.ReviewAgentResult(
+                "approved",
+                List.of()
+            ));
         when(mergerAgent.performMerge(anyString(), anyString(), anyString()))
-            .thenReturn("merged");
+            .thenReturn(new AgentInterfaces.MergerAgentResult(
+                "merged",
+                List.of()
+            ));
     }
 
     @Test

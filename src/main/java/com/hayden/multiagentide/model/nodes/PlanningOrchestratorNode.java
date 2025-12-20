@@ -1,5 +1,8 @@
 package com.hayden.multiagentide.model.nodes;
 
+import com.hayden.multiagentide.agent.AgentInterfaces;
+import lombok.Builder;
+
 import java.time.Instant;
 import java.util.*;
 
@@ -7,6 +10,7 @@ import java.util.*;
  * Node that breaks down goals into work tickets.
  * Can be Reviewable.
  */
+@Builder(toBuilder = true)
 public record PlanningOrchestratorNode(
         String nodeId,
         String title,
@@ -22,8 +26,14 @@ public record PlanningOrchestratorNode(
         List<String> generatedTicketIds,
         String planContent,
         int estimatedSubtasks,
-        int completedSubtasks
+        int completedSubtasks,
+        AgentInterfaces.PlanningOrchestratorResult planningOrchestratorResult
 ) implements GraphNode, Viewable<String>, Orchestrator {
+
+    public PlanningOrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> generatedTicketIds, String planContent, int estimatedSubtasks, int completedSubtasks) {
+        this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
+                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, null);
+    }
 
     public PlanningOrchestratorNode {
         if (nodeId == null || nodeId.isEmpty()) throw new IllegalArgumentException("nodeId required");
@@ -47,12 +57,10 @@ public record PlanningOrchestratorNode(
      * Create an updated version with new status.
      */
     public PlanningOrchestratorNode withStatus(NodeStatus newStatus) {
-        return new PlanningOrchestratorNode(
-                nodeId, title, goal, newStatus, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, planContent,
-                estimatedSubtasks, completedSubtasks
-        );
+        return toBuilder()
+                .status(newStatus)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
@@ -61,35 +69,37 @@ public record PlanningOrchestratorNode(
     public PlanningOrchestratorNode addTicket(String ticketId) {
         List<String> newTickets = new ArrayList<>(generatedTicketIds);
         newTickets.add(ticketId);
-        return new PlanningOrchestratorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                newTickets, planContent,
-                estimatedSubtasks, completedSubtasks
-        );
+        return toBuilder()
+                .generatedTicketIds(newTickets)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update plan content.
      */
     public PlanningOrchestratorNode withPlanContent(String content) {
-        return new PlanningOrchestratorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, content,
-                estimatedSubtasks, completedSubtasks
-        );
+        return toBuilder()
+                .planContent(content)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update progress.
      */
     public PlanningOrchestratorNode withProgress(int completed, int total) {
-        return new PlanningOrchestratorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, planContent,
-                total, completed
-        );
+        return toBuilder()
+                .estimatedSubtasks(total)
+                .completedSubtasks(completed)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public PlanningOrchestratorNode withResult(AgentInterfaces.PlanningOrchestratorResult result) {
+        return toBuilder()
+                .planningOrchestratorResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 }

@@ -1,5 +1,7 @@
 package com.hayden.multiagentide.model.nodes;
 
+import com.hayden.multiagentide.agent.AgentInterfaces;
+import lombok.Builder;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,6 +12,7 @@ import java.util.Map;
  * Node for agent-based review of work.
  * Can be Reviewable.
  */
+@Builder(toBuilder = true)
 public record ReviewNode(
         String nodeId,
         String title,
@@ -28,8 +31,14 @@ public record ReviewNode(
         boolean humanFeedbackRequested,
         String agentFeedback,
         String reviewerAgentType,
-        Instant reviewCompletedAt
+        Instant reviewCompletedAt,
+        AgentInterfaces.ReviewAgentResult reviewResult
 ) implements GraphNode, Viewable<String> {
+
+    public ReviewNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String reviewedNodeId, String reviewContent, boolean approved, boolean humanFeedbackRequested, String agentFeedback, String reviewerAgentType, Instant reviewCompletedAt) {
+        this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
+                reviewedNodeId, reviewContent, approved, humanFeedbackRequested, agentFeedback, reviewerAgentType, reviewCompletedAt, null);
+    }
 
     public ReviewNode {
         if (nodeId == null || nodeId.isEmpty()) throw new IllegalArgumentException("nodeId required");
@@ -53,24 +62,29 @@ public record ReviewNode(
      * Create an updated version with new status.
      */
     public ReviewNode withStatus(GraphNode.NodeStatus newStatus) {
-        return new ReviewNode(
-                nodeId, title, goal, newStatus, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                reviewedNodeId, reviewContent, approved, humanFeedbackRequested, agentFeedback,
-                reviewerAgentType, reviewCompletedAt
-        );
+        return toBuilder()
+                .status(newStatus)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Record review decision.
      */
     public ReviewNode withReviewDecision(boolean approvalStatus, String feedback) {
-        return new ReviewNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                reviewedNodeId, reviewContent, approvalStatus, humanFeedbackRequested, feedback,
-                reviewerAgentType, Instant.now()
-        );
+        return toBuilder()
+                .approved(approvalStatus)
+                .agentFeedback(feedback)
+                .reviewCompletedAt(Instant.now())
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public ReviewNode withResult(AgentInterfaces.ReviewAgentResult result) {
+        return toBuilder()
+                .reviewResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     public String contentToReview() {

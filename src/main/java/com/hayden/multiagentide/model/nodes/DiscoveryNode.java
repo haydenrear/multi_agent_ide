@@ -1,5 +1,8 @@
 package com.hayden.multiagentide.model.nodes;
 
+import com.hayden.multiagentide.agent.AgentInterfaces;
+import lombok.Builder;
+
 import java.time.Instant;
 import java.util.*;
 
@@ -7,6 +10,7 @@ import java.util.*;
  * Node that summarizes completed work.
  * Can be Summarizable, Viewable.
  */
+@Builder(toBuilder = true)
 public record DiscoveryNode(
         String nodeId,
         String title,
@@ -19,8 +23,14 @@ public record DiscoveryNode(
         Instant lastUpdatedAt,
         String summaryContent,
         int totalTasksCompleted,
-        int totalTasksFailed
+        int totalTasksFailed,
+        AgentInterfaces.DiscoveryAgentResult discoveryResult
 ) implements GraphNode, Viewable<String> {
+
+    public DiscoveryNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
+        this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
+                summaryContent, totalTasksCompleted, totalTasksFailed, null);
+    }
 
     public DiscoveryNode {
         if (nodeId == null || nodeId.isEmpty()) throw new IllegalArgumentException("nodeId required");
@@ -42,24 +52,27 @@ public record DiscoveryNode(
      * Create an updated version with new status.
      */
     public DiscoveryNode withStatus(NodeStatus newStatus) {
-        return new DiscoveryNode(
-                nodeId, title, goal, newStatus, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                summaryContent,
-                totalTasksCompleted, totalTasksFailed
-        );
+        return toBuilder()
+                .status(newStatus)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update summary content.
      */
     public DiscoveryNode withContent(String content) {
-        return new DiscoveryNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                 content,
-                totalTasksCompleted, totalTasksFailed
-        );
+        return toBuilder()
+                .summaryContent(content)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public DiscoveryNode withResult(AgentInterfaces.DiscoveryAgentResult result) {
+        return toBuilder()
+                .discoveryResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
 

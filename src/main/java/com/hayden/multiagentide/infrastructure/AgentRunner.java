@@ -237,17 +237,19 @@ public class AgentRunner {
         );
         OrchestratorNode running = markNodeRunning(orchestratorNode);
         try {
-            String result = orchestratorAgent.coordinateWorkflow(
+            AgentInterfaces.OrchestratorAgentResult result = orchestratorAgent.coordinateWorkflow(
                 running.nodeId(),
                 ORCHESTRATOR_AGENT_START_MESSAGE,
                 running.goal(),
                 "DISCOVERY"
             );
+            String output = result.output();
             log.info(
                 "OrchestratorAgent completed for goal: {}",
                 running.goal()
             );
-            graphRepository.save(running.withOutput(result));
+            OrchestratorNode withResult = running.withResult(result);
+            graphRepository.save(withResult.withOutput(output));
 
             // Next: Kick off Discovery phase by invoking DiscoveryOrchestrator
             kickOffDiscoveryPhase(running);
@@ -309,24 +311,32 @@ public class AgentRunner {
         );
         DiscoveryOrchestratorNode running = markNodeRunning(node);
         try {
-            String divisionStrategy =
+            AgentInterfaces.DiscoveryOrchestratorResult result =
                 discoveryOrchestrator.kickOffAnyNumberOfAgentsForCodeSearch(
                     running.nodeId(),
                     running.goal(),
                     DISCOVERY_ORCHESTRATOR_START_MESSAGE
                 );
+            String divisionStrategy = resolveDelegationSummary(
+                result.delegation(),
+                result.output()
+            );
+            List<String> focusAreas = resolveDelegationSegments(
+                result.delegation(),
+                divisionStrategy
+            );
             log.info(
                 "DiscoveryOrchestrator determined strategy: {}",
                 divisionStrategy
             );
 
-            DiscoveryOrchestratorNode updated = running.withContent(
-                divisionStrategy
-            );
+            DiscoveryOrchestratorNode updated = running
+                .withResult(result)
+                .withContent(divisionStrategy);
             graphRepository.save(updated);
 
             // Next: Kick off DiscoveryAgent(s) based on strategy
-            kickOffDiscoveryAgents(updated, divisionStrategy);
+            kickOffDiscoveryAgents(updated, focusAreas);
         } catch (Exception e) {
             markNodeFailed(running, e);
             log.error(
@@ -342,13 +352,12 @@ public class AgentRunner {
      */
     private void kickOffDiscoveryAgents(
         DiscoveryOrchestratorNode orchestratorNode,
-        String divisionStrategy
+        List<String> focusAreas
     ) {
         log.info(
             "Kicking off DiscoveryAgent(s) for orchestrator: {}",
             orchestratorNode.nodeId()
         );
-        List<String> focusAreas = parseDivisionStrategy(divisionStrategy);
         if (focusAreas.isEmpty()) {
             focusAreas = List.of("Repository overview");
         }
@@ -386,18 +395,22 @@ public class AgentRunner {
         DiscoveryNode running = markNodeRunning(node);
         try {
             String subdomainFocus = running.title();
-            String findings = discoveryAgent.discoverCodebaseSection(
-                running.nodeId(),
-                DISCOVERY_AGENT_START_MESSAGE,
-                running.goal(),
-                subdomainFocus
-            );
+            AgentInterfaces.DiscoveryAgentResult result =
+                discoveryAgent.discoverCodebaseSection(
+                    running.nodeId(),
+                    DISCOVERY_AGENT_START_MESSAGE,
+                    running.goal(),
+                    subdomainFocus
+                );
+            String findings = result.output();
             log.info(
                 "DiscoveryAgent completed findings for subdomain: {}",
                 subdomainFocus
             );
 
-            DiscoveryNode withContent = running.withContent(findings);
+            DiscoveryNode withContent = running
+                .withResult(result)
+                .withContent(findings);
             graphRepository.save(withContent);
 
             DiscoveryNode completed = markNodeCompleted(withContent);
@@ -432,21 +445,22 @@ public class AgentRunner {
                 DiscoveryNode.class
             );
 
-            String mergedFindings =
+            AgentInterfaces.DiscoveryCollectorResult result =
                 discoveryCollector.consolidateDiscoveryFindings(
                     running.nodeId(),
-                        DISCOVERY_COLLECTOR_START_MESSAGE,
+                    DISCOVERY_COLLECTOR_START_MESSAGE,
                     running.goal(),
                     allDiscoveryFindings
                 );
+            String mergedFindings = result.consolidatedOutput();
             log.info(
                 "DiscoveryMerger consolidated findings for goal: {}",
                 running.goal()
             );
 
-            DiscoveryCollectorNode withContent = running.withContent(
-                mergedFindings
-            );
+            DiscoveryCollectorNode withContent = running
+                .withResult(result)
+                .withContent(mergedFindings);
             graphRepository.save(withContent);
             markNodeCompleted(withContent);
 
@@ -527,24 +541,32 @@ public class AgentRunner {
             // Get discovery context from parent chain
             String discoveryContext = extractDiscoveryContext(node);
 
-            String divisionStrategy =
-                    planningOrchestrator.decomposePlanAndCreateWorkItems(
-                            running.nodeId(),
-                            PLANNING_ORCHESTRATOR_MESSAGE,
-                            running.goal()
-                    );
+            AgentInterfaces.PlanningOrchestratorResult result =
+                planningOrchestrator.decomposePlanAndCreateWorkItems(
+                    running.nodeId(),
+                    PLANNING_ORCHESTRATOR_MESSAGE,
+                    running.goal()
+                );
+            String divisionStrategy = resolveDelegationSummary(
+                result.delegation(),
+                result.output()
+            );
+            List<String> planSegments = resolveDelegationSegments(
+                result.delegation(),
+                divisionStrategy
+            );
             log.info(
                 "PlanningOrchestrator determined strategy: {}",
                 divisionStrategy
             );
 
-            PlanningOrchestratorNode updated = running.withPlanContent(
-                divisionStrategy
-            );
+            PlanningOrchestratorNode updated = running
+                .withResult(result)
+                .withPlanContent(divisionStrategy);
             graphRepository.save(updated);
 
             // Next: Kick off PlanningAgent(s) based on strategy
-            kickOffPlanningAgents(updated, divisionStrategy, discoveryContext);
+            kickOffPlanningAgents(updated, planSegments, discoveryContext);
         } catch (Exception e) {
             markNodeFailed(running, e);
             log.error(
@@ -564,14 +586,13 @@ public class AgentRunner {
      */
     private void kickOffPlanningAgents(
         PlanningOrchestratorNode orchestratorNode,
-        String divisionStrategy,
+        List<String> planSegments,
         String discoveryContext
     ) {
         log.info(
             "Kicking off PlanningAgent(s) for orchestrator: {}",
             orchestratorNode.nodeId()
         );
-        List<String> planSegments = parseDivisionStrategy(divisionStrategy);
         if (planSegments.isEmpty()) {
             planSegments = List.of("Full plan");
         }
@@ -609,14 +630,18 @@ public class AgentRunner {
         log.info("Executing PlanningAgent for node: {}", node.nodeId());
         PlanningNode running = markNodeRunning(node);
         try {
-            String plan = planningAgent.decomposePlanAndCreateWorkItems(
+            AgentInterfaces.PlanningAgentResult result =
+                planningAgent.decomposePlanAndCreateWorkItems(
                     running.nodeId(),
                     PLANNING_AGENT_USER_MESSAGE,
                     running.goal()
-            );
+                );
+            String plan = result.output();
             log.info("PlanningAgent completed plan for goal: {}", node.goal());
 
-            PlanningNode withPlan = running.withPlanContent(plan);
+            PlanningNode withPlan = running
+                .withResult(result)
+                .withPlanContent(plan);
             graphRepository.save(withPlan);
             markNodeCompleted(withPlan);
 
@@ -650,18 +675,22 @@ public class AgentRunner {
                 PlanningNode.class
             );
 
-            String tickets = planningMerger.consolidatePlansIntoTickets(
+            AgentInterfaces.PlanningCollectorResult result =
+                planningMerger.consolidatePlansIntoTickets(
                     node.nodeId(),
                     PLANNING_COLLECTOR_MESSAGE,
                     running.goal(),
                     allPlanningResults
-            );
+                );
+            String tickets = result.consolidatedOutput();
             log.info(
                 "PlanningMerger consolidated tickets for goal: {}",
                 node.goal()
             );
 
-            PlanningCollectorNode withPlan = running.withPlanContent(tickets);
+            PlanningCollectorNode withPlan = running
+                .withResult(result)
+                .withPlanContent(tickets);
             graphRepository.save(withPlan);
             markNodeCompleted(withPlan);
 
@@ -801,7 +830,7 @@ public class AgentRunner {
             String tickets = extractTicketsFromContext(planningContext);
             List<String> ticketList = parseTickets(tickets);
 
-            String orchestrationPlan =
+            AgentInterfaces.TicketOrchestratorResult result =
                 ticketOrchestrator.orchestrateTicketExecution(
                     running.nodeId(),
                     TICKET_ORCHESTRATOR_START_MESSAGE,
@@ -810,12 +839,15 @@ public class AgentRunner {
                     discoveryContext,
                     planningContext
                 );
+            String orchestrationPlan = result.output();
             log.info(
                 "TicketOrchestrator created orchestration plan: {}",
                 orchestrationPlan
             );
 
-            EditorNode withPlan = running.withOutput(orchestrationPlan, 0);
+            EditorNode withPlan = running
+                .withTicketOrchestratorResult(result)
+                .withOutput(orchestrationPlan, 0);
             EditorNode withQueue = persistTicketQueue(withPlan, ticketList);
             graphRepository.save(withQueue);
 
@@ -970,20 +1002,24 @@ public class AgentRunner {
             String ticketDetails = running.goal();
             String ticketDetailsFilePath = "/path/to/ticket/details.md"; // In real implementation, resolve from node
 
-            String implementation = ticketAgent.implementTicket(
-                running.nodeId(),
-                TICKET_AGENT_START_MESSAGE,
-                ticketDetails,
-                ticketDetailsFilePath,
-                discoveryContext,
-                planningContext
-            );
+            AgentInterfaces.TicketAgentResult result =
+                ticketAgent.implementTicket(
+                    running.nodeId(),
+                    TICKET_AGENT_START_MESSAGE,
+                    ticketDetails,
+                    ticketDetailsFilePath,
+                    discoveryContext,
+                    planningContext
+                );
+            String implementation = result.output();
             log.info(
                 "TicketAgent completed implementation for ticket: {}",
                 running.nodeId()
             );
 
-            EditorNode withOutput = running.withOutput(implementation, 0);
+            EditorNode withOutput = running
+                .withTicketAgentResult(result)
+                .withOutput(implementation, 0);
             graphRepository.save(withOutput);
             markNodeCompleted(withOutput);
 
@@ -1041,12 +1077,14 @@ public class AgentRunner {
             String content = running.reviewContent();
             String criteria = buildReviewCriteria();
 
-            String evaluation = reviewAgent.evaluateContent(
-                running.nodeId(),
-                REVIEW_AGENT_START_MESSAGE,
-                content,
-                criteria
-            );
+            AgentInterfaces.ReviewAgentResult result =
+                reviewAgent.evaluateContent(
+                    running.nodeId(),
+                    REVIEW_AGENT_START_MESSAGE,
+                    content,
+                    criteria
+                );
+            String evaluation = result.output();
             log.info(
                 "ReviewAgent evaluation for node: {}: {}",
                 running.nodeId(),
@@ -1056,10 +1094,9 @@ public class AgentRunner {
             boolean approved = evaluation.toLowerCase().contains("approved");
             boolean humanNeeded = evaluation.toLowerCase().contains("human");
 
-            ReviewNode withDecision = running.withReviewDecision(
-                approved,
-                evaluation
-            );
+            ReviewNode withDecision = running
+                .withResult(result)
+                .withReviewDecision(approved, evaluation);
             graphRepository.save(withDecision);
 
             if (humanNeeded && !approved) {
@@ -1181,20 +1218,27 @@ public class AgentRunner {
                 );
             }
 
-            String mergeSummary = mergeResult != null
-                ? summarizeMerge(mergeResult)
-                : mergerAgent.performMerge(
-                      running.nodeId(),
-                      MERGER_AGENT_START_MESSAGE,
-                      running.goal()
-                  );
+            AgentInterfaces.MergerAgentResult agentResult = null;
+            String mergeSummary;
+            if (mergeResult != null) {
+                mergeSummary = summarizeMerge(mergeResult);
+            } else {
+                agentResult = mergerAgent.performMerge(
+                    running.nodeId(),
+                    MERGER_AGENT_START_MESSAGE,
+                    running.goal()
+                );
+                mergeSummary = agentResult.output();
+            }
 
             log.info(
                 "MergerAgent completed merge for node: {}",
                 running.nodeId()
             );
 
-            MergeNode withContent = running.withContent(mergeSummary);
+            MergeNode withContent = agentResult != null
+                ? running.withResult(agentResult).withContent(mergeSummary)
+                : running.withContent(mergeSummary);
             graphRepository.save(withContent);
 
             if (mergeResult != null) {
@@ -1385,6 +1429,32 @@ public class AgentRunner {
             .collect(Collectors.toList());
     }
 
+    private String resolveDelegationSummary(
+        AgentInterfaces.DelegationPlan delegation,
+        String fallback
+    ) {
+        if (delegation == null) {
+            return fallback;
+        }
+        String summary = delegation.summary();
+        return summary != null && !summary.isBlank() ? summary : fallback;
+    }
+
+    private List<String> resolveDelegationSegments(
+        AgentInterfaces.DelegationPlan delegation,
+        String fallback
+    ) {
+        if (delegation != null && delegation.subAgentGoals() != null) {
+            var values = delegation.subAgentGoals().values().stream()
+                .filter(value -> value != null && !value.isBlank())
+                .toList();
+            if (!values.isEmpty()) {
+                return values;
+            }
+        }
+        return parseDivisionStrategy(fallback);
+    }
+
     private <T extends GraphNode> boolean allChildrenCompletedOfType(
         GraphNode parent,
         Class<T> type
@@ -1524,11 +1594,13 @@ public class AgentRunner {
     }
 
     private String performMerge(MergeNode mergeNode) {
-        return mergerAgent.performMerge(
-            mergeNode.nodeId(),
-            MERGER_AGENT_START_MESSAGE,
-            mergeNode.goal()
-        );
+        return mergerAgent
+            .performMerge(
+                mergeNode.nodeId(),
+                MERGER_AGENT_START_MESSAGE,
+                mergeNode.goal()
+            )
+            .output();
     }
 
     private String newNodeId() {

@@ -223,188 +223,64 @@ public class ComputationGraphOrchestrator {
     ) {
         return switch (parent) {
             case OrchestratorNode p ->
-                    new OrchestratorNode(
-                            p.nodeId(),
-                            p.title(),
-                            p.goal(),
-                            p.status(),
-                            p.parentNodeId(),
-                            childIds,
-                            p.metadata(),
-                            p.createdAt(),
-                            p.lastUpdatedAt(),
-                            p.repositoryUrl(),
-                            p.baseBranch(),
-                            p.hasSubmodules(),
-                            p.submoduleNames(),
-                            p.mainWorktreeId(),
-                            p.submoduleWorktreeIds(),
-                            p.orchestratorOutput(),
-                            p.submodules()
-                    );
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
             case PlanningNode p ->
-                    new PlanningNode(
-                            p.nodeId(),
-                            p.title(),
-                            p.goal(),
-                            p.status(),
-                            p.parentNodeId(),
-                            childIds,
-                            p.metadata(),
-                            p.createdAt(),
-                            p.lastUpdatedAt(),
-                            p.generatedTicketIds(),
-                            p.planContent(),
-                            p.estimatedSubtasks(),
-                            p.completedSubtasks()
-                    );
-            case EditorNode p -> new EditorNode(
-                    p.nodeId(),
-                    p.title(),
-                    p.goal(),
-                    p.status(),
-                    p.parentNodeId(),
-                    childIds,
-                    p.metadata(),
-                    p.createdAt(),
-                    p.lastUpdatedAt(),
-                    p.mainWorktreeId(),
-                    p.submoduleWorktreeIds(),
-                    p.completedSubtasks(),
-                    p.totalSubtasks(),
-                    p.agentType(),
-                    p.workOutput(),
-                    p.mergeRequired(),
-                    p.streamingTokenCount()
-            );
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
+            case EditorNode p ->
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
             case DiscoveryOrchestratorNode p ->
-                    new DiscoveryOrchestratorNode(
-                            p.nodeId(),
-                            p.title(),
-                            p.goal(),
-                            p.status(),
-                            p.parentNodeId(),
-                            childIds,
-                            p.metadata(),
-                            p.createdAt(),
-                            Instant.now(),
-                            p.summaryContent(),
-                            p.totalTasksCompleted(),
-                            p.totalTasksFailed()
-                    );
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
             case DiscoveryNode p ->
-                    new DiscoveryNode(
-                            p.nodeId(),
-                            p.title(),
-                            p.goal(),
-                            p.status(),
-                            p.parentNodeId(),
-                            childIds,
-                            p.metadata(),
-                            p.createdAt(),
-                            Instant.now(),
-                            p.summaryContent(),
-                            p.totalTasksCompleted(),
-                            p.totalTasksFailed()
-                    );
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
             case DiscoveryCollectorNode p ->
-                    new DiscoveryCollectorNode(
-                            p.nodeId(),
-                            p.title(),
-                            p.goal(),
-                            p.status(),
-                            p.parentNodeId(),
-                            childIds,
-                            p.metadata(),
-                            p.createdAt(),
-                            Instant.now(),
-                            p.summaryContent(),
-                            p.totalTasksCompleted(),
-                            p.totalTasksFailed()
-                    );
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
             case PlanningOrchestratorNode p ->
-                    new PlanningOrchestratorNode(
-                            p.nodeId(),
-                            p.title(),
-                            p.goal(),
-                            p.status(),
-                            p.parentNodeId(),
-                            childIds,
-                            p.metadata(),
-                            p.createdAt(),
-                            Instant.now(),
-                            p.generatedTicketIds(),
-                            p.planContent(),
-                            p.estimatedSubtasks(),
-                            p.completedSubtasks()
-                    );
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
             case PlanningCollectorNode p ->
-                    new PlanningCollectorNode(
-                            p.nodeId(),
-                            p.title(),
-                            p.goal(),
-                            p.status(),
-                            p.parentNodeId(),
-                            childIds,
-                            p.metadata(),
-                            p.createdAt(),
-                            Instant.now(),
-                            p.generatedTicketIds(),
-                            p.planContent(),
-                            p.estimatedSubtasks(),
-                            p.completedSubtasks()
-                    );
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
             case CollectorNode p -> p.toBuilder()
                     .childNodeIds(childIds)
                     .lastUpdatedAt(Instant.now())
                     .build();
-            case MergeNode p -> new MergeNode(
-                    p.nodeId(),
-                    p.title(),
-                    p.goal(),
-                    p.status(),
-                    p.parentNodeId(),
-                    childIds,
-                    p.metadata(),
-                    p.createdAt(),
-                    Instant.now(),
-                    p.summaryContent(),
-                    p.totalTasksCompleted(),
-                    p.totalTasksFailed()
-            );
-            case ReviewNode p -> new ReviewNode(
-                    p.nodeId(),
-                    p.title(),
-                    p.goal(),
-                    p.status(),
-                    p.parentNodeId(),
-                    childIds,
-                    p.metadata(),
-                    p.createdAt(),
-                    Instant.now(),
-                    p.reviewedNodeId(),
-                    p.reviewContent(),
-                    p.approved(),
-                    p.humanFeedbackRequested(),
-                    p.agentFeedback(),
-                    p.reviewerAgentType(),
-                    p.reviewCompletedAt()
-            );
-            case SummaryNode p -> new SummaryNode(
-                    p.nodeId(),
-                    p.title(),
-                    p.goal(),
-                    p.status(),
-                    p.parentNodeId(),
-                    childIds,
-                    p.metadata(),
-                    p.createdAt(),
-                    Instant.now(),
-                    p.summarizedNodeIds(),
-                    p.summaryContent(),
-                    p.totalTasksCompleted(),
-                    p.totalTasksFailed()
-            );
+            case MergeNode p ->
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
+            case ReviewNode p ->
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
+            case SummaryNode p ->
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
         };
     }
 }

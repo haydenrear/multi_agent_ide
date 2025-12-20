@@ -1,5 +1,8 @@
 package com.hayden.multiagentide.model.nodes;
 
+import com.hayden.multiagentide.agent.AgentInterfaces;
+import lombok.Builder;
+
 import java.time.Instant;
 import java.util.*;
 
@@ -7,6 +10,7 @@ import java.util.*;
  * Node that breaks down goals into work tickets.
  * Can be Reviewable.
  */
+@Builder(toBuilder = true)
 public record PlanningCollectorNode(
         String nodeId,
         String title,
@@ -22,8 +26,14 @@ public record PlanningCollectorNode(
         List<String> generatedTicketIds,
         String planContent,
         int estimatedSubtasks,
-        int completedSubtasks
+        int completedSubtasks,
+        AgentInterfaces.PlanningCollectorResult planningCollectorResult
 ) implements GraphNode, Viewable<String>, Orchestrator {
+
+    public PlanningCollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> generatedTicketIds, String planContent, int estimatedSubtasks, int completedSubtasks) {
+        this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
+                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, null);
+    }
 
     public PlanningCollectorNode {
         if (nodeId == null || nodeId.isEmpty()) throw new IllegalArgumentException("nodeId required");
@@ -47,12 +57,10 @@ public record PlanningCollectorNode(
      * Create an updated version with new status.
      */
     public PlanningCollectorNode withStatus(NodeStatus newStatus) {
-        return new PlanningCollectorNode(
-                nodeId, title, goal, newStatus, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, planContent,
-                estimatedSubtasks, completedSubtasks
-        );
+        return toBuilder()
+                .status(newStatus)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
@@ -61,35 +69,37 @@ public record PlanningCollectorNode(
     public PlanningCollectorNode addTicket(String ticketId) {
         List<String> newTickets = new ArrayList<>(generatedTicketIds);
         newTickets.add(ticketId);
-        return new PlanningCollectorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                newTickets, planContent,
-                estimatedSubtasks, completedSubtasks
-        );
+        return toBuilder()
+                .generatedTicketIds(newTickets)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update plan content.
      */
     public PlanningCollectorNode withPlanContent(String content) {
-        return new PlanningCollectorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, content,
-                estimatedSubtasks, completedSubtasks
-        );
+        return toBuilder()
+                .planContent(content)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update progress.
      */
     public PlanningCollectorNode withProgress(int completed, int total) {
-        return new PlanningCollectorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, planContent,
-                total, completed
-        );
+        return toBuilder()
+                .estimatedSubtasks(total)
+                .completedSubtasks(completed)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public PlanningCollectorNode withResult(AgentInterfaces.PlanningCollectorResult result) {
+        return toBuilder()
+                .planningCollectorResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 }

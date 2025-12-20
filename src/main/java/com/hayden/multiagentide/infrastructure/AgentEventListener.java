@@ -67,15 +67,6 @@ public class AgentEventListener implements EventListener {
             case Events.NodeUpdatedEvent nodeUpdatedEvent -> {
                 log.debug("Node updated: {}", nodeUpdatedEvent.eventId());
             }
-            case Events.SpecMergedEvent specMergedEvent -> {
-                log.debug("Spec merged: {}", specMergedEvent.eventId());
-            }
-            case Events.SpecUpdatedEvent specUpdatedEvent -> {
-                log.debug("Spec updated: {}", specUpdatedEvent.eventId());
-            }
-            case Events.SpecValidatedEvent specValidatedEvent -> {
-                log.debug("Spec validated: {}", specValidatedEvent.eventId());
-            }
             case Events.WorktreeBranchedEvent worktreeBranchedEvent -> {
                 log.debug("Worktree branched: {}", worktreeBranchedEvent.eventId());
             }
@@ -87,6 +78,10 @@ public class AgentEventListener implements EventListener {
             }
             case Events.WorktreeMergedEvent worktreeMergedEvent -> {
                 log.debug("Worktree merged: {}", worktreeMergedEvent.eventId());
+            }
+            case Events.InterruptAgentEvent interruptAgentEvent -> {
+            }
+            case Events.PauseEvent pauseEvent -> {
             }
         }
     }

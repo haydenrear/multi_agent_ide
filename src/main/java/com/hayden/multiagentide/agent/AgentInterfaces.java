@@ -4,6 +4,8 @@ import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
+import java.util.List;
+import java.util.Map;
 
 /**
  * LangChain4j @Agent interfaces for multi-agent IDE.
@@ -25,9 +27,9 @@ public class AgentInterfaces {
 
         @Agent(value = "Split the goal into tickets according to the discovery context.")
 //       TODO: add discovery context, return
-        String decomposePlanAndCreateWorkItems(@MemoryId String memId,
-                                               @UserMessage String msg,
-                                               @V("goal") String goal);
+        PlanningOrchestratorResult decomposePlanAndCreateWorkItems(@MemoryId String memId,
+                                                                   @UserMessage String msg,
+                                                                   @V("goal") String goal);
     }
 
     /**
@@ -52,10 +54,10 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Consolidates planning outputs into structured tickets")
-        String consolidatePlansIntoTickets(@MemoryId String memId,
-                                           @UserMessage String msg,
-                                           @V("goal") String goal,
-                                           @V("planningResults") String planningResults);
+        PlanningCollectorResult consolidatePlansIntoTickets(@MemoryId String memId,
+                                                            @UserMessage String msg,
+                                                            @V("goal") String goal,
+                                                            @V("planningResults") String planningResults);
     }
 
     /**
@@ -75,9 +77,9 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Decomposes high-level goals into structured work items with clear tasks and dependencies")
-        String decomposePlanAndCreateWorkItems(@MemoryId String memId,
-                                               @UserMessage String msg,
-                                               @V("goal") String goal);
+        PlanningAgentResult decomposePlanAndCreateWorkItems(@MemoryId String memId,
+                                                            @UserMessage String msg,
+                                                            @V("goal") String goal);
     }
 
     public interface DiscoveryOrchestrator {
@@ -98,9 +100,9 @@ public class AgentInterfaces {
                 """ ;
 
         @Agent(value = "")
-        String kickOffAnyNumberOfAgentsForCodeSearch(@MemoryId String memId,
-                                                     @UserMessage String msg,
-                                                     @V("goal") String goal);
+        DiscoveryOrchestratorResult kickOffAnyNumberOfAgentsForCodeSearch(@MemoryId String memId,
+                                                                          @UserMessage String msg,
+                                                                          @V("goal") String goal);
     }
 
     /**
@@ -127,10 +129,10 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Consolidates discovery findings into unified codebase understanding")
-        String consolidateDiscoveryFindings(@MemoryId String memId,
-                                            @UserMessage String msg,
-                                            @V("goal") String goal,
-                                            @V("discoveryResults") String discoveryResults);
+        DiscoveryCollectorResult consolidateDiscoveryFindings(@MemoryId String memId,
+                                                              @UserMessage String msg,
+                                                              @V("goal") String goal,
+                                                              @V("discoveryResults") String discoveryResults);
     }
 
     /**
@@ -163,10 +165,10 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Discovers and analyzes codebase structure for specific domains")
-        String discoverCodebaseSection(@MemoryId String memId,
-                                       @UserMessage String msg,
-                                       @V("goal") String goal,
-                                       @V("subdomainFocus") String subdomainFocus);
+        DiscoveryAgentResult discoverCodebaseSection(@MemoryId String memId,
+                                                     @UserMessage String msg,
+                                                     @V("goal") String goal,
+                                                     @V("subdomainFocus") String subdomainFocus);
     }
 
     /**
@@ -192,12 +194,12 @@ public class AgentInterfaces {
 
         @Agent(value = "Orchestrates ticket-based implementation workflow")
         @UserMessage()
-        String orchestrateTicketExecution(@MemoryId String memId,
-                                          @UserMessage String msg,
-                                          @V("goal") String goal,
-                                          @V("tickets") String tickets,
-                                          @V("discoveryContext") String discoveryContext,
-                                          @V("planningContext") String planningContext);
+        TicketOrchestratorResult orchestrateTicketExecution(@MemoryId String memId,
+                                                            @UserMessage String msg,
+                                                            @V("goal") String goal,
+                                                            @V("tickets") String tickets,
+                                                            @V("discoveryContext") String discoveryContext,
+                                                            @V("planningContext") String planningContext);
     }
 
 
@@ -234,12 +236,12 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Implements individual tickets with complete code generation")
-        String implementTicket(@MemoryId String memId,
-                               @UserMessage String msg,
-                               @V("ticketDetails") String ticketDetails,
-                               @V("ticketDetailsFilePath") String ticketDetailsFilePath,
-                               @V("discoveryContext") String discoveryContext,
-                               @V("planningContext") String planningContext);
+        TicketAgentResult implementTicket(@MemoryId String memId,
+                                          @UserMessage String msg,
+                                          @V("ticketDetails") String ticketDetails,
+                                          @V("ticketDetailsFilePath") String ticketDetailsFilePath,
+                                          @V("discoveryContext") String discoveryContext,
+                                          @V("planningContext") String planningContext);
     }
 
     /**
@@ -256,9 +258,9 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Resolves merge conflicts based on strategy and context")
-        String performMerge(@MemoryId String memId,
-                            @UserMessage String msg,
-                            @V("conflictFiles") String conflictFiles);
+        MergerAgentResult performMerge(@MemoryId String memId,
+                                       @UserMessage String msg,
+                                       @V("conflictFiles") String conflictFiles);
     }
 
     /**
@@ -282,10 +284,10 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Evaluates content quality, completeness, and adherence to requirements")
-        String evaluateContent(@MemoryId String memId,
-                               @UserMessage String msg,
-                               @V("content") String content,
-                               @V("criteria") String criteria);
+        ReviewAgentResult evaluateContent(@MemoryId String memId,
+                                          @UserMessage String msg,
+                                          @V("content") String content,
+                                          @V("criteria") String criteria);
     }
 
     /**
@@ -307,10 +309,10 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Coordinates multiple agents to accomplish complex goals")
-        String coordinateWorkflow(@MemoryId String memId,
-                                  @UserMessage String msg,
-                                  @V("goal") String goal,
-                                  @V("phase") String phase);
+        OrchestratorAgentResult coordinateWorkflow(@MemoryId String memId,
+                                                   @UserMessage String msg,
+                                                   @V("goal") String goal,
+                                                   @V("phase") String phase);
     }
 
 //    TODO:
@@ -340,10 +342,10 @@ public class AgentInterfaces {
          * @return
          */
         @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
-        String coordinateWorkflow(@MemoryId String memId,
-                                  @UserMessage String msg,
-                                  @V("goal") String goal,
-                                  @V("phase") String phase);
+        OrchestratorCollectorResult coordinateWorkflow(@MemoryId String memId,
+                                                       @UserMessage String msg,
+                                                       @V("goal") String goal,
+                                                       @V("phase") String phase);
     }
 
     /**
@@ -364,10 +366,10 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
-        String coordinateWorkflow(@MemoryId String memId,
-                                  @UserMessage String msg,
-                                  @V("goal") String goal,
-                                  @V("phase") String phase);
+        OrchestratorAgentResult coordinateWorkflow(@MemoryId String memId,
+                                                   @UserMessage String msg,
+                                                   @V("goal") String goal,
+                                                   @V("phase") String phase);
     }
 
     /**
@@ -384,10 +386,10 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
-        String applyContextOperations(@MemoryId String memId,
-                                      @UserMessage String msg,
-                                      @V("goal") String goal,
-                                      @V("phase") String phase);
+        ContextAgentResult applyContextOperations(@MemoryId String memId,
+                                                  @UserMessage String msg,
+                                                  @V("goal") String goal,
+                                                  @V("phase") String phase);
     }
 
     /**
@@ -403,9 +405,147 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
-        String coordinateWorkflow(@MemoryId String memId,
-                                  @UserMessage String msg,
-                                  @V("goal") String goal,
-                                  @V("phase") String phase);
+        ContextCollectorResult coordinateWorkflow(@MemoryId String memId,
+                                                  @UserMessage String msg,
+                                                  @V("goal") String goal,
+                                                  @V("phase") String phase);
+    }
+
+    /**
+     * Shared data models describing agent interactions, results, and interrupts.
+     * These are intentionally transport-agnostic and can be serialized as needed.
+     */
+    public record AgentInteraction(
+            InteractionType interactionType,
+            String message
+    ) {
+    }
+
+    public enum InteractionType {
+        AGENT_MESSAGE,
+        USER_MESSAGE,
+        INTERRUPT_REQUEST,
+        RESULT_HANDOFF
+    }
+
+    public enum InterruptType {
+        HUMAN_REVIEW,
+        AGENT_REVIEW,
+        PAUSE,
+        STOP,
+        BRANCH,
+        PRUNE
+    }
+
+    /**
+     * Defines how to kick off sub-agents for orchestrated work.
+     */
+    public record DelegationPlan(
+            String summary,
+            Map<String, String> subAgentGoals
+    ) {
+    }
+
+    /**
+     * Orchestrator-specific results.
+     */
+    public record OrchestratorAgentResult(
+            DelegationPlan delegation,
+            List<InterruptType> interruptsRequested,
+            String output
+    ) {
+    }
+
+    public record DiscoveryOrchestratorResult(
+            DelegationPlan delegation,
+            List<InterruptType> interruptsRequested,
+            String output
+    ) {
+    }
+
+    public record PlanningOrchestratorResult(
+            DelegationPlan delegation,
+            List<InterruptType> interruptsRequested,
+            String output
+    ) {
+    }
+
+    public record TicketOrchestratorResult(
+            DelegationPlan delegation,
+            List<InterruptType> interruptsRequested,
+            String output
+    ) {
+    }
+
+    /**
+     * Results for non-orchestrator agents.
+     */
+    public record DiscoveryAgentResult(
+            String output,
+            List<InterruptType> interruptsRequested
+    ) {
+    }
+
+    public record PlanningAgentResult(
+            String output,
+            List<InterruptType> interruptsRequested
+    ) {
+    }
+
+    public record TicketAgentResult(
+            String output,
+            List<InterruptType> interruptsRequested
+    ) {
+    }
+
+    public record ReviewAgentResult(
+            String output,
+            List<InterruptType> interruptsRequested
+    ) {
+    }
+
+    public record MergerAgentResult(
+            String output,
+            List<InterruptType> interruptsRequested
+    ) {
+    }
+
+    public record SummaryAgentResult(
+            String output,
+            List<InterruptType> interruptsRequested
+    ) {
+    }
+
+    public record ContextAgentResult(
+            String output,
+            List<InterruptType> interruptsRequested
+    ) {
+    }
+
+    /**
+     * Results for collector agents.
+     */
+    public record DiscoveryCollectorResult(
+            String consolidatedOutput,
+            List<InterruptType> interruptsRequested
+    ) {
+    }
+
+    public record PlanningCollectorResult(
+            String consolidatedOutput,
+            List<InterruptType> interruptsRequested
+    ) {
+    }
+
+    public record ContextCollectorResult(
+            String consolidatedOutput,
+            List<InterruptType> interruptsRequested
+    ) {
+    }
+
+    public record OrchestratorCollectorResult(
+            String consolidatedOutput,
+            List<InterruptType> interruptsRequested
+    ) {
     }
 }

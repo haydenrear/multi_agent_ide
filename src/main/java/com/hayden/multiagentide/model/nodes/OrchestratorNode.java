@@ -1,5 +1,8 @@
 package com.hayden.multiagentide.model.nodes;
 
+import com.hayden.multiagentide.agent.AgentInterfaces;
+import lombok.Builder;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,6 +13,7 @@ import java.util.Map;
  * Root node in the computation graph that orchestrates the overall goal.
  * Can be Branchable, and Viewable.
  */
+@Builder(toBuilder = true)
 public record OrchestratorNode(
         String nodeId,
         String title,
@@ -27,13 +31,20 @@ public record OrchestratorNode(
         String mainWorktreeId,
         List<String> submoduleWorktreeIds,
         String orchestratorOutput,
-        List<SubmoduleNode> submodules
+        List<SubmoduleNode> submodules,
+        AgentInterfaces.OrchestratorAgentResult orchestratorResult
 ) implements GraphNode, Viewable<String>, Orchestrator {
 
     public OrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
-                new ArrayList<>());
+                new ArrayList<>(), null);
+    }
+
+    public OrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput, List<SubmoduleNode> submodules) {
+        this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
+                repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
+                submodules, null);
     }
 
     public OrchestratorNode {
@@ -59,12 +70,10 @@ public record OrchestratorNode(
      * Create an updated version with new status.
      */
     public OrchestratorNode withStatus(GraphNode.NodeStatus newStatus) {
-        return new OrchestratorNode(
-                nodeId, title, goal, newStatus, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, orchestratorOutput
-        );
+        return toBuilder()
+                .status(newStatus)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
@@ -73,23 +82,26 @@ public record OrchestratorNode(
     public OrchestratorNode addChildNode(String childNodeId) {
         List<String> newChildren = new ArrayList<>(childNodeIds);
         newChildren.add(childNodeId);
-        return new OrchestratorNode(
-                nodeId, title, goal, status, parentNodeId,
-                newChildren, metadata, createdAt, Instant.now(),
-                repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, orchestratorOutput
-        );
+        return toBuilder()
+                .childNodeIds(newChildren)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update orchestrator output.
      */
     public OrchestratorNode withOutput(String output) {
-        return new OrchestratorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, output
-        );
+        return toBuilder()
+                .orchestratorOutput(output)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public OrchestratorNode withResult(AgentInterfaces.OrchestratorAgentResult result) {
+        return toBuilder()
+                .orchestratorResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 }

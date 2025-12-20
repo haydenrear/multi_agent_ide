@@ -1,5 +1,8 @@
 package com.hayden.multiagentide.model.nodes;
 
+import com.hayden.multiagentide.agent.AgentInterfaces;
+import lombok.Builder;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,6 +13,7 @@ import java.util.Map;
  * Node that summarizes completed work.
  * Can be Summarizable, Viewable.
  */
+@Builder(toBuilder = true)
 public record SummaryNode(
         String nodeId,
         String title,
@@ -25,8 +29,14 @@ public record SummaryNode(
         List<String> summarizedNodeIds,
         String summaryContent,
         int totalTasksCompleted,
-        int totalTasksFailed
+        int totalTasksFailed,
+        AgentInterfaces.SummaryAgentResult summaryResult
 ) implements GraphNode, Viewable<String> {
+
+    public SummaryNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> summarizedNodeIds, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
+        this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
+                summarizedNodeIds, summaryContent, totalTasksCompleted, totalTasksFailed, null);
+    }
 
     public SummaryNode {
         if (nodeId == null || nodeId.isEmpty()) throw new IllegalArgumentException("nodeId required");
@@ -49,24 +59,20 @@ public record SummaryNode(
      * Create an updated version with new status.
      */
     public SummaryNode withStatus(GraphNode.NodeStatus newStatus) {
-        return new SummaryNode(
-                nodeId, title, goal, newStatus, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                summarizedNodeIds, summaryContent,
-                totalTasksCompleted, totalTasksFailed
-        );
+        return toBuilder()
+                .status(newStatus)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update summary content.
      */
     public SummaryNode withContent(String content) {
-        return new SummaryNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                summarizedNodeIds, content,
-                totalTasksCompleted, totalTasksFailed
-        );
+        return toBuilder()
+                .summaryContent(content)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
@@ -75,11 +81,16 @@ public record SummaryNode(
     public SummaryNode addSummarizedNode(String nodeId) {
         List<String> newSummarized = new ArrayList<>(summarizedNodeIds);
         newSummarized.add(nodeId);
-        return new SummaryNode(
-                this.nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                newSummarized, summaryContent,
-                totalTasksCompleted, totalTasksFailed
-        );
+        return toBuilder()
+                .summarizedNodeIds(newSummarized)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public SummaryNode withResult(AgentInterfaces.SummaryAgentResult result) {
+        return toBuilder()
+                .summaryResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 }

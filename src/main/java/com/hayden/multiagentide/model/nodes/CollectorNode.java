@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.model.nodes;
 
+import com.hayden.multiagentide.agent.AgentInterfaces;
 import lombok.Builder;
 
 import java.time.Instant;
@@ -27,13 +28,20 @@ public record CollectorNode(
         String mainWorktreeId,
         List<String> submoduleWorktreeIds,
         String orchestratorOutput,
-        List<SubmoduleNode> submodules
+        List<SubmoduleNode> submodules,
+        AgentInterfaces.OrchestratorCollectorResult collectorResult
 ) implements GraphNode, Viewable<String>, Orchestrator {
 
     public CollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
-                new ArrayList<>());
+                new ArrayList<>(), null);
+    }
+
+    public CollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput, List<SubmoduleNode> submodules) {
+        this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
+                repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
+                submodules, null);
     }
 
     public CollectorNode {
@@ -59,12 +67,10 @@ public record CollectorNode(
      * Create an updated version with new status.
      */
     public CollectorNode withStatus(NodeStatus newStatus) {
-        return new CollectorNode(
-                nodeId, title, goal, newStatus, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, orchestratorOutput
-        );
+        return toBuilder()
+                .status(newStatus)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
@@ -73,23 +79,26 @@ public record CollectorNode(
     public CollectorNode addChildNode(String childNodeId) {
         List<String> newChildren = new ArrayList<>(childNodeIds);
         newChildren.add(childNodeId);
-        return new CollectorNode(
-                nodeId, title, goal, status, parentNodeId,
-                newChildren, metadata, createdAt, Instant.now(),
-                repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, orchestratorOutput
-        );
+        return toBuilder()
+                .childNodeIds(newChildren)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update orchestrator output.
      */
     public CollectorNode withOutput(String output) {
-        return new CollectorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                repositoryUrl, baseBranch, hasSubmodules, submoduleNames,
-                mainWorktreeId, submoduleWorktreeIds, output
-        );
+        return toBuilder()
+                .orchestratorOutput(output)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public CollectorNode withResult(AgentInterfaces.OrchestratorCollectorResult result) {
+        return toBuilder()
+                .collectorResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 }

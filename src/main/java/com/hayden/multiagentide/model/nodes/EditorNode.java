@@ -1,5 +1,7 @@
 package com.hayden.multiagentide.model.nodes;
 
+import com.hayden.multiagentide.agent.AgentInterfaces;
+import lombok.Builder;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,6 +12,7 @@ import java.util.Map;
  * Node representing a unit of work tied to main and submodule worktrees.
  * Can be Branchable, Editable, Reviewable, Prunable.
  */
+@Builder(toBuilder = true)
 public record EditorNode(
         String nodeId,
         String title,
@@ -29,8 +32,16 @@ public record EditorNode(
         String agentType,  // Type of agent handling this work
         String workOutput,
         boolean mergeRequired,
-        int streamingTokenCount
+        int streamingTokenCount,
+        AgentInterfaces.TicketOrchestratorResult ticketOrchestratorResult,
+        AgentInterfaces.TicketAgentResult ticketAgentResult
 ) implements GraphNode, Viewable<String> {
+
+    public EditorNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String mainWorktreeId, List<String> submoduleWorktreeIds, int completedSubtasks, int totalSubtasks, String agentType, String workOutput, boolean mergeRequired, int streamingTokenCount) {
+        this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
+                mainWorktreeId, submoduleWorktreeIds, completedSubtasks, totalSubtasks, agentType,
+                workOutput, mergeRequired, streamingTokenCount, null, null);
+    }
 
     public EditorNode {
         if (nodeId == null || nodeId.isEmpty()) throw new IllegalArgumentException("nodeId required");
@@ -55,13 +66,10 @@ public record EditorNode(
      * Create an updated version with new status.
      */
     public EditorNode withStatus(GraphNode.NodeStatus newStatus) {
-        return new EditorNode(
-                nodeId, title, goal, newStatus, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                mainWorktreeId, submoduleWorktreeIds,
-                completedSubtasks, totalSubtasks, agentType,
-                workOutput, mergeRequired, streamingTokenCount
-        );
+        return toBuilder()
+                .status(newStatus)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
@@ -70,52 +78,42 @@ public record EditorNode(
     public EditorNode addSubmoduleWorktree(String submoduleWorktreeId) {
         List<String> newSubmodules = new ArrayList<>(submoduleWorktreeIds);
         newSubmodules.add(submoduleWorktreeId);
-        return new EditorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                mainWorktreeId, newSubmodules,
-                completedSubtasks, totalSubtasks, agentType,
-                workOutput, mergeRequired, streamingTokenCount
-        );
+        return toBuilder()
+                .submoduleWorktreeIds(newSubmodules)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update work output and streaming progress.
      */
     public EditorNode withOutput(String output, int tokens) {
-        return new EditorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                mainWorktreeId, submoduleWorktreeIds,
-                completedSubtasks, totalSubtasks, agentType,
-                output, mergeRequired, tokens
-        );
+        return toBuilder()
+                .workOutput(output)
+                .streamingTokenCount(tokens)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update progress.
      */
     public EditorNode withProgress(int completed, int total) {
-        return new EditorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                mainWorktreeId, submoduleWorktreeIds,
-                completed, total, agentType,
-                workOutput, mergeRequired, streamingTokenCount
-        );
+        return toBuilder()
+                .completedSubtasks(completed)
+                .totalSubtasks(total)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Mark that merge is required.
      */
     public EditorNode requireMerge() {
-        return new EditorNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                mainWorktreeId, submoduleWorktreeIds,
-                completedSubtasks, totalSubtasks, agentType,
-                workOutput, true, streamingTokenCount
-        );
+        return toBuilder()
+                .mergeRequired(true)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
@@ -124,12 +122,23 @@ public record EditorNode(
     public EditorNode addChildNode(String childNodeId) {
         List<String> newChildren = new ArrayList<>(childNodeIds);
         newChildren.add(childNodeId);
-        return new EditorNode(
-                nodeId, title, goal, status, parentNodeId,
-                newChildren, metadata, createdAt, Instant.now(),
-                mainWorktreeId, submoduleWorktreeIds,
-                completedSubtasks, totalSubtasks, agentType,
-                workOutput, mergeRequired, streamingTokenCount
-        );
+        return toBuilder()
+                .childNodeIds(newChildren)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public EditorNode withTicketOrchestratorResult(AgentInterfaces.TicketOrchestratorResult result) {
+        return toBuilder()
+                .ticketOrchestratorResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public EditorNode withTicketAgentResult(AgentInterfaces.TicketAgentResult result) {
+        return toBuilder()
+                .ticketAgentResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 }

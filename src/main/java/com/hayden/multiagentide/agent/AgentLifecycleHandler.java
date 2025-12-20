@@ -178,19 +178,10 @@ public class AgentLifecycleHandler {
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
         if (nodeOpt.isPresent() && nodeOpt.get() instanceof DiscoveryOrchestratorNode node) {
-            DiscoveryOrchestratorNode updated = new DiscoveryOrchestratorNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    node.status(),
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    "",
-                    node.totalTasksCompleted(),
-                    node.totalTasksFailed());
+            DiscoveryOrchestratorNode updated = node.toBuilder()
+                    .summaryContent("")
+                    .lastUpdatedAt(Instant.now())
+                    .build();
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
@@ -240,20 +231,11 @@ public class AgentLifecycleHandler {
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
         if (nodeOpt.isPresent() && nodeOpt.get() instanceof DiscoveryNode node) {
-            DiscoveryNode updated = new DiscoveryNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    GraphNode.NodeStatus.COMPLETED,
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    discoveryFindings,
-                    node.totalTasksCompleted(),
-                    node.totalTasksFailed()
-            );
+            DiscoveryNode updated = node.toBuilder()
+                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .summaryContent(discoveryFindings)
+                    .lastUpdatedAt(Instant.now())
+                    .build();
 
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
@@ -304,20 +286,11 @@ public class AgentLifecycleHandler {
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
         if (nodeOpt.isPresent() && nodeOpt.get() instanceof DiscoveryCollectorNode node) {
-            DiscoveryCollectorNode updated = new DiscoveryCollectorNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    GraphNode.NodeStatus.COMPLETED,
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    mergedDiscoveryFile,
-                    node.totalTasksCompleted(),
-                    node.totalTasksFailed()
-            );
+            DiscoveryCollectorNode updated = node.toBuilder()
+                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .summaryContent(mergedDiscoveryFile)
+                    .lastUpdatedAt(Instant.now())
+                    .build();
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
@@ -363,21 +336,11 @@ public class AgentLifecycleHandler {
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
         if (nodeOpt.isPresent() && nodeOpt.get() instanceof PlanningNode node) {
-            PlanningNode updated = new PlanningNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    GraphNode.NodeStatus.COMPLETED,
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    node.generatedTicketIds(),
-                    planContent,
-                    node.estimatedSubtasks(),
-                    node.completedSubtasks()
-            );
+            PlanningNode updated = node.toBuilder()
+                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .planContent(planContent)
+                    .lastUpdatedAt(Instant.now())
+                    .build();
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
@@ -432,21 +395,9 @@ public class AgentLifecycleHandler {
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
         if (nodeOpt.isPresent() && nodeOpt.get() instanceof PlanningOrchestratorNode node) {
-            PlanningOrchestratorNode updated = new PlanningOrchestratorNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    node.status(),
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    node.generatedTicketIds(),
-                    node.planContent(),
-                    node.estimatedSubtasks(),
-                    node.completedSubtasks()
-            );
+            PlanningOrchestratorNode updated = node.toBuilder()
+                    .lastUpdatedAt(Instant.now())
+                    .build();
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
@@ -495,21 +446,12 @@ public class AgentLifecycleHandler {
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
         if (nodeOpt.isPresent() && nodeOpt.get() instanceof PlanningCollectorNode node) {
-            PlanningCollectorNode updated = new PlanningCollectorNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    GraphNode.NodeStatus.COMPLETED,
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    new ArrayList<>(),
-                    ticketsFile,
-                    node.estimatedSubtasks(),
-                    node.completedSubtasks()
-            );
+            PlanningCollectorNode updated = node.toBuilder()
+                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .generatedTicketIds(new ArrayList<>())
+                    .planContent(ticketsFile)
+                    .lastUpdatedAt(Instant.now())
+                    .build();
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
@@ -558,25 +500,14 @@ public class AgentLifecycleHandler {
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
         if (nodeOpt.isPresent() && nodeOpt.get() instanceof EditorNode node) {
-            EditorNode updated = new EditorNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    GraphNode.NodeStatus.COMPLETED,
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    node.mainWorktreeId(),
-                    node.submoduleWorktreeIds(),
-                    1,
-                    1,
-                    node.agentType(),
-                    mergeStrategy,
-                    node.mergeRequired(),
-                    0
-            );
+            EditorNode updated = node.toBuilder()
+                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .completedSubtasks(1)
+                    .totalSubtasks(1)
+                    .workOutput(mergeStrategy)
+                    .streamingTokenCount(0)
+                    .lastUpdatedAt(Instant.now())
+                    .build();
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
@@ -633,25 +564,11 @@ public class AgentLifecycleHandler {
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
         if (nodeOpt.isPresent() && nodeOpt.get() instanceof EditorNode node) {
-            EditorNode updated = new EditorNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    node.status(),
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    node.mainWorktreeId(),
-                    node.submoduleWorktreeIds(),
-                    node.completedSubtasks(),
-                    node.totalSubtasks(),
-                    node.agentType(),
-                    orchestrationPlan,
-                    node.mergeRequired(),
-                    0
-            );
+            EditorNode updated = node.toBuilder()
+                    .workOutput(orchestrationPlan)
+                    .streamingTokenCount(0)
+                    .lastUpdatedAt(Instant.now())
+                    .build();
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
@@ -704,25 +621,13 @@ public class AgentLifecycleHandler {
 
         Optional<GraphNode> nodeOpt = orchestrator.getNode(nodeId);
         if (nodeOpt.isPresent() && nodeOpt.get() instanceof EditorNode node) {
-            EditorNode updated = new EditorNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    GraphNode.NodeStatus.COMPLETED,
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    node.mainWorktreeId(),
-                    node.submoduleWorktreeIds(),
-                    node.completedSubtasks(),
-                    node.totalSubtasks(),
-                    node.agentType(),
-                    implementationSummary,
-                    true,
-                    0
-            );
+            EditorNode updated = node.toBuilder()
+                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .workOutput(implementationSummary)
+                    .mergeRequired(true)
+                    .streamingTokenCount(0)
+                    .lastUpdatedAt(Instant.now())
+                    .build();
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(
                     updated.nodeId(),
@@ -773,24 +678,14 @@ public class AgentLifecycleHandler {
                     evaluation.toLowerCase().contains("pass");
 //            TODO: implement this better
             boolean humanFeedbackRequested = false;
-            ReviewNode updated = new ReviewNode(
-                    node.nodeId(),
-                    node.title(),
-                    node.goal(),
-                    GraphNode.NodeStatus.COMPLETED,
-                    node.parentNodeId(),
-                    node.childNodeIds(),
-                    node.metadata(),
-                    node.createdAt(),
-                    Instant.now(),
-                    node.reviewedNodeId(),
-                    node.reviewContent(),
-                    approved,
-                    humanFeedbackRequested,
-                    evaluation,
-                    node.reviewerAgentType(),
-                    Instant.now()
-            );
+            ReviewNode updated = node.toBuilder()
+                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .approved(approved)
+                    .humanFeedbackRequested(humanFeedbackRequested)
+                    .agentFeedback(evaluation)
+                    .reviewCompletedAt(Instant.now())
+                    .lastUpdatedAt(Instant.now())
+                    .build();
 
             graphRepository.save(updated);
             orchestrator.emitStatusChangeEvent(

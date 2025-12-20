@@ -1,5 +1,8 @@
 package com.hayden.multiagentide.model.nodes;
 
+import com.hayden.multiagentide.agent.AgentInterfaces;
+import lombok.Builder;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,6 +13,7 @@ import java.util.Map;
  * Node that breaks down goals into work tickets.
  * Can be Reviewable.
  */
+@Builder(toBuilder = true)
 public record PlanningNode(
         String nodeId,
         String title,
@@ -25,8 +29,14 @@ public record PlanningNode(
         List<String> generatedTicketIds,
         String planContent,
         int estimatedSubtasks,
-        int completedSubtasks
+        int completedSubtasks,
+        AgentInterfaces.PlanningAgentResult planningResult
 ) implements GraphNode, Viewable<String> {
+
+    public PlanningNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> generatedTicketIds, String planContent, int estimatedSubtasks, int completedSubtasks) {
+        this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
+                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, null);
+    }
 
     public PlanningNode {
         if (nodeId == null || nodeId.isEmpty()) throw new IllegalArgumentException("nodeId required");
@@ -50,12 +60,10 @@ public record PlanningNode(
      * Create an updated version with new status.
      */
     public PlanningNode withStatus(GraphNode.NodeStatus newStatus) {
-        return new PlanningNode(
-                nodeId, title, goal, newStatus, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, planContent,
-                estimatedSubtasks, completedSubtasks
-        );
+        return toBuilder()
+                .status(newStatus)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
@@ -64,35 +72,37 @@ public record PlanningNode(
     public PlanningNode addTicket(String ticketId) {
         List<String> newTickets = new ArrayList<>(generatedTicketIds);
         newTickets.add(ticketId);
-        return new PlanningNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                newTickets, planContent,
-                estimatedSubtasks, completedSubtasks
-        );
+        return toBuilder()
+                .generatedTicketIds(newTickets)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update plan content.
      */
     public PlanningNode withPlanContent(String content) {
-        return new PlanningNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, content,
-                estimatedSubtasks, completedSubtasks
-        );
+        return toBuilder()
+                .planContent(content)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
     /**
      * Update progress.
      */
     public PlanningNode withProgress(int completed, int total) {
-        return new PlanningNode(
-                nodeId, title, goal, status, parentNodeId,
-                childNodeIds, metadata, createdAt, Instant.now(),
-                generatedTicketIds, planContent,
-                total, completed
-        );
+        return toBuilder()
+                .estimatedSubtasks(total)
+                .completedSubtasks(completed)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public PlanningNode withResult(AgentInterfaces.PlanningAgentResult result) {
+        return toBuilder()
+                .planningResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 }
