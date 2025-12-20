@@ -84,7 +84,7 @@ class GitWorktreeServiceTest extends AgentTestBase {
         List<String> submodules = gitWorktreeService.getSubmoduleNames(mainWorktree.worktreePath());
         assertThat(submodules).isNotEmpty();
 
-        String submoduleName = submodules.get(0);
+        String submoduleName = submodules.getFirst();
         Path submodulePath = gitWorktreeService.getSubmodulePath(mainWorktree.worktreePath(), submoduleName);
 
         SubmoduleWorktreeContext submoduleWorktree = gitWorktreeService.createSubmoduleWorktree(

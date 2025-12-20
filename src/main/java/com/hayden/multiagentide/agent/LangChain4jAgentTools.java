@@ -25,6 +25,11 @@ public class LangChain4jAgentTools {
         this.worktreeService = worktreeService;
     }
 
+    @Tool("Emit gui event to user")
+    public String emitGuiEvent() {
+        return null;
+    }
+
     // ========== WORKTREE TOOLS ==========
 
     @Tool("Get current commit hash in a worktree")
