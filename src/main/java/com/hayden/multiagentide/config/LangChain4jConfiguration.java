@@ -421,6 +421,7 @@ public class LangChain4jConfiguration {
                                                                                  @Lazy AgentLifecycleHandler lifecycleHandler) {
         return AgenticServices.agentBuilder(AgentInterfaces.OrchestratorCollectorAgent.class)
                 .outputKey(OUTPUT_ORCHESTRATOR_COLLECTOR)
+                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
                 .beforeAgentInvocation(request -> {
                     // Register planning node before agent executes
                     lifecycleHandler.beforeOrchestratorCollector(nodeId(request));

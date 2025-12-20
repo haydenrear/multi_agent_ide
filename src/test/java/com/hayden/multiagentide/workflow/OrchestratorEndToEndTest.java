@@ -12,8 +12,11 @@ import com.hayden.multiagentide.infrastructure.AgentEventListener;
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.MergeResult;
 import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentide.model.nodes.EditorNode;
 import com.hayden.multiagentide.model.nodes.GraphNode;
+import com.hayden.multiagentide.model.nodes.MergeNode;
 import com.hayden.multiagentide.model.nodes.OrchestratorNode;
+import com.hayden.multiagentide.model.nodes.ReviewNode;
 import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
 import com.hayden.multiagentide.model.worktree.WorktreeContext;
@@ -28,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -140,26 +144,30 @@ class OrchestratorEndToEndTest extends AgentTestBase {
 
     @Test
     void orchestratorSucceedsWithoutSubmodules() {
-        stubWorktreeService(false);
-
-        lifecycleHandler.initializeOrchestrator(
-            "repo-url",
-            "main",
-            "Test goal",
-            "Test Orchestrator"
-        );
-
-        OrchestratorNode root = loadRootOrchestrator().orElseThrow();
+        OrchestratorNode root = startOrchestration(false);
         assertThat(root.status()).isEqualTo(GraphNode.NodeStatus.COMPLETED);
 
-        assertThat(graphRepository.findAll())
-            .allMatch(node -> node.status() == GraphNode.NodeStatus.COMPLETED);
+        assertNoFailedNodes();
 
         List<Events.WorktreeCreatedEvent> worktreeEvents =
             testEventListener.eventsOfType(Events.WorktreeCreatedEvent.class);
         assertThat(worktreeEvents)
             .anyMatch(event -> "main".equals(event.worktreeType()))
             .noneMatch(event -> "submodule".equals(event.worktreeType()));
+
+        assertThat(testEventListener.hasEventOfType(Events.NodeAddedEvent.class))
+            .isTrue();
+
+        boolean hasReviewNode = graphRepository.findAll().stream()
+            .filter(ReviewNode.class::isInstance)
+            .map(ReviewNode.class::cast)
+            .anyMatch(node -> node.status() == GraphNode.NodeStatus.COMPLETED);
+        assertThat(hasReviewNode).isTrue();
+
+        assertThat(testEventListener.eventsOfType(
+            Events.NodeStatusChangedEvent.class,
+            event -> event.newStatus() == GraphNode.NodeStatus.COMPLETED
+        )).isNotEmpty();
 
         List<WorktreeContext> worktrees = worktreeRepository.findAll();
         assertThat(worktrees)
@@ -169,7 +177,46 @@ class OrchestratorEndToEndTest extends AgentTestBase {
 
     @Test
     void orchestratorSucceedsWithSubmodules() {
-        stubWorktreeService(true);
+        OrchestratorNode root = startOrchestration(true);
+        assertThat(root.status()).isEqualTo(GraphNode.NodeStatus.COMPLETED);
+        assertNoFailedNodes();
+
+        List<Events.WorktreeCreatedEvent> worktreeEvents =
+            testEventListener.eventsOfType(Events.WorktreeCreatedEvent.class);
+        assertThat(worktreeEvents)
+            .anyMatch(event -> "main".equals(event.worktreeType()))
+            .anyMatch(event -> "submodule".equals(event.worktreeType()));
+
+        assertThat(testEventListener.hasEventOfType(Events.NodeStatusChangedEvent.class))
+            .isTrue();
+
+        boolean hasMergeNode = graphRepository.findAll().stream()
+            .filter(MergeNode.class::isInstance)
+            .map(MergeNode.class::cast)
+            .anyMatch(node -> node.status() == GraphNode.NodeStatus.COMPLETED);
+        assertThat(hasMergeNode).isTrue();
+    }
+
+    @Test
+    void orchestratorHandlesRevisionCycle() {
+        stubWorktreeService(false);
+        stubReviewSequence("needs revision", "approved");
+
+        OrchestratorNode root = startOrchestration(false);
+        assertThat(root.status()).isEqualTo(GraphNode.NodeStatus.COMPLETED);
+
+        boolean hasRevisionNode = graphRepository.findAll().stream()
+            .filter(EditorNode.class::isInstance)
+            .map(EditorNode.class::cast)
+            .anyMatch(node -> node.title().contains("Revision"));
+        assertThat(hasRevisionNode).isTrue();
+    }
+
+    @Test
+    void orchestratorCapturesFailureMetadata() {
+        stubWorktreeService(false);
+        when(discoveryAgent.discoverCodebaseSection(anyString(), anyString(), anyString(), anyString()))
+            .thenThrow(new RuntimeException("discovery failed"));
 
         lifecycleHandler.initializeOrchestrator(
             "repo-url",
@@ -178,14 +225,13 @@ class OrchestratorEndToEndTest extends AgentTestBase {
             "Test Orchestrator"
         );
 
-        OrchestratorNode root = loadRootOrchestrator().orElseThrow();
-        assertThat(root.status()).isEqualTo(GraphNode.NodeStatus.COMPLETED);
+        Optional<GraphNode> failedNode = graphRepository.findAll().stream()
+            .filter(node -> node.status() == GraphNode.NodeStatus.FAILED)
+            .findFirst();
 
-        List<Events.WorktreeCreatedEvent> worktreeEvents =
-            testEventListener.eventsOfType(Events.WorktreeCreatedEvent.class);
-        assertThat(worktreeEvents)
-            .anyMatch(event -> "main".equals(event.worktreeType()))
-            .anyMatch(event -> "submodule".equals(event.worktreeType()));
+        assertThat(failedNode).isPresent();
+        assertThat(failedNode.orElseThrow().metadata())
+            .containsKey("error_message");
     }
 
     private Optional<OrchestratorNode> loadRootOrchestrator() {
@@ -193,6 +239,34 @@ class OrchestratorEndToEndTest extends AgentTestBase {
             .filter(OrchestratorNode.class::isInstance)
             .map(OrchestratorNode.class::cast)
             .findFirst();
+    }
+
+    private void assertNoFailedNodes() {
+        assertThat(graphRepository.findAll())
+            .noneMatch(node -> node.status() == GraphNode.NodeStatus.FAILED);
+    }
+
+    private OrchestratorNode startOrchestration(boolean hasSubmodules) {
+        stubWorktreeService(hasSubmodules);
+        lifecycleHandler.initializeOrchestrator(
+            "repo-url",
+            "main",
+            "Test goal",
+            "Test Orchestrator"
+        );
+        return loadRootOrchestrator().orElseThrow();
+    }
+
+    private void stubReviewSequence(String... responses) {
+        AtomicInteger counter = new AtomicInteger();
+        when(reviewAgent.evaluateContent(anyString(), anyString(), anyString(), anyString()))
+            .thenAnswer(invocation -> {
+                int index = Math.min(counter.getAndIncrement(), responses.length - 1);
+                return new AgentInterfaces.ReviewAgentResult(
+                    responses[index],
+                    List.of()
+                );
+            });
     }
 
     private void stubWorktreeService(boolean hasSubmodules) {
@@ -280,17 +354,27 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         }).when(worktreeService).branchSubmoduleWorktree(anyString(), anyString(), anyString());
 
         when(worktreeService.mergeWorktrees(anyString(), anyString()))
-            .thenAnswer(invocation -> new MergeResult(
-                UUID.randomUUID().toString(),
-                invocation.getArgument(0),
-                invocation.getArgument(1),
-                true,
-                "merge-commit",
-                List.of(),
-                List.of(),
-                "merge successful",
-                Instant.now()
-            ));
+            .thenAnswer(invocation -> {
+                String childId = invocation.getArgument(0);
+                String parentId = invocation.getArgument(1);
+                if (childId == null || childId.isBlank()) {
+                    childId = "child-worktree";
+                }
+                if (parentId == null || parentId.isBlank()) {
+                    parentId = "parent-worktree";
+                }
+                return new MergeResult(
+                    UUID.randomUUID().toString(),
+                    childId,
+                    parentId,
+                    true,
+                    "merge-commit",
+                    List.of(),
+                    List.of(),
+                    "merge successful",
+                    Instant.now()
+                );
+            });
 
         when(worktreeService.detectMergeConflicts(anyString(), anyString()))
             .thenReturn(List.of());
