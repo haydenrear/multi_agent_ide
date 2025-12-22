@@ -16,6 +16,10 @@ import org.springframework.stereotype.Component;
 public class LangChain4jAgentTools {
 
 
+    /**
+     * Should push an event to the socket to be displayed by the frontend
+     * @return
+     */
     @Tool("Emit gui event to user")
     public String emitGuiEvent() {
         return null;
