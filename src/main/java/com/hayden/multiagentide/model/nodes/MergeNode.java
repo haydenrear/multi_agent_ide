@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.model.nodes;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentModels;
 import lombok.Builder;
 
 import java.time.Instant;
@@ -24,7 +24,7 @@ public record MergeNode(
         String summaryContent,
         int totalTasksCompleted,
         int totalTasksFailed,
-        AgentInterfaces.MergerAgentResult mergerResult
+        AgentModels.MergerAgentResult mergerResult
 ) implements GraphNode, Viewable<String> {
 
     public MergeNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
@@ -68,7 +68,7 @@ public record MergeNode(
                 .build();
     }
 
-    public MergeNode withResult(AgentInterfaces.MergerAgentResult result) {
+    public MergeNode withResult(AgentModels.MergerAgentResult result) {
         return toBuilder()
                 .mergerResult(result)
                 .lastUpdatedAt(Instant.now())

@@ -2,6 +2,7 @@ package com.hayden.multiagentide.config;
 
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
+import com.hayden.multiagentide.agent.AgentModels;
 import com.hayden.multiagentide.agent.LangChain4jAgentTools;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import dev.langchain4j.agentic.agent.AgentRequest;
@@ -23,9 +24,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
-
-import java.util.Collections;
-import java.util.List;
 
 /**
  * LangChain4j configuration for Chat Language Models and Agentic Services.
@@ -135,7 +133,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeDiscoveryOrchestratorInvocation(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.DiscoveryOrchestratorResult result =
+                    AgentModels.DiscoveryOrchestratorResult result =
                             toDiscoveryOrchestratorResult(response.output(), nodeId(response));
                     lifecycleHandler.afterDiscoveryOrchestratorInvocation(result, nodeId(response));
                 })
@@ -162,7 +160,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeDiscoveryAgentInvocation(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.DiscoveryAgentResult result =
+                    AgentModels.DiscoveryAgentResult result =
                             toDiscoveryAgentResult(response.output(), nodeId(response));
                     lifecycleHandler.afterDiscoveryAgentInvocation(result, nodeId(response));
                 })
@@ -189,7 +187,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeDiscoveryCollectorInvocation(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.DiscoveryCollectorResult result =
+                    AgentModels.DiscoveryCollectorResult result =
                             toDiscoveryCollectorResult(response.output(), nodeId(response));
                     lifecycleHandler.afterDiscoveryCollectorInvocation(result, nodeId(response));
                 })
@@ -216,7 +214,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforePlanningOrchestratorInvocation(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.PlanningOrchestratorResult result =
+                    AgentModels.PlanningOrchestratorResult result =
                             toPlanningOrchestratorResult(response.output(), nodeId(response));
                     lifecycleHandler.afterPlanningOrchestratorInvocation(result, nodeId(response));
                 })
@@ -244,7 +242,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforePlanningAgentInvocation(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.PlanningAgentResult result =
+                    AgentModels.PlanningAgentResult result =
                             toPlanningAgentResult(response.output(), nodeId(response));
                     // Update node with planning results after agent completes
                     lifecycleHandler.afterPlanningAgentInvocation(result, nodeId(response));
@@ -272,7 +270,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforePlanningCollectorInvocation(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.PlanningCollectorResult result =
+                    AgentModels.PlanningCollectorResult result =
                             toPlanningCollectorResult(response.output(), nodeId(response));
                     lifecycleHandler.afterPlanningCollectorInvocation(result, nodeId(response));
                 })
@@ -299,7 +297,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeTicketOrchestratorInvocation(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.TicketOrchestratorResult result =
+                    AgentModels.TicketOrchestratorResult result =
                             toTicketOrchestratorResult(response.output(), nodeId(response));
                     lifecycleHandler.afterTicketOrchestratorInvocation(result, nodeId(response));
                 })
@@ -326,7 +324,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeTicketAgentInvocation(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.TicketAgentResult result =
+                    AgentModels.TicketAgentResult result =
                             toTicketAgentResult(response.output(), nodeId(response));
                     lifecycleHandler.afterTicketAgentInvocation(result, nodeId(response));
                 })
@@ -354,7 +352,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeMergerAgentInvocation(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.MergerAgentResult result =
+                    AgentModels.MergerAgentResult result =
                             toMergerAgentResult(response.output(), nodeId(response));
                     // Update node with merge strategy after agent completes
                     lifecycleHandler.afterMergerAgentInvocation(result, nodeId(response));
@@ -382,7 +380,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeReviewAgentInvocation(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.ReviewAgentResult result =
+                    AgentModels.ReviewAgentResult result =
                             toReviewAgentResult(response.output(), nodeId(response));
                     // Update node with evaluation after agent completes
                     lifecycleHandler.afterReviewAgentInvocation(result, nodeId(response));
@@ -405,7 +403,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeOrchestrator(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.OrchestratorAgentResult result =
+                    AgentModels.OrchestratorAgentResult result =
                             toOrchestratorAgentResult(response.output(), nodeId(response));
                     // Update node with planning results after agent completes
                     lifecycleHandler.afterOrchestrator(result, nodeId(response));
@@ -427,7 +425,7 @@ public class LangChain4jConfiguration {
                     lifecycleHandler.beforeOrchestratorCollector(nodeId(request));
                 })
                 .afterAgentInvocation(response -> {
-                    AgentInterfaces.OrchestratorCollectorResult result =
+                    AgentModels.OrchestratorCollectorResult result =
                             toOrchestratorCollectorResult(response.output(), nodeId(response));
                     // Update node with planning results after agent completes
                     lifecycleHandler.afterOrchestratorCollector(result, nodeId(response));
@@ -512,51 +510,51 @@ public class LangChain4jConfiguration {
         return null;
     }
 
-    private AgentInterfaces.DiscoveryOrchestratorResult toDiscoveryOrchestratorResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.DiscoveryOrchestratorResult.class);
+    private AgentModels.DiscoveryOrchestratorResult toDiscoveryOrchestratorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.DiscoveryOrchestratorResult.class);
     }
 
-    private AgentInterfaces.DiscoveryAgentResult toDiscoveryAgentResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.DiscoveryAgentResult.class);
+    private AgentModels.DiscoveryAgentResult toDiscoveryAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.DiscoveryAgentResult.class);
     }
 
-    private AgentInterfaces.DiscoveryCollectorResult toDiscoveryCollectorResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.DiscoveryCollectorResult.class);
+    private AgentModels.DiscoveryCollectorResult toDiscoveryCollectorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.DiscoveryCollectorResult.class);
     }
 
-    private AgentInterfaces.PlanningOrchestratorResult toPlanningOrchestratorResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.PlanningOrchestratorResult.class);
+    private AgentModels.PlanningOrchestratorResult toPlanningOrchestratorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.PlanningOrchestratorResult.class);
     }
 
-    private AgentInterfaces.PlanningAgentResult toPlanningAgentResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.PlanningAgentResult.class);
+    private AgentModels.PlanningAgentResult toPlanningAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.PlanningAgentResult.class);
     }
 
-    private AgentInterfaces.PlanningCollectorResult toPlanningCollectorResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.PlanningCollectorResult.class);
+    private AgentModels.PlanningCollectorResult toPlanningCollectorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.PlanningCollectorResult.class);
     }
 
-    private AgentInterfaces.TicketOrchestratorResult toTicketOrchestratorResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.TicketOrchestratorResult.class);
+    private AgentModels.TicketOrchestratorResult toTicketOrchestratorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.TicketOrchestratorResult.class);
     }
 
-    private AgentInterfaces.TicketAgentResult toTicketAgentResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.TicketAgentResult.class);
+    private AgentModels.TicketAgentResult toTicketAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.TicketAgentResult.class);
     }
 
-    private AgentInterfaces.MergerAgentResult toMergerAgentResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.MergerAgentResult.class);
+    private AgentModels.MergerAgentResult toMergerAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.MergerAgentResult.class);
     }
 
-    private AgentInterfaces.ReviewAgentResult toReviewAgentResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.ReviewAgentResult.class);
+    private AgentModels.ReviewAgentResult toReviewAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.ReviewAgentResult.class);
     }
 
-    private AgentInterfaces.OrchestratorAgentResult toOrchestratorAgentResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.OrchestratorAgentResult.class);
+    private AgentModels.OrchestratorAgentResult toOrchestratorAgentResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.OrchestratorAgentResult.class);
     }
 
-    private AgentInterfaces.OrchestratorCollectorResult toOrchestratorCollectorResult(Object output, String nodeId) {
-        return castResult(output, nodeId, AgentInterfaces.OrchestratorCollectorResult.class);
+    private AgentModels.OrchestratorCollectorResult toOrchestratorCollectorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.OrchestratorCollectorResult.class);
     }
 }

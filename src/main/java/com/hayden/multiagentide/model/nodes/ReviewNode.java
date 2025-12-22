@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.model.nodes;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentModels;
 import lombok.Builder;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -32,7 +32,7 @@ public record ReviewNode(
         String agentFeedback,
         String reviewerAgentType,
         Instant reviewCompletedAt,
-        AgentInterfaces.ReviewAgentResult reviewResult
+        AgentModels.ReviewAgentResult reviewResult
 ) implements GraphNode, Viewable<String> {
 
     public ReviewNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String reviewedNodeId, String reviewContent, boolean approved, boolean humanFeedbackRequested, String agentFeedback, String reviewerAgentType, Instant reviewCompletedAt) {
@@ -80,7 +80,7 @@ public record ReviewNode(
                 .build();
     }
 
-    public ReviewNode withResult(AgentInterfaces.ReviewAgentResult result) {
+    public ReviewNode withResult(AgentModels.ReviewAgentResult result) {
         return toBuilder()
                 .reviewResult(result)
                 .lastUpdatedAt(Instant.now())

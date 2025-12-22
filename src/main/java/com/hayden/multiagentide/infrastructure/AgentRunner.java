@@ -13,6 +13,7 @@ import static com.hayden.multiagentide.agent.AgentInterfaces.TicketAgent.TICKET_
 import static com.hayden.multiagentide.agent.AgentInterfaces.TicketOrchestrator.TICKET_ORCHESTRATOR_START_MESSAGE;
 
 import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentModels;
 import com.hayden.multiagentide.model.MergeResult;
 import com.hayden.multiagentide.model.events.Events;
 import com.hayden.multiagentide.model.nodes.*;
@@ -284,7 +285,7 @@ public class AgentRunner {
         );
         OrchestratorNode running = markNodeRunning(orchestratorNode);
         try {
-            AgentInterfaces.OrchestratorAgentResult result = orchestratorAgent.coordinateWorkflow(
+            AgentModels.OrchestratorAgentResult result = orchestratorAgent.coordinateWorkflow(
                     running.nodeId(),
                     ORCHESTRATOR_AGENT_START_MESSAGE,
                     running.goal(),
@@ -358,7 +359,7 @@ public class AgentRunner {
         );
         DiscoveryOrchestratorNode running = markNodeRunning(node);
         try {
-            AgentInterfaces.DiscoveryOrchestratorResult result =
+            AgentModels.DiscoveryOrchestratorResult result =
                     discoveryOrchestrator.kickOffAnyNumberOfAgentsForCodeSearch(
                             running.nodeId(),
                             running.goal(),
@@ -443,7 +444,7 @@ public class AgentRunner {
         DiscoveryNode running = markNodeRunning(node);
         try {
             String subdomainFocus = running.title();
-            AgentInterfaces.DiscoveryAgentResult result =
+            AgentModels.DiscoveryAgentResult result =
                     discoveryAgent.discoverCodebaseSection(
                             running.nodeId(),
                             DISCOVERY_AGENT_START_MESSAGE,
@@ -486,7 +487,7 @@ public class AgentRunner {
                     DiscoveryNode.class
             );
 
-            AgentInterfaces.DiscoveryCollectorResult result =
+            AgentModels.DiscoveryCollectorResult result =
                     discoveryCollector.consolidateDiscoveryFindings(
                             running.nodeId(),
                             DISCOVERY_COLLECTOR_START_MESSAGE,
@@ -574,7 +575,7 @@ public class AgentRunner {
             // Get discovery context from parent chain
             String discoveryContext = extractDiscoveryContext(node);
 
-            AgentInterfaces.PlanningOrchestratorResult result =
+            AgentModels.PlanningOrchestratorResult result =
                     planningOrchestrator.decomposePlanAndCreateWorkItems(
                             running.nodeId(),
                             PLANNING_ORCHESTRATOR_MESSAGE,
@@ -665,7 +666,7 @@ public class AgentRunner {
         log.info("Executing PlanningAgent for node: {}", node.nodeId());
         PlanningNode running = markNodeRunning(node);
         try {
-            AgentInterfaces.PlanningAgentResult result =
+            AgentModels.PlanningAgentResult result =
                     planningAgent.decomposePlanAndCreateWorkItems(
                             running.nodeId(),
                             PLANNING_AGENT_USER_MESSAGE,
@@ -703,7 +704,7 @@ public class AgentRunner {
                     PlanningNode.class
             );
 
-            AgentInterfaces.PlanningCollectorResult result =
+            AgentModels.PlanningCollectorResult result =
                     planningMerger.consolidatePlansIntoTickets(
                             node.nodeId(),
                             PLANNING_COLLECTOR_MESSAGE,
@@ -852,7 +853,7 @@ public class AgentRunner {
             String tickets = extractTicketsFromContext(planningContext);
             List<String> ticketList = parseTickets(tickets);
 
-            AgentInterfaces.TicketOrchestratorResult result =
+            AgentModels.TicketOrchestratorResult result =
                     ticketOrchestrator.orchestrateTicketExecution(
                             running.nodeId(),
                             TICKET_ORCHESTRATOR_START_MESSAGE,
@@ -1024,7 +1025,7 @@ public class AgentRunner {
             String ticketDetails = running.goal();
             String ticketDetailsFilePath = "/path/to/ticket/details.md"; // In real implementation, resolve from node
 
-            AgentInterfaces.TicketAgentResult result =
+            AgentModels.TicketAgentResult result =
                     ticketAgent.implementTicket(
                             running.nodeId(),
                             TICKET_AGENT_START_MESSAGE,
@@ -1099,7 +1100,7 @@ public class AgentRunner {
             String content = running.reviewContent();
             String criteria = buildReviewCriteria();
 
-            AgentInterfaces.ReviewAgentResult result =
+            AgentModels.ReviewAgentResult result =
                     reviewAgent.evaluateContent(
                             running.nodeId(),
                             REVIEW_AGENT_START_MESSAGE,
@@ -1238,7 +1239,7 @@ public class AgentRunner {
                 );
             }
 
-            AgentInterfaces.MergerAgentResult agentResult = null;
+            AgentModels.MergerAgentResult agentResult = null;
             String mergeSummary;
             if (mergeResult != null) {
                 mergeSummary = summarizeMerge(mergeResult);
@@ -1444,7 +1445,7 @@ public class AgentRunner {
     }
 
     private String resolveDelegationSummary(
-            AgentInterfaces.DelegationPlan delegation,
+            AgentModels.DelegationPlan delegation,
             String fallback
     ) {
         if (delegation == null) {
@@ -1455,7 +1456,7 @@ public class AgentRunner {
     }
 
     private List<String> resolveDelegationSegments(
-            AgentInterfaces.DelegationPlan delegation,
+            AgentModels.DelegationPlan delegation,
             String fallback
     ) {
         if (delegation != null && delegation.subAgentGoals() != null) {

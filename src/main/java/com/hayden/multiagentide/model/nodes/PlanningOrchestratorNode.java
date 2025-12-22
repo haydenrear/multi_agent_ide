@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.model.nodes;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentModels;
 import lombok.Builder;
 
 import java.time.Instant;
@@ -27,7 +27,7 @@ public record PlanningOrchestratorNode(
         String planContent,
         int estimatedSubtasks,
         int completedSubtasks,
-        AgentInterfaces.PlanningOrchestratorResult planningOrchestratorResult
+        AgentModels.PlanningOrchestratorResult planningOrchestratorResult
 ) implements GraphNode, Viewable<String>, Orchestrator {
 
     public PlanningOrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> generatedTicketIds, String planContent, int estimatedSubtasks, int completedSubtasks) {
@@ -96,7 +96,7 @@ public record PlanningOrchestratorNode(
                 .build();
     }
 
-    public PlanningOrchestratorNode withResult(AgentInterfaces.PlanningOrchestratorResult result) {
+    public PlanningOrchestratorNode withResult(AgentModels.PlanningOrchestratorResult result) {
         return toBuilder()
                 .planningOrchestratorResult(result)
                 .lastUpdatedAt(Instant.now())

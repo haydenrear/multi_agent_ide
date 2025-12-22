@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.model.nodes;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentModels;
 import lombok.Builder;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -33,8 +33,8 @@ public record EditorNode(
         String workOutput,
         boolean mergeRequired,
         int streamingTokenCount,
-        AgentInterfaces.TicketOrchestratorResult ticketOrchestratorResult,
-        AgentInterfaces.TicketAgentResult ticketAgentResult
+        AgentModels.TicketOrchestratorResult ticketOrchestratorResult,
+        AgentModels.TicketAgentResult ticketAgentResult
 ) implements GraphNode, Viewable<String> {
 
     public EditorNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String mainWorktreeId, List<String> submoduleWorktreeIds, int completedSubtasks, int totalSubtasks, String agentType, String workOutput, boolean mergeRequired, int streamingTokenCount) {
@@ -128,14 +128,14 @@ public record EditorNode(
                 .build();
     }
 
-    public EditorNode withTicketOrchestratorResult(AgentInterfaces.TicketOrchestratorResult result) {
+    public EditorNode withTicketOrchestratorResult(AgentModels.TicketOrchestratorResult result) {
         return toBuilder()
                 .ticketOrchestratorResult(result)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }
 
-    public EditorNode withTicketAgentResult(AgentInterfaces.TicketAgentResult result) {
+    public EditorNode withTicketAgentResult(AgentModels.TicketAgentResult result) {
         return toBuilder()
                 .ticketAgentResult(result)
                 .lastUpdatedAt(Instant.now())

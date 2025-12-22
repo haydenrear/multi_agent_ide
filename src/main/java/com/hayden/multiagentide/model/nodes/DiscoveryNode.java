@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.model.nodes;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentModels;
 import lombok.Builder;
 
 import java.time.Instant;
@@ -24,7 +24,7 @@ public record DiscoveryNode(
         String summaryContent,
         int totalTasksCompleted,
         int totalTasksFailed,
-        AgentInterfaces.DiscoveryAgentResult discoveryResult
+        AgentModels.DiscoveryAgentResult discoveryResult
 ) implements GraphNode, Viewable<String> {
 
     public DiscoveryNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
@@ -68,7 +68,7 @@ public record DiscoveryNode(
                 .build();
     }
 
-    public DiscoveryNode withResult(AgentInterfaces.DiscoveryAgentResult result) {
+    public DiscoveryNode withResult(AgentModels.DiscoveryAgentResult result) {
         return toBuilder()
                 .discoveryResult(result)
                 .lastUpdatedAt(Instant.now())

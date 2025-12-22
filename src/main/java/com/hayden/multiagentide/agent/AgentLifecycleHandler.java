@@ -43,7 +43,7 @@ public class AgentLifecycleHandler {
         log.info("Orchestrator node {} ready for goal: {}", nodeId, node.goal());
     }
 
-    public void afterOrchestrator(AgentInterfaces.OrchestratorAgentResult result, String nodeId) {
+    public void afterOrchestrator(AgentModels.OrchestratorAgentResult result, String nodeId) {
         Optional<OrchestratorNode> nodeOpt =
                 findNode(nodeId, OrchestratorNode.class, "orchestrator");
         if (nodeOpt.isEmpty()) {
@@ -82,7 +82,7 @@ public class AgentLifecycleHandler {
         log.info("Orchestrator collector node {} registered", nodeId);
     }
 
-    public void afterOrchestratorCollector(AgentInterfaces.OrchestratorCollectorResult result, String nodeId) {
+    public void afterOrchestratorCollector(AgentModels.OrchestratorCollectorResult result, String nodeId) {
         Optional<CollectorNode> nodeOpt =
                 findNode(nodeId, CollectorNode.class, "orchestrator collector");
         if (nodeOpt.isEmpty()) {
@@ -229,7 +229,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Discovery Orchestrator.
      * Updates discovery orchestrator node and may kick off multiple discovery agents.
      */
-    public void afterDiscoveryOrchestratorInvocation(AgentInterfaces.DiscoveryOrchestratorResult result, String nodeId) {
+    public void afterDiscoveryOrchestratorInvocation(AgentModels.DiscoveryOrchestratorResult result, String nodeId) {
         Optional<DiscoveryOrchestratorNode> nodeOpt =
                 findNode(nodeId, DiscoveryOrchestratorNode.class, "discovery orchestrator");
         if (nodeOpt.isEmpty()) {
@@ -277,7 +277,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Discovery Agent.
      * Updates discovery node with findings and marks as completed.
      */
-    public void afterDiscoveryAgentInvocation(AgentInterfaces.DiscoveryAgentResult result, String nodeId) {
+    public void afterDiscoveryAgentInvocation(AgentModels.DiscoveryAgentResult result, String nodeId) {
         Optional<DiscoveryNode> nodeOpt =
                 findNode(nodeId, DiscoveryNode.class, "discovery");
         if (nodeOpt.isEmpty()) {
@@ -327,7 +327,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Discovery Merger.
      * Updates discovery merger node with merged findings and marks as completed.
      */
-    public void afterDiscoveryCollectorInvocation(AgentInterfaces.DiscoveryCollectorResult result, String nodeId) {
+    public void afterDiscoveryCollectorInvocation(AgentModels.DiscoveryCollectorResult result, String nodeId) {
         Optional<DiscoveryCollectorNode> nodeOpt =
                 findNode(nodeId, DiscoveryCollectorNode.class, "discovery collector");
         if (nodeOpt.isEmpty()) {
@@ -371,7 +371,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Planning Agent.
      * Updates planning node with results and marks as completed.
      */
-    public void afterPlanningAgentInvocation(AgentInterfaces.PlanningAgentResult result, String nodeId) {
+    public void afterPlanningAgentInvocation(AgentModels.PlanningAgentResult result, String nodeId) {
         Optional<PlanningNode> nodeOpt =
                 findNode(nodeId, PlanningNode.class, "planning");
         if (nodeOpt.isEmpty()) {
@@ -425,7 +425,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Planning Orchestrator.
      * Updates planning orchestrator node and kicks off multiple planning agents.
      */
-    public void afterPlanningOrchestratorInvocation(AgentInterfaces.PlanningOrchestratorResult result, String nodeId) {
+    public void afterPlanningOrchestratorInvocation(AgentModels.PlanningOrchestratorResult result, String nodeId) {
         Optional<PlanningOrchestratorNode> nodeOpt =
                 findNode(nodeId, PlanningOrchestratorNode.class, "planning orchestrator");
         if (nodeOpt.isEmpty()) {
@@ -472,7 +472,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Planning Merger.
      * Updates planning merger node with merged tickets and marks as completed.
      */
-    public void afterPlanningCollectorInvocation(AgentInterfaces.PlanningCollectorResult result, String nodeId) {
+    public void afterPlanningCollectorInvocation(AgentModels.PlanningCollectorResult result, String nodeId) {
         Optional<PlanningCollectorNode> nodeOpt =
                 findNode(nodeId, PlanningCollectorNode.class, "planning collector");
         if (nodeOpt.isEmpty()) {
@@ -521,7 +521,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Merger Agent.
      * Updates merger node with merge strategy and marks as completed.
      */
-    public void afterMergerAgentInvocation(AgentInterfaces.MergerAgentResult result, String nodeId) {
+    public void afterMergerAgentInvocation(AgentModels.MergerAgentResult result, String nodeId) {
         Optional<MergeNode> nodeOpt =
                 findNode(nodeId, MergeNode.class, "merger");
         if (nodeOpt.isEmpty()) {
@@ -573,7 +573,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Ticket Orchestrator.
      * Updates ticket orchestrator node and may kick off first TicketAgent.
      */
-    public void afterTicketOrchestratorInvocation(AgentInterfaces.TicketOrchestratorResult result, String nodeId) {
+    public void afterTicketOrchestratorInvocation(AgentModels.TicketOrchestratorResult result, String nodeId) {
         Optional<EditorNode> nodeOpt =
                 findNode(nodeId, EditorNode.class, "ticket orchestrator");
         if (nodeOpt.isEmpty()) {
@@ -621,7 +621,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Ticket Agent.
      * Updates ticket node with implementation summary and commits changes.
      */
-    public void afterTicketAgentInvocation(AgentInterfaces.TicketAgentResult result, String nodeId) {
+    public void afterTicketAgentInvocation(AgentModels.TicketAgentResult result, String nodeId) {
         Optional<EditorNode> nodeOpt =
                 findNode(nodeId, EditorNode.class, "ticket");
         if (nodeOpt.isEmpty()) {
@@ -666,7 +666,7 @@ public class AgentLifecycleHandler {
      * Handle after-agent-invocation for Review Agent.
      * Updates review node with evaluation and marks as completed.
      */
-    public void afterReviewAgentInvocation(AgentInterfaces.ReviewAgentResult result, String nodeId) {
+    public void afterReviewAgentInvocation(AgentModels.ReviewAgentResult result, String nodeId) {
         Optional<ReviewNode> nodeOpt =
                 findNode(nodeId, ReviewNode.class, "review");
         if (nodeOpt.isEmpty()) {

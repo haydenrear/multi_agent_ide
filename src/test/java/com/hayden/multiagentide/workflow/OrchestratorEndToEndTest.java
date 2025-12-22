@@ -6,8 +6,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
+import com.hayden.multiagentide.agent.AgentModels;
 import com.hayden.multiagentide.infrastructure.AgentEventListener;
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.MergeResult;
@@ -82,61 +82,61 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         eventBus.subscribe(testEventListener);
 
         when(orchestratorAgent.coordinateWorkflow(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.OrchestratorAgentResult(
+            .thenReturn(new AgentModels.OrchestratorAgentResult(
                 null,
                 List.of(),
                 "orchestrator-ok"
             ));
         when(discoveryOrchestrator.kickOffAnyNumberOfAgentsForCodeSearch(anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.DiscoveryOrchestratorResult(
+            .thenReturn(new AgentModels.DiscoveryOrchestratorResult(
                 null,
                 List.of(),
                 "- discovery"
             ));
         when(discoveryAgent.discoverCodebaseSection(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.DiscoveryAgentResult(
+            .thenReturn(new AgentModels.DiscoveryAgentResult(
                 "discovery-results",
                 List.of()
             ));
         when(discoveryCollector.consolidateDiscoveryFindings(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.DiscoveryCollectorResult(
+            .thenReturn(new AgentModels.DiscoveryCollectorResult(
                 "discovery-summary",
                 List.of()
             ));
         when(planningOrchestrator.decomposePlanAndCreateWorkItems(anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.PlanningOrchestratorResult(
+            .thenReturn(new AgentModels.PlanningOrchestratorResult(
                 null,
                 List.of(),
                 "- plan-segment"
             ));
         when(planningAgent.decomposePlanAndCreateWorkItems(anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.PlanningAgentResult(
+            .thenReturn(new AgentModels.PlanningAgentResult(
                 "- plan-segment",
                 List.of()
             ));
         when(planningCollector.consolidatePlansIntoTickets(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.PlanningCollectorResult(
+            .thenReturn(new AgentModels.PlanningCollectorResult(
                 "- Ticket 1",
                 List.of()
             ));
         when(ticketOrchestrator.orchestrateTicketExecution(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.TicketOrchestratorResult(
+            .thenReturn(new AgentModels.TicketOrchestratorResult(
                 null,
                 List.of(),
                 "ticket-orchestration"
             ));
         when(ticketAgent.implementTicket(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.TicketAgentResult(
+            .thenReturn(new AgentModels.TicketAgentResult(
                 "implementation",
                 List.of()
             ));
         when(reviewAgent.evaluateContent(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.ReviewAgentResult(
+            .thenReturn(new AgentModels.ReviewAgentResult(
                 "approved",
                 List.of()
             ));
         when(mergerAgent.performMerge(anyString(), anyString(), anyString()))
-            .thenReturn(new AgentInterfaces.MergerAgentResult(
+            .thenReturn(new AgentModels.MergerAgentResult(
                 "merged",
                 List.of()
             ));
@@ -262,7 +262,7 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         when(reviewAgent.evaluateContent(anyString(), anyString(), anyString(), anyString()))
             .thenAnswer(invocation -> {
                 int index = Math.min(counter.getAndIncrement(), responses.length - 1);
-                return new AgentInterfaces.ReviewAgentResult(
+                return new AgentModels.ReviewAgentResult(
                     responses[index],
                     List.of()
                 );

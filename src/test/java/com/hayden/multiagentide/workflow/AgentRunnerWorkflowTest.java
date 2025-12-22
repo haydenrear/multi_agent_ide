@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentModels;
 import com.hayden.multiagentide.infrastructure.AgentRunner;
 import com.hayden.multiagentide.model.MergeResult;
 import com.hayden.multiagentide.model.nodes.EditorNode;
@@ -68,7 +68,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
             anyString(),
             anyString(),
             anyString()
-        )).thenReturn(new AgentInterfaces.ReviewAgentResult(
+        )).thenReturn(new AgentModels.ReviewAgentResult(
             "approved",
             List.of()
         ));
@@ -104,7 +104,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
             anyString(),
             anyString(),
             anyString()
-        )).thenReturn(new AgentInterfaces.ReviewAgentResult(
+        )).thenReturn(new AgentModels.ReviewAgentResult(
             "needs revision",
             List.of()
         ));

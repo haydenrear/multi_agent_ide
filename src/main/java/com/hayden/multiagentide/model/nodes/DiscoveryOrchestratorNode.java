@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.model.nodes;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentModels;
 import lombok.Builder;
 
 import java.time.Instant;
@@ -24,7 +24,7 @@ public record DiscoveryOrchestratorNode(
         String summaryContent,
         int totalTasksCompleted,
         int totalTasksFailed,
-        AgentInterfaces.DiscoveryOrchestratorResult discoveryOrchestratorResult
+        AgentModels.DiscoveryOrchestratorResult discoveryOrchestratorResult
 ) implements GraphNode, Viewable<String>, Orchestrator {
 
     public DiscoveryOrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
@@ -68,7 +68,7 @@ public record DiscoveryOrchestratorNode(
                 .build();
     }
 
-    public DiscoveryOrchestratorNode withResult(AgentInterfaces.DiscoveryOrchestratorResult result) {
+    public DiscoveryOrchestratorNode withResult(AgentModels.DiscoveryOrchestratorResult result) {
         return toBuilder()
                 .discoveryOrchestratorResult(result)
                 .lastUpdatedAt(Instant.now())

@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.model.nodes;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentModels;
 import lombok.Builder;
 
 import java.time.Instant;
@@ -30,7 +30,7 @@ public record SummaryNode(
         String summaryContent,
         int totalTasksCompleted,
         int totalTasksFailed,
-        AgentInterfaces.SummaryAgentResult summaryResult
+        AgentModels.SummaryAgentResult summaryResult
 ) implements GraphNode, Viewable<String> {
 
     public SummaryNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> summarizedNodeIds, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
@@ -87,7 +87,7 @@ public record SummaryNode(
                 .build();
     }
 
-    public SummaryNode withResult(AgentInterfaces.SummaryAgentResult result) {
+    public SummaryNode withResult(AgentModels.SummaryAgentResult result) {
         return toBuilder()
                 .summaryResult(result)
                 .lastUpdatedAt(Instant.now())
