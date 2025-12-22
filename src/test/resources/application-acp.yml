@@ -1,0 +1,8 @@
+langchain4j:
+  chat-model:
+    provider: acp
+  acp:
+    transport: stdio
+    command: ${ACP_COMMAND:codex-acp}
+    args: ${ACP_ARGS:}
+    working-directory: ${ACP_WORKING_DIR:}
