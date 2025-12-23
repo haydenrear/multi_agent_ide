@@ -1,5 +1,11 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Agent Graph UI Notes
+
+- Event stream endpoint: set `NEXT_PUBLIC_EVENT_STREAM_URL` to point at `/api/events/stream` on the backend.
+- Control actions endpoint: set `NEXT_PUBLIC_CONTROL_API_URL` if the backend runs on a different origin.
+- Viewer plugins are registered in `src/plugins/registry.ts`. Add new viewer components under `src/plugins/` and include matching rules in the registry.
+
 ## Getting Started
 
 First, run the development server:

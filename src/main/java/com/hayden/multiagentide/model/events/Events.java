@@ -1,8 +1,8 @@
 package com.hayden.multiagentide.model.events;
 
-import com.agui.core.types.BaseEvent;
+import com.agui.core.event.BaseEvent;
+import com.hayden.multiagentide.adapter.AgUiEventMappingRegistry;
 import com.hayden.multiagentide.model.nodes.GraphNode;
-import kotlinx.serialization.json.Json;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,8 +15,11 @@ public interface Events {
     Logger log = LoggerFactory.getLogger(Events.class);
 
     static BaseEvent mapToEvent(GraphEvent toMap) {
-        log.error("Still haven't mapping GraphEvent to ag-ui.");
-        return null;
+        if (toMap == null) {
+            log.warn("Skipping null GraphEvent mapping.");
+            return null;
+        }
+        return AgUiEventMappingRegistry.map(toMap);
     }
 
     /**

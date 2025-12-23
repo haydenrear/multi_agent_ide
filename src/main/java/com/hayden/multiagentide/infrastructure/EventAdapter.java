@@ -9,9 +9,17 @@ import com.hayden.multiagentide.model.events.Events;
 public abstract class EventAdapter implements EventListener {
 
     private final String adapterId;
+    private boolean subscribed = false;
 
     protected EventAdapter(String adapterId) {
         this.adapterId = adapterId;
+    }
+
+    protected synchronized void subscribe(EventBus eventBus) {
+        if (!subscribed) {
+            eventBus.subscribe(this);
+            subscribed = true;
+        }
     }
 
     @Override

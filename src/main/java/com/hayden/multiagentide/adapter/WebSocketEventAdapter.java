@@ -24,7 +24,7 @@ public class WebSocketEventAdapter extends EventAdapter {
 
     public WebSocketEventAdapter(EventBus eventBus) {
         super("websocket-adapter");
-        eventBus.subscribe(this);
+        subscribe(eventBus);
     }
 
     @Autowired

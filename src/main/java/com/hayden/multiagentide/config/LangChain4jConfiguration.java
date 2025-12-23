@@ -17,6 +17,7 @@ import dev.langchain4j.http.client.spring.restclient.SpringRestClientBuilder;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -27,6 +28,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+
+import java.util.List;
 
 /**
  * LangChain4j configuration for Chat Language Models and Agentic Services.
@@ -122,6 +125,8 @@ public class LangChain4jConfiguration {
                 .temperature(temperature)
                 .httpClientBuilder(new SpringRestClientBuilder())
                 .maxTokens(maxTokens)
+//                TODO: will have a listener for ai message - to for each item push to the event and the frontend
+//                .listeners(List.of(new ChatModelListener(){ }))
                 .build();
     }
 

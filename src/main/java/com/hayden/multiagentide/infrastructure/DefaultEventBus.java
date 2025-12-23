@@ -18,10 +18,13 @@ public class DefaultEventBus implements EventBus {
 
     @Override
     public void subscribe(EventListener listener) {
-        if (!subscribers.contains(listener)) {
-            subscribers.add(listener);
-            listener.onSubscribed();
+        boolean exists = subscribers.stream()
+                .anyMatch(existing -> existing.listenerId().equals(listener.listenerId()));
+        if (exists) {
+            return;
         }
+        subscribers.add(listener);
+        listener.onSubscribed();
     }
 
     @Override
