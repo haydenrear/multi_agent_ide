@@ -1,12 +1,23 @@
 package com.hayden.multiagentide.model.events;
 
+import com.agui.core.types.BaseEvent;
 import com.hayden.multiagentide.model.nodes.GraphNode;
+import kotlinx.serialization.json.Json;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
 public interface Events {
+
+    Logger log = LoggerFactory.getLogger(Events.class);
+
+    static BaseEvent mapToEvent(GraphEvent toMap) {
+        log.error("Still haven't mapping GraphEvent to ag-ui.");
+        return null;
+    }
 
     /**
      * Base interface for all graph and worktree events.

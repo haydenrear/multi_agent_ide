@@ -1,6 +1,7 @@
 plugins {
     id("com.hayden.spring-app")
     id("com.hayden.kotlin")
+    id("com.github.node-gradle.node")
 
 }
 
@@ -15,8 +16,64 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-open-ai-spring-boot-starter:1.9.1-beta17")
     implementation("com.agentclientprotocol:acp:0.10.3-SNAPSHOT")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
+    implementation("com.ag-ui.community:kotlin-core-jvm:0.2.4")
 }
 
 tasks.bootJar {
     mainClass = "com.hayden.multiagentide.MultiAgentIdeApplication"
 }
+
+// Node.js and npm configuration
+node {
+    version.set("20.11.0")
+    npmVersion.set("10.2.4")
+    download.set(true)
+    workDir.set(file("${project.layout.buildDirectory.get()}/nodejs"))
+    npmWorkDir.set(file("${project.layout.buildDirectory.get()}/npm"))
+}
+
+tasks.register<com.github.gradle.node.npm.task.NpmTask>("installFrontend") {
+    description = "Build Next.js frontend application"
+    workingDir.set(file("${project.projectDir}/fe"))
+
+    args.set(listOf("install"))
+
+    finalizedBy("buildFrontend")
+}
+
+// Build the Next.js frontend
+tasks.register<com.github.gradle.node.npm.task.NpmTask>("buildFrontend") {
+    description = "Build Next.js frontend application"
+    workingDir.set(file("${project.projectDir}/fe"))
+
+    args.set(listOf("run", "build"))
+
+    inputs.files("${project.projectDir}/fe/src")
+    inputs.file("${project.projectDir}/fe/package.json")
+    inputs.file("${project.projectDir}/fe/next.config.ts")
+
+    outputs.dir("${project.projectDir}/fe/.next")
+
+    dependsOn("installFrontend")
+    finalizedBy("copyFrontendBuild")
+}
+
+// Copy built frontend to static resources
+tasks.register<Copy>("copyFrontendBuild") {
+
+    doFirst {
+        delete(file("${project.projectDir}/src/main/resources/static"))
+    }
+
+    description = "Copy Next.js build output to static resources"
+    dependsOn("buildFrontend")
+
+    from("${project.projectDir}/fe/out")
+    into("${project.layout.projectDirectory}/src/main/resources/static")
+
+}
+
+tasks.getByPath("processResources").dependsOn("copyFrontendBuild")
+
+// Make bootJar depend on frontend build
+tasks.getByPath("bootJar").dependsOn("copyFrontendBuild")

@@ -3,6 +3,8 @@ package com.hayden.multiagentide.adapter;
 import com.hayden.multiagentide.infrastructure.EventAdapter;
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.events.Events;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -18,9 +20,16 @@ public class WebSocketEventAdapter extends EventAdapter {
 
     private final List<WebSocketSession> connectedClients = new CopyOnWriteArrayList<>();
 
+    private AgUiSerdes serdes;
+
     public WebSocketEventAdapter(EventBus eventBus) {
         super("websocket-adapter");
         eventBus.subscribe(this);
+    }
+
+    @Autowired
+    public void setSerdes(AgUiSerdes serdes) {
+        this.serdes = serdes;
     }
 
     /**
@@ -75,13 +84,7 @@ public class WebSocketEventAdapter extends EventAdapter {
      * In production, use Jackson or similar.
      */
     private String serializeEvent(Events.GraphEvent event) {
-        // Simple JSON serialization
-        return String.format("""
-                {
-                  "eventId": "%s",
-                  "eventType": "%s",
-                  "timestamp": "%s"
-                }
-                """, event.eventId(), event.eventType(), event.timestamp());
+        return serdes.serializeEvent(Events.mapToEvent(event));
     }
+
 }
