@@ -154,7 +154,7 @@ public class LangChain4jConfiguration {
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler
     ) {
-        return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryOrchestrator.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.DiscoveryOrchestrator.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_DISCOVERY_DIVISION)
@@ -167,7 +167,7 @@ public class LangChain4jConfiguration {
                             toDiscoveryOrchestratorResult(response.output(), nodeId(response));
                     lifecycleHandler.afterDiscoveryOrchestratorInvocation(result, nodeId(response));
                 })
-                .build();
+                .build(), AgentInterfaces.DiscoveryOrchestrator.class);
     }
 
     /**
@@ -182,7 +182,7 @@ public class LangChain4jConfiguration {
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler
     ) {
-        return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryAgent.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.DiscoveryAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_DISCOVERY_RESULTS)
@@ -195,7 +195,7 @@ public class LangChain4jConfiguration {
                             toDiscoveryAgentResult(response.output(), nodeId(response));
                     lifecycleHandler.afterDiscoveryAgentInvocation(result, nodeId(response));
                 })
-                .build();
+                .build(), AgentInterfaces.DiscoveryAgent.class);
     }
 
     /**
@@ -210,7 +210,7 @@ public class LangChain4jConfiguration {
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler
     ) {
-        return AgenticServices.agentBuilder(AgentInterfaces.DiscoveryCollector.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.DiscoveryCollector.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_DISCOVERY_CONTEXT)
@@ -223,7 +223,7 @@ public class LangChain4jConfiguration {
                             toDiscoveryCollectorResult(response.output(), nodeId(response));
                     lifecycleHandler.afterDiscoveryCollectorInvocation(result, nodeId(response));
                 })
-                .build();
+                .build(), AgentInterfaces.DiscoveryCollector.class);
     }
 
     /**
@@ -238,7 +238,7 @@ public class LangChain4jConfiguration {
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler
     ) {
-        return AgenticServices.agentBuilder(AgentInterfaces.PlanningOrchestrator.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.PlanningOrchestrator.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_PLANNING_DIVISION)
@@ -251,7 +251,7 @@ public class LangChain4jConfiguration {
                             toPlanningOrchestratorResult(response.output(), nodeId(response));
                     lifecycleHandler.afterPlanningOrchestratorInvocation(result, nodeId(response));
                 })
-                .build();
+                .build(), AgentInterfaces.PlanningOrchestrator.class);
     }
 
     /**
@@ -266,7 +266,7 @@ public class LangChain4jConfiguration {
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler
     ) {
-        return AgenticServices.agentBuilder(AgentInterfaces.PlanningAgent.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.PlanningAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_PLANNING_RESULTS)
@@ -281,7 +281,7 @@ public class LangChain4jConfiguration {
                     // Update node with planning results after agent completes
                     lifecycleHandler.afterPlanningAgentInvocation(result, nodeId(response));
                 })
-                .build();
+                .build(), AgentInterfaces.PlanningAgent.class);
     }
 
     /**
@@ -296,7 +296,7 @@ public class LangChain4jConfiguration {
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler
     ) {
-        return AgenticServices.agentBuilder(AgentInterfaces.PlanningCollector.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.PlanningCollector.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_PLANNING_CONTEXT)
@@ -309,7 +309,7 @@ public class LangChain4jConfiguration {
                             toPlanningCollectorResult(response.output(), nodeId(response));
                     lifecycleHandler.afterPlanningCollectorInvocation(result, nodeId(response));
                 })
-                .build();
+                .build(), AgentInterfaces.PlanningCollector.class);
     }
 
     /**
@@ -324,7 +324,7 @@ public class LangChain4jConfiguration {
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler
     ) {
-        return AgenticServices.agentBuilder(AgentInterfaces.TicketOrchestrator.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.TicketOrchestrator.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_TICKET_ORCHESTRATION)
@@ -337,7 +337,7 @@ public class LangChain4jConfiguration {
                             toTicketOrchestratorResult(response.output(), nodeId(response));
                     lifecycleHandler.afterTicketOrchestratorInvocation(result, nodeId(response));
                 })
-                .build();
+                .build(), AgentInterfaces.TicketOrchestrator.class);
     }
 
     /**
@@ -352,7 +352,7 @@ public class LangChain4jConfiguration {
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler
     ) {
-        return AgenticServices.agentBuilder(AgentInterfaces.TicketAgent.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.TicketAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_TICKET_IMPLEMENTATION)
@@ -365,7 +365,7 @@ public class LangChain4jConfiguration {
                             toTicketAgentResult(response.output(), nodeId(response));
                     lifecycleHandler.afterTicketAgentInvocation(result, nodeId(response));
                 })
-                .build();
+                .build(), AgentInterfaces.TicketAgent.class);
     }
 
 
@@ -380,7 +380,7 @@ public class LangChain4jConfiguration {
             ChatModel chatModel,
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler) {
-        return AgenticServices.agentBuilder(AgentInterfaces.MergerAgent.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.MergerAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_MERGE_STRATEGY)
@@ -395,7 +395,7 @@ public class LangChain4jConfiguration {
                     // Update node with merge strategy after agent completes
                     lifecycleHandler.afterMergerAgentInvocation(result, nodeId(response));
                 })
-                .build();
+                .build(), AgentInterfaces.MergerAgent.class);
     }
 
     /**
@@ -409,7 +409,7 @@ public class LangChain4jConfiguration {
             ChatModel chatModel,
             LangChain4jAgentTools tools,
             @Lazy AgentLifecycleHandler lifecycleHandler) {
-        return AgenticServices.agentBuilder(AgentInterfaces.ReviewAgent.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.ReviewAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_REVIEW_EVALUATION)
@@ -424,6 +424,15 @@ public class LangChain4jConfiguration {
                     // Update node with evaluation after agent completes
                     lifecycleHandler.afterReviewAgentInvocation(result, nodeId(response));
                 })
+                .build(), AgentInterfaces.ReviewAgent.class);
+    }
+
+    public static <T> T wrap(Object t, Class<T> clazz) {
+         return AgenticServices.sequenceBuilder(clazz)
+                .subAgents(t)
+                 .output(as -> {
+                     return as.agentInvocations().getFirst().output();
+                 })
                 .build();
     }
 
@@ -435,7 +444,7 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.OrchestratorAgent orchestratorAgent(ChatModel chatModel,
                                                                LangChain4jAgentTools tools,
                                                                 @Lazy AgentLifecycleHandler lifecycleHandler) {
-        return AgenticServices.agentBuilder(AgentInterfaces.OrchestratorAgent.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.OrchestratorAgent.class)
                 .outputKey(OUTPUT_ORCHESTRATOR)
                 .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
                 .beforeAgentInvocation(request -> {
@@ -450,14 +459,14 @@ public class LangChain4jConfiguration {
                 })
                 .chatModel(chatModel)
                 .tools(tools)
-                .build();
+                .build(), AgentInterfaces.OrchestratorAgent.class);
     }
 
     @Bean
     public AgentInterfaces.OrchestratorCollectorAgent orchestratorCollectorAgent(ChatModel chatModel,
                                                                                  LangChain4jAgentTools tools,
                                                                                  @Lazy AgentLifecycleHandler lifecycleHandler) {
-        return AgenticServices.agentBuilder(AgentInterfaces.OrchestratorCollectorAgent.class)
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.OrchestratorCollectorAgent.class)
                 .outputKey(OUTPUT_ORCHESTRATOR_COLLECTOR)
                 .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
                 .beforeAgentInvocation(request -> {
@@ -472,7 +481,7 @@ public class LangChain4jConfiguration {
                 })
                 .chatModel(chatModel)
                 .tools(tools)
-                .build();
+                .build(), AgentInterfaces.OrchestratorCollectorAgent.class);
     }
 
     /**

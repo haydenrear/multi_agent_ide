@@ -1,9 +1,6 @@
 package com.hayden.multiagentide.agent;
 
 import dev.langchain4j.agent.tool.Tool;
-import com.hayden.multiagentide.repository.GraphRepository;
-import com.hayden.multiagentide.repository.WorktreeRepository;
-import com.hayden.multiagentide.service.WorktreeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +18,7 @@ public class LangChain4jAgentTools {
      * @return
      */
     @Tool("Emit gui event to user")
+    @org.springframework.ai.tool.annotation.Tool(description = "Emit gui event to user")
     public String emitGuiEvent() {
         return null;
     }

@@ -1,22 +1,36 @@
 package com.hayden.multiagentide.model.acp
 
+import com.agentclientprotocol.agent.AgentInfo
+import com.agentclientprotocol.agent.AgentSession
+import com.agentclientprotocol.agent.AgentSupport
+import com.agentclientprotocol.agent.clientInfo
 import com.agentclientprotocol.client.Client
 import com.agentclientprotocol.client.ClientInfo
 import com.agentclientprotocol.client.ClientOperationsFactory
 import com.agentclientprotocol.client.ClientSession
 import com.agentclientprotocol.common.ClientSessionOperations
 import com.agentclientprotocol.common.Event
+import com.agentclientprotocol.common.FileSystemOperations
 import com.agentclientprotocol.common.SessionCreationParameters
+import com.agentclientprotocol.common.SessionParameters
 import com.agentclientprotocol.model.*
 import com.agentclientprotocol.protocol.Protocol
 import com.agentclientprotocol.transport.Transport
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.hayden.multiagentide.config.AcpModelProperties
 import dev.langchain4j.data.message.*
 import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.listener.ChatModelListener
+import dev.langchain4j.model.chat.request.ChatRequest
 import dev.langchain4j.model.chat.response.ChatResponse
+import dev.langchain4j.model.openai.internal.OpenAiUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.asSink
 import kotlinx.io.asSource
@@ -31,15 +45,24 @@ class AcpChatModel(private val properties: AcpModelProperties) : ChatModel {
 
     private val sessionLock = Any()
 
+    private val listeners: List<ChatModelListener>  = mutableListOf();
+
     @Volatile
     private var sessionContext: AcpSessionContext? = null
 
-    override fun chat(userMessage: String): String {
-        val response = chat(listOf(UserMessage.from(userMessage)))
-        return response.aiMessage()?.text() ?: ""
+    override fun listeners(): List<ChatModelListener?>? {
+        return listeners;
     }
 
-    override fun chat(messages: List<ChatMessage>): ChatResponse = runBlocking {
+    override fun doChat(chatRequest: ChatRequest?): ChatResponse {
+        return if (sessionExists(chatRequest)) {
+            invokeChat(mutableListOf(chatRequest?.messages()?.last()!!))
+        } else {
+            invokeChat(chatRequest?.messages()!!)
+        }
+    }
+
+    fun invokeChat(messages: List<ChatMessage>): ChatResponse = runBlocking {
         val session = getOrCreateSession()
         val responseText = StringBuilder()
         val content = listOf(ContentBlock.Text(formatMessages(messages)))
@@ -78,16 +101,24 @@ class AcpChatModel(private val properties: AcpModelProperties) : ChatModel {
     }
 
     private fun getOrCreateSession(): ClientSession {
+        return getOrCreateSession(null)
+    }
+
+    private fun sessionExists(chatRequest: ChatRequest?): Boolean {
+        return sessionContext != null
+    }
+
+    private fun getOrCreateSession(chatRequest: ChatRequest?): ClientSession {
         sessionContext?.let { return it.session }
         synchronized(sessionLock) {
             if (sessionContext == null) {
-                sessionContext = runBlocking { createSessionContext() }
+                sessionContext = runBlocking { createSessionContext(chatRequest) }
             }
         }
         return requireNotNull(sessionContext).session
     }
 
-    private suspend fun createSessionContext(): AcpSessionContext {
+    private suspend fun createSessionContext(chatRequest: ChatRequest?): AcpSessionContext {
         if (!properties.transport.equals("stdio", ignoreCase = true)) {
             throw IllegalStateException("Only stdio transport is supported for ACP integration")
         }
@@ -108,29 +139,35 @@ class AcpChatModel(private val properties: AcpModelProperties) : ChatModel {
             val client = Client(protocol)
 
             val agentInfo = protocol.start()
-                client.initialize(
-                    ClientInfo(
-                        capabilities = ClientCapabilities(
-                            fs = FileSystemCapability(
-                                readTextFile = true,
-                                writeTextFile = true
-                            ),
-                            terminal = true
-                        )
+            val authenticationResult = client.authenticate(AuthMethodId("chatgpt"))
+            val i = AcpMethod.AgentMethods.Initialize;
+            val initialized = client.initialize(
+                ClientInfo(
+                    capabilities = ClientCapabilities(
+                        fs = FileSystemCapability(
+                            readTextFile = true,
+                            writeTextFile = true
+                        ),
+                        terminal = true
                     )
                 )
-            val authenticationResult = client.authenticate(AuthMethodId("chatgpt"))
-            println("Agent info: $agentInfo")
+            )
+
+            println("Agent info: $initialized")
 
             println()
 
             val sessionParams = SessionCreationParameters(
                 if (workingDirectory.isNotBlank()) workingDirectory else System.getProperty("user.dir"),
-                emptyList()
+                mutableListOf(McpServer.Stdio("agent-tools", "java", mutableListOf("-jar", "/Users/hayde/IdeaProjects/multi_agent_ide_parent/multi_agent_ide/build/libs/mcp-tool-gateway.jar"),
+                    mutableListOf(EnvVariable("SPRING_PROFILES_ACTIVE", "ide"))))
             )
-            val session=  client.newSession(sessionParams, ClientOperationsFactory { _, _ -> AcpSessionOperations() })
+
+            val session=  client.newSession(sessionParams)
+                { session, arg -> AcpSessionOperations()}
 
             AcpSessionContext(scope, transport, protocol, client, session)
+
         } catch (ex: Exception) {
             throw IllegalStateException("Failed to initialize ACP session", ex)
         }

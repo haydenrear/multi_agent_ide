@@ -1,13 +1,20 @@
 spring:
+  ai.vectorstore.type: none
+  dgs.graphql.enabled: false
   application:
     name: multi-agent-ide
-  webflux:
-    base-path: /api
+  ai:
+    mcp:
+      server:
+        enabled: false
+        type: sync
+        stdio: false
+  docker:
+    compose:
+      enabled: false
 
-server:
-  port: 8080
-  servlet:
-    context-path: /
+server.port: 8081
+
 
 # LangChain4j configuration
 langchain4j:
@@ -34,5 +41,19 @@ langchain4j:
 logging:
   level:
     root: INFO
+    org.springframework.web: DEBUG
     com.hayden.multiagentide: DEBUG
     dev.langchain4j: DEBUG
+otel:
+  sdk:
+    disabled: true
+management:
+  tracing:
+    enabled: false
+  logging:
+    export:
+      enabled: false
+  otlp:
+    logging:
+      export:
+        enabled: false

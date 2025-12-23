@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.model.events;
 
-import com.agui.core.event.BaseEvent;
+import com.agui.core.types.BaseEvent;
 import com.hayden.multiagentide.adapter.AgUiEventMappingRegistry;
 import com.hayden.multiagentide.model.nodes.GraphNode;
 import org.slf4j.Logger;

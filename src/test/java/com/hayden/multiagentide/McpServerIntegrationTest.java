@@ -1,0 +1,66 @@
+package com.hayden.multiagentide;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import io.modelcontextprotocol.spec.McpSchema;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Integration tests for CodeSearchMcpTools focusing on behavior validation.
+ * Tests code search, AST parsing, node extraction, and search functionality
+ * using real files and minimal mocking to ensure robustness.
+ */
+@Slf4j
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles({"inttest"})
+@TestPropertySource(properties = {"spring.ai.mcp.server.stdio=false"})
+class McpServerIntegrationTest {
+
+    @LocalServerPort
+    private int port;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @SneakyThrows
+    @Test
+    void whenTokenThenConnectsWithMcpClient() {
+        try (var m = McpClient.sync(
+                        HttpClientSseClientTransport.builder("http://localhost:" + port)
+                                .sseEndpoint("/sse")
+                                .objectMapper(objectMapper)
+                                .build())
+                .build()) {
+            var initialized = m.initialize();
+            var listed = m.listTools();
+            var called = m.callTool(new McpSchema.CallToolRequest("add-tool-server", Map.of("server_name", "test-rollback-server-2")));
+
+            assertThat(called.isError()).isFalse();
+            assertThat(called.content().stream().anyMatch(c -> c instanceof McpSchema.TextContent t && t.text().contains("aTool") && t.text().contains("test-rollback-server-2"))).isTrue();
+
+            var listedAgain = m.listTools();
+            assertThat(listed.tools().size()).isEqualTo(listedAgain.tools().size());
+            log.info("Found list tools {}", listed);
+        }
+
+    }
+
+
+}

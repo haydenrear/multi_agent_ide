@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
  * WebSocket configuration for real-time event streaming.
  */
 @Configuration
-@EnableWebSocket
+//@EnableWebSocket
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final WebSocketEventAdapter eventAdapter;

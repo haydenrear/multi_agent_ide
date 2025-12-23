@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.adapter;
 
-import com.agui.core.event.BaseEvent;
+import com.agui.core.types.BaseEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
