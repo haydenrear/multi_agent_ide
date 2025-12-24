@@ -9,13 +9,14 @@ import com.hayden.utilitymodule.schema.DelegatingSchemaReplacer;
 import com.hayden.utilitymodule.schema.SpecialJsonSchemaGenerator;
 import com.hayden.utilitymodule.schema.SpecialMethodToolCallbackProviderFactory;
 import io.modelcontextprotocol.server.*;
-import io.modelcontextprotocol.server.transport.WebMvcSseServerTransportProvider;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.server.transport.WebMvcStreamableServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.mcp.McpToolUtils;
-import org.springframework.ai.mcp.server.autoconfigure.McpServerProperties;
+import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerProperties;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.annotation.Tool;
@@ -79,7 +80,7 @@ public class SpringMcpConfig {
     }
 
     @Bean
-    public RouterFunction<ServerResponse> mvcMcpRouterFunction(WebMvcSseServerTransportProvider transportProvider) {
+    public RouterFunction<ServerResponse> mvcMcpRouterFunction(WebMvcStreamableServerTransportProvider transportProvider) {
         return transportProvider.getRouterFunction();
     }
 
@@ -186,10 +187,12 @@ public class SpringMcpConfig {
     }
 
     @Bean
-    public WebMvcSseServerTransportProvider httpProvider(
-            ObjectMapper om, McpServerProperties sseProperties) {
-        return new WebMvcSseServerTransportProvider(om, sseProperties.getBaseUrl(),
-                sseProperties.getSseMessageEndpoint(), sseProperties.getSseEndpoint());
+    public WebMvcStreamableServerTransportProvider httpProvider(
+            ObjectMapper om, McpServerProperties serverProperties) {
+        return WebMvcStreamableServerTransportProvider.builder()
+                .jsonMapper(new JacksonMcpJsonMapper(om))
+                .mcpEndpoint("/mcp")
+                .build();
     }
 
     @Bean

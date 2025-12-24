@@ -2,7 +2,7 @@ package com.hayden.multiagentide;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
-import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,8 +43,8 @@ class McpServerIntegrationTest {
     @Test
     void whenTokenThenConnectsWithMcpClient() {
         try (var m = McpClient.sync(
-                        HttpClientSseClientTransport.builder("http://localhost:" + port)
-                                .sseEndpoint("/sse")
+                        HttpClientStreamableHttpTransport.builder("http://localhost:" + port)
+                                .endpoint("/mcp")
                                 .objectMapper(objectMapper)
                                 .build())
                 .build()) {
