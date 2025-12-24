@@ -23,12 +23,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import java.util.Map;
 
 @Slf4j
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @ActiveProfiles("acp")
+@TestPropertySource(properties = {"spring.ai.mcp.server.stdio=false"})
 class AcpChatModelCodexIntegrationTest {
 
     @Autowired
@@ -74,6 +76,9 @@ class AcpChatModelCodexIntegrationTest {
 
             var res = agent
                     .kickOffAnyNumberOfAgentsForCodeSearch("1", "What capabilities do you have to use? - do you have an emit ui event capability?");
+            log.info("{}", res);
+
+            res = agent.kickOffAnyNumberOfAgentsForCodeSearch("100", "Do you have any tools available to you?");
             log.info("{}", res);
         } catch (Exception e) {
             log.error("Error - will not fail test for codex-acp - but failed", e);

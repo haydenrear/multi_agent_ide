@@ -159,8 +159,11 @@ class AcpChatModel(private val properties: AcpModelProperties) : ChatModel {
 
             val sessionParams = SessionCreationParameters(
                 if (workingDirectory.isNotBlank()) workingDirectory else System.getProperty("user.dir"),
-                mutableListOf(McpServer.Stdio("agent-tools", "java", mutableListOf("-jar", "/Users/hayde/IdeaProjects/multi_agent_ide_parent/multi_agent_ide/build/libs/mcp-tool-gateway.jar"),
-                    mutableListOf(EnvVariable("SPRING_PROFILES_ACTIVE", "ide"))))
+                mutableListOf(
+                    McpServer.Http("agent-tools", "http://localhost:8080/mcp", mutableListOf()),
+//                    TODO: add mcp-tool-gateway as Http - Stdio takes too long to start
+//                    McpServer
+                )
             )
 
             val session=  client.newSession(sessionParams)

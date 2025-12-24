@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.agent;
 
+import com.hayden.commitdiffcontext.mcp.ToolCarrier;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-public class LangChain4jAgentTools {
+public class LangChain4jAgentTools implements ToolCarrier {
 
 
     /**

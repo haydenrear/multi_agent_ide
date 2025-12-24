@@ -8,54 +8,78 @@ import com.hayden.commitdiffmodel.config.DisableGraphQl;
 import com.hayden.utilitymodule.schema.DelegatingSchemaReplacer;
 import com.hayden.utilitymodule.schema.SpecialJsonSchemaGenerator;
 import com.hayden.utilitymodule.schema.SpecialMethodToolCallbackProviderFactory;
+import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.*;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.transport.WebMvcStreamableServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpServerTransportProvider;
+import io.modelcontextprotocol.spec.McpServerTransportProviderBase;
+import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.mcp.McpToolUtils;
+import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerChangeNotificationProperties;
 import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerProperties;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.SecurityProperties;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.*;
+import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
+import org.springframework.web.context.support.StandardServletEnvironment;
+import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerResponse;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
+import static org.springframework.security.config.Customizer.withDefaults;
+
 @Configuration
 @Import({DelegatingSchemaReplacer.class, SpecialJsonSchemaGenerator.class, SpecialMethodToolCallbackProviderFactory.class,
-         SkipSessionSchema.class, SkipInSchemaFilter.class, DisableGraphQl.class})
+         SkipSessionSchema.class, SkipInSchemaFilter.class,
+        DisableGraphQl.class})
 @Slf4j
 @EnableAutoConfiguration(exclude = {
         DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class,
-        SecurityAutoConfiguration.class,
-        SecurityFilterAutoConfiguration.class,
-        ManagementWebSecurityAutoConfiguration.class
+        HibernateJpaAutoConfiguration.class
 })
-@EnableConfigurationProperties({McpServerProperties.class})
+@EnableConfigurationProperties({McpServerProperties.class, McpServerChangeNotificationProperties.class})
 public class SpringMcpConfig {
+
+
+    @Bean
+    @Order(SecurityProperties.BASIC_AUTH_ORDER)
+    SecurityFilterChain security(Environment environment, HttpSecurity http) throws Exception {
+        return http.authorizeHttpRequests(a -> a.anyRequest().permitAll())
+                .cors(Customizer.withDefaults())
+                .csrf(c -> c.disable())
+                .build();
+    }
+
 
     @Bean
     public ToolCallbackProvider tools(List<ToolCarrier> codeSearchMcpTools,
@@ -63,7 +87,7 @@ public class SpringMcpConfig {
                                       SpecialJsonSchemaGenerator specialJsonSchemaGenerator,
                                       DelegatingSchemaReplacer schemaReplacer,
                                       ApplicationContext ctx) {
-        return specialMethodToolCallbackProvider.createToolCallbackProvider(
+        var tcp = specialMethodToolCallbackProvider.createToolCallbackProvider(
                 codeSearchMcpTools.stream()
                         .filter(SpringMcpConfig::hasToolMethod)
                         .map(tc -> (Object) tc)
@@ -71,6 +95,7 @@ public class SpringMcpConfig {
                 specialJsonSchemaGenerator,
                 schemaReplacer,
                 ctx);
+        return tcp;
     }
 
     public static boolean hasToolMethod(Object obj) {
@@ -93,37 +118,39 @@ public class SpringMcpConfig {
     @SneakyThrows
     @Bean("mcpSyncServer")
     @Primary
-    public McpSyncServer mcpSyncServer(McpServerTransportProvider transportProvider,
+    public McpSyncServer mcpSyncServer(McpServerTransportProviderBase transportProvider,
                                        McpSchema.ServerCapabilities.Builder capabilitiesBuilder,
                                        McpServerProperties serverProperties,
+                                       ObjectMapper objectMapper,
+                                       McpServerChangeNotificationProperties changeNotificationProperties,
                                        ObjectProvider<List<McpServerFeatures.SyncToolSpecification>> tools,
+                                       ObjectProvider<List<McpServerFeatures.SyncResourceTemplateSpecification>> resourceTemplates,
                                        ObjectProvider<List<McpServerFeatures.SyncResourceSpecification>> resources,
                                        ObjectProvider<List<McpServerFeatures.SyncPromptSpecification>> prompts,
                                        ObjectProvider<List<McpServerFeatures.SyncCompletionSpecification>> completions,
                                        ObjectProvider<BiConsumer<McpSyncServerExchange, List<McpSchema.Root>>> rootsChangeConsumers,
-                                       List<ToolCallbackProvider> toolCallbackProvider) {
+                                       List<ToolCallbackProvider> toolCallbackProvider,
+                                       Environment environment) {
         McpSchema.Implementation serverInfo = new McpSchema.Implementation(serverProperties.getName(),
                 serverProperties.getVersion());
 
-        // Create the server with both tool and resource capabilities
-        IdeMcpServer.SyncSpecification serverBuilder = IdeMcpServer.sync(transportProvider).serverInfo(serverInfo);
+        IdeMcpServer.SyncSpecification<?> serverBuilder;
+        if (transportProvider instanceof McpStreamableServerTransportProvider) {
+            serverBuilder = IdeMcpServer.sync((McpStreamableServerTransportProvider) transportProvider);
+        }
+        else {
+            serverBuilder = IdeMcpServer.sync((McpServerTransportProvider) transportProvider);
+        }
+        serverBuilder.serverInfo(serverInfo);
 
         // Tools
         if (serverProperties.getCapabilities().isTool()) {
-            log.info("Enable tools capabilities, notification: " + serverProperties.isToolChangeNotification());
-            capabilitiesBuilder.tools(serverProperties.isToolChangeNotification());
+            log.info("Enable tools capabilities, notification: "
+                    + changeNotificationProperties.isToolChangeNotification());
+            capabilitiesBuilder.tools(changeNotificationProperties.isToolChangeNotification());
 
             List<McpServerFeatures.SyncToolSpecification> toolSpecifications = new ArrayList<>(
                     tools.stream().flatMap(List::stream).toList());
-
-            List<ToolCallback> providerToolCallbacks = toolCallbackProvider.stream()
-                    .map(pr -> List.of(pr.getToolCallbacks()))
-                    .flatMap(List::stream)
-                    .filter(fc -> fc instanceof ToolCallback)
-                    .map(fc -> (ToolCallback) fc)
-                    .toList();
-
-            toolSpecifications.addAll(this.toSyncToolSpecifications(providerToolCallbacks, serverProperties));
 
             if (!CollectionUtils.isEmpty(toolSpecifications)) {
                 serverBuilder.tools(toolSpecifications);
@@ -133,9 +160,9 @@ public class SpringMcpConfig {
 
         // Resources
         if (serverProperties.getCapabilities().isResource()) {
-            log.info(
-                    "Enable resources capabilities, notification: " + serverProperties.isResourceChangeNotification());
-            capabilitiesBuilder.resources(false, serverProperties.isResourceChangeNotification());
+            log.info("Enable resources capabilities, notification: "
+                    + changeNotificationProperties.isResourceChangeNotification());
+            capabilitiesBuilder.resources(false, changeNotificationProperties.isResourceChangeNotification());
 
             List<McpServerFeatures.SyncResourceSpecification> resourceSpecifications = resources.stream().flatMap(List::stream).toList();
             if (!CollectionUtils.isEmpty(resourceSpecifications)) {
@@ -144,10 +171,26 @@ public class SpringMcpConfig {
             }
         }
 
+        // Resources Templates
+        if (serverProperties.getCapabilities().isResource()) {
+            log.info("Enable resources templates capabilities, notification: "
+                    + changeNotificationProperties.isResourceChangeNotification());
+            capabilitiesBuilder.resources(false, changeNotificationProperties.isResourceChangeNotification());
+
+            List<McpServerFeatures.SyncResourceTemplateSpecification> resourceTemplateSpecifications = resourceTemplates.stream()
+                    .flatMap(List::stream)
+                    .toList();
+            if (!CollectionUtils.isEmpty(resourceTemplateSpecifications)) {
+                serverBuilder.resourceTemplates(resourceTemplateSpecifications);
+                log.info("Registered resource templates: " + resourceTemplateSpecifications.size());
+            }
+        }
+
         // Prompts
         if (serverProperties.getCapabilities().isPrompt()) {
-            log.info("Enable prompts capabilities, notification: " + serverProperties.isPromptChangeNotification());
-            capabilitiesBuilder.prompts(serverProperties.isPromptChangeNotification());
+            log.info("Enable prompts capabilities, notification: "
+                    + changeNotificationProperties.isPromptChangeNotification());
+            capabilitiesBuilder.prompts(changeNotificationProperties.isPromptChangeNotification());
 
             List<McpServerFeatures.SyncPromptSpecification> promptSpecifications = prompts.stream().flatMap(List::stream).toList();
             if (!CollectionUtils.isEmpty(promptSpecifications)) {
@@ -171,7 +214,9 @@ public class SpringMcpConfig {
         }
 
         rootsChangeConsumers.ifAvailable(consumer -> {
-            serverBuilder.rootsChangeHandler((exchange, roots) -> consumer.accept(exchange, roots));
+            BiConsumer<McpSyncServerExchange, List<McpSchema.Root>> syncConsumer = (exchange, roots) -> consumer
+                    .accept(exchange, roots);
+            serverBuilder.rootsChangeHandler(syncConsumer);
             log.info("Registered roots change consumer");
         });
 
@@ -181,9 +226,18 @@ public class SpringMcpConfig {
 
         serverBuilder.requestTimeout(serverProperties.getRequestTimeout());
 
-        var builtServer = serverBuilder.build();
+        if (environment instanceof StandardServletEnvironment) {
+            serverBuilder.immediateExecution(true);
+        }
 
-        return builtServer;
+
+        McpSyncServer built = serverBuilder.build();
+
+        toolCallbackProvider.stream()
+                .flatMap(t -> Arrays.stream(t.getToolCallbacks()))
+                .forEach(tcp -> built.addTool(McpToolUtils.toSyncToolSpecification(tcp)));
+
+        return built;
     }
 
     @Bean
@@ -192,6 +246,10 @@ public class SpringMcpConfig {
         return WebMvcStreamableServerTransportProvider.builder()
                 .jsonMapper(new JacksonMcpJsonMapper(om))
                 .mcpEndpoint("/mcp")
+                .contextExtractor(request -> McpTransportContext.create(Map.of(
+                        "headers", request.headers().asHttpHeaders(),
+                        "attributes", request.attributes()
+                )))
                 .build();
     }
 
@@ -232,5 +290,12 @@ public class SpringMcpConfig {
                 .toList();
     }
 
+    private IdeMcpServer.SyncSpecification<?> buildSyncSpecification(
+            McpServerTransportProviderBase transportProvider) {
+        if (transportProvider instanceof McpStreamableServerTransportProvider) {
+            return IdeMcpServer.sync((McpStreamableServerTransportProvider) transportProvider);
+        }
+        return IdeMcpServer.sync((McpServerTransportProvider) transportProvider);
+    }
 
 }

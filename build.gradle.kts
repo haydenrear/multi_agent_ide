@@ -1,7 +1,5 @@
 plugins {
     id("com.hayden.spring-app")
-    id("com.hayden.observable-app")
-    id("com.hayden.java-conventions")
     id("com.hayden.kotlin")
     id("com.github.node-gradle.node")
     id("com.hayden.mcp")
@@ -23,6 +21,7 @@ dependencies {
     implementation(project(":utilitymodule"))
     implementation(project(":commit-diff-context"))
     implementation(project(":commit-diff-model"))
+    implementation("org.springframework.boot:spring-boot-starter-security")
 }
 
 tasks.bootJar {
