@@ -14,7 +14,7 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-anthropic-spring-boot-starter:1.9.0-beta16")
     implementation("dev.langchain4j:langchain4j-agentic:1.9.1-beta17")
     implementation("dev.langchain4j:langchain4j-open-ai-spring-boot-starter:1.9.1-beta17")
-    implementation("com.agentclientprotocol:acp:0.10.3-SNAPSHOT")
+    implementation("com.agentclientprotocol:acp:0.10.2")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("com.ag-ui.community:kotlin-core-jvm:0.2.4")
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")

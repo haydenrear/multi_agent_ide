@@ -24,6 +24,7 @@ import dev.langchain4j.model.chat.listener.ChatModelListener
 import dev.langchain4j.model.chat.request.ChatRequest
 import dev.langchain4j.model.chat.response.ChatResponse
 import dev.langchain4j.model.openai.internal.OpenAiUtils
+import io.modelcontextprotocol.server.IdeMcpAsyncServer.TOOL_ALLOWLIST_HEADER
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -140,7 +141,6 @@ class AcpChatModel(private val properties: AcpModelProperties) : ChatModel {
 
             val agentInfo = protocol.start()
             val authenticationResult = client.authenticate(AuthMethodId("chatgpt"))
-            val i = AcpMethod.AgentMethods.Initialize;
             val initialized = client.initialize(
                 ClientInfo(
                     capabilities = ClientCapabilities(
@@ -160,7 +160,8 @@ class AcpChatModel(private val properties: AcpModelProperties) : ChatModel {
             val sessionParams = SessionCreationParameters(
                 if (workingDirectory.isNotBlank()) workingDirectory else System.getProperty("user.dir"),
                 mutableListOf(
-                    McpServer.Http("agent-tools", "http://localhost:8080/mcp", mutableListOf()),
+                    McpServer.Http("agent-tools", "http://localhost:8080/mcp",
+                        mutableListOf(HttpHeader(TOOL_ALLOWLIST_HEADER, "emitGuiEvent"))),
 //                    TODO: add mcp-tool-gateway as Http - Stdio takes too long to start
 //                    McpServer
                 )

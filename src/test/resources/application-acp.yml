@@ -6,3 +6,6 @@ langchain4j:
     command: ${ACP_COMMAND:codex-acp}
     args: ${ACP_ARGS:}
     working-directory: ${ACP_WORKING_DIR:}
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 1s

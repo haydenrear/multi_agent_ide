@@ -40,9 +40,9 @@ public class IdeMcpAsyncServer extends McpAsyncServer {
 
     private static final Logger logger = LoggerFactory.getLogger(IdeMcpAsyncServer.class);
 
-    private static final String CONTEXT_HEADERS_KEY = "headers";
-    private static final String TOOL_ALLOWLIST_HEADER = "x-mcp-tools";
-    private static final String TOOL_BLOCKLIST_HEADER = "x-mcp-tools-exclude";
+    public static final String CONTEXT_HEADERS_KEY = "headers";
+    public static final String TOOL_ALLOWLIST_HEADER = "x-mcp-tools";
+    public static final String TOOL_BLOCKLIST_HEADER = "x-mcp-tools-exclude";
 
     private final McpServerTransportProviderBase mcpTransportProvider;
 
