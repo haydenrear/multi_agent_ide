@@ -8,6 +8,7 @@ import com.hayden.commitdiffmodel.config.DisableGraphQl;
 import com.hayden.utilitymodule.schema.DelegatingSchemaReplacer;
 import com.hayden.utilitymodule.schema.SpecialJsonSchemaGenerator;
 import com.hayden.utilitymodule.schema.SpecialMethodToolCallbackProviderFactory;
+import com.hayden.utilitymodule.security.SecurityUtils;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.*;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
@@ -30,22 +31,15 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
-import org.springframework.boot.autoconfigure.security.SecurityProperties;
-import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
-import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.*;
-import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.util.ClassUtils;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
 import org.springframework.web.context.support.StandardServletEnvironment;
-import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerResponse;
 
@@ -55,8 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
-
-import static org.springframework.security.config.Customizer.withDefaults;
 
 @Configuration
 @Import({DelegatingSchemaReplacer.class, SpecialJsonSchemaGenerator.class, SpecialMethodToolCallbackProviderFactory.class,
@@ -70,16 +62,10 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @EnableConfigurationProperties({McpServerProperties.class, McpServerChangeNotificationProperties.class})
 public class SpringMcpConfig {
 
-
-    @Bean
-    @Order(SecurityProperties.BASIC_AUTH_ORDER)
-    SecurityFilterChain security(Environment environment, HttpSecurity http) throws Exception {
-        return http.authorizeHttpRequests(a -> a.anyRequest().permitAll())
-                .cors(Customizer.withDefaults())
-                .csrf(c -> c.disable())
-                .build();
-    }
-
+//    @Bean
+//    public SecurityFilterChain security(HttpSecurity http) throws Exception {
+//        return SecurityUtils.disable(http);
+//    }
 
     @Bean
     public ToolCallbackProvider tools(List<ToolCarrier> codeSearchMcpTools,
