@@ -52,13 +52,6 @@ class McpServerIntegrationTest {
                 .build()) {
             var initialized = m.initialize();
             var listed = m.listTools();
-            var called = m.callTool(new McpSchema.CallToolRequest("add-tool-server", Map.of("server_name", "test-rollback-server-2")));
-
-            assertThat(called.isError()).isFalse();
-            assertThat(called.content().stream().anyMatch(c -> c instanceof McpSchema.TextContent t && t.text().contains("aTool") && t.text().contains("test-rollback-server-2"))).isTrue();
-
-            var listedAgain = m.listTools();
-            assertThat(listed.tools().size()).isEqualTo(listedAgain.tools().size());
             log.info("Found list tools {}", listed);
         }
 

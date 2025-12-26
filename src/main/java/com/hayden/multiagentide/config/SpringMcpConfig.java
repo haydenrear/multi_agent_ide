@@ -35,7 +35,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.*;
 import org.springframework.core.env.Environment;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
@@ -62,10 +64,13 @@ import java.util.stream.Collectors;
 @EnableConfigurationProperties({McpServerProperties.class, McpServerChangeNotificationProperties.class})
 public class SpringMcpConfig {
 
-//    @Bean
-//    public SecurityFilterChain security(HttpSecurity http) throws Exception {
-//        return SecurityUtils.disable(http);
-//    }
+    @Bean
+    public SecurityFilterChain security(HttpSecurity http) throws Exception {
+        return http.authorizeHttpRequests(a -> a.anyRequest().permitAll())
+                        .cors(AbstractHttpConfigurer::disable)
+                        .csrf(AbstractHttpConfigurer::disable)
+                        .build();
+    }
 
     @Bean
     public ToolCallbackProvider tools(List<ToolCarrier> codeSearchMcpTools,

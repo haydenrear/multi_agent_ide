@@ -1,3 +1,4 @@
+
 spring:
   ai.vectorstore.type: none
   dgs.graphql.enabled: false
