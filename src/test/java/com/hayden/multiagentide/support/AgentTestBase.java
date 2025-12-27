@@ -30,6 +30,9 @@ public abstract class AgentTestBase {
     protected AgentInterfaces.TicketAgent ticketAgent;
 
     @MockitoBean
+    protected AgentInterfaces.TicketCollector ticketCollector;
+
+    @MockitoBean
     protected AgentInterfaces.ReviewAgent reviewAgent;
 
     @MockitoBean

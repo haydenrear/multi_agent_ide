@@ -48,7 +48,10 @@ public class AgentInterfaces {
                 - Acceptance criteria
                 - Estimated effort
 
-                Return merged tickets in structured format.
+                Return merged tickets in structured format, and include a routing decision:
+                - ROUTE_BACK to rerun planning
+                - ADVANCE_PHASE to continue to ticket execution
+                - STOP to halt the workflow
                 """;
 
         @Agent(value = "Consolidates planning outputs into structured tickets")
@@ -123,7 +126,10 @@ public class AgentInterfaces {
                 - Test patterns and conventions
                 - Critical files and entry points
 
-                Return consolidated discovery in structured format suitable for planning phase.
+                Return consolidated discovery in structured format suitable for planning phase, and include a routing decision:
+                - ROUTE_BACK to rerun discovery
+                - ADVANCE_PHASE to continue to planning
+                - STOP to halt the workflow
                 """;
 
         @Agent(value = "Consolidates discovery findings into unified codebase understanding")
@@ -200,6 +206,34 @@ public class AgentInterfaces {
                                                                         @V("planningContext") String planningContext);
     }
 
+    /**
+     * Collector agent that consolidates ticket execution outputs.
+     */
+    public interface TicketCollector {
+        String TICKET_COLLECTOR_START_MESSAGE = """
+                Merge and consolidate the following ticket execution results:
+
+                Goal: {{goal}}
+                Ticket Results: {{ticketResults}}
+
+                Produce a summary with:
+                - Completed tickets
+                - Failed tickets (with brief reasons)
+                - Outstanding follow-ups
+
+                Include a routing decision:
+                - ROUTE_BACK to rerun ticket execution
+                - ADVANCE_PHASE to continue to finalization
+                - STOP to halt the workflow
+                """;
+
+        @Agent(value = "Consolidates ticket execution results into a unified summary")
+        AgentModels.TicketCollectorResult consolidateTicketResults(@MemoryId String memId,
+                                                                   @UserMessage String msg,
+                                                                   @V("goal") String goal,
+                                                                   @V("ticketResults") String ticketResults);
+    }
+
 
     /**
      * Ticket agent that implements individual tickets.
@@ -248,16 +282,25 @@ public class AgentInterfaces {
     public interface MergerAgent {
 
         String MERGER_AGENT_START_MESSAGE = """
-                Resolve the following merge conflicts
+                Review the merge outcome and validate it is correct.
 
-                Conflicting files: {{conflictFiles}}
+                Merge context:
+                {{mergeContext}}
 
-                Provide resolution approach for each conflict.
+                Merge summary:
+                {{mergeSummary}}
+
+                Conflicting files:
+                {{conflictFiles}}
+
+                Confirm whether the merge is acceptable. If conflicts exist, outline resolution guidance.
                 """;
 
         @Agent(value = "Resolves merge conflicts based on strategy and context")
         AgentModels.MergerAgentResult performMerge(@MemoryId String memId,
                                                    @UserMessage String msg,
+                                                   @V("mergeContext") String mergeContext,
+                                                   @V("mergeSummary") String mergeSummary,
                                                    @V("conflictFiles") String conflictFiles);
     }
 
@@ -317,7 +360,10 @@ public class AgentInterfaces {
     public interface OrchestratorCollectorAgent {
 
         String ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE = """
-                
+                Consolidate the workflow results and provide a routing decision:
+                - ROUTE_BACK to rerun the final collection
+                - ADVANCE_PHASE to finalize and complete the goal
+                - STOP to halt the workflow
                 """;
 
         /**

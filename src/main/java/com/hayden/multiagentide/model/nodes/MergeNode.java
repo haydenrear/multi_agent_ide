@@ -43,6 +43,13 @@ public record MergeNode(
         return NodeType.SUMMARY;
     }
 
+    public boolean isFinalMerge() {
+        return Optional.ofNullable(metadata())
+                .flatMap(m -> Optional.ofNullable(m.get("merge_scope")))
+                .filter(s -> Objects.equals(s, "final"))
+                .isPresent();
+    }
+
     @Override
     public String getView() {
         return summaryContent;

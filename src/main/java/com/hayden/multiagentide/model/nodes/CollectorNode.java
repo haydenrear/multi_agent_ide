@@ -29,19 +29,21 @@ public record CollectorNode(
         List<String> submoduleWorktreeIds,
         String orchestratorOutput,
         List<SubmoduleNode> submodules,
+        List<CollectedNodeStatus> collectedNodes,
+        AgentModels.CollectorDecision collectorDecision,
         AgentModels.OrchestratorCollectorResult collectorResult
-) implements GraphNode, Viewable<String>, Orchestrator {
+) implements GraphNode, Viewable<String>, Collector {
 
     public CollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
-                new ArrayList<>(), null);
+                new ArrayList<>(), new ArrayList<>(), null, null);
     }
 
     public CollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput, List<SubmoduleNode> submodules) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
-                submodules, null);
+                submodules, new ArrayList<>(), null, null);
     }
 
     public CollectorNode {
@@ -51,6 +53,7 @@ public record CollectorNode(
         if (metadata == null) metadata = new HashMap<>();
         if (submoduleNames == null) submoduleNames = new ArrayList<>();
         if (submoduleWorktreeIds == null) submoduleWorktreeIds = new ArrayList<>();
+        if (collectedNodes == null) collectedNodes = new ArrayList<>();
     }
 
     @Override
@@ -98,6 +101,14 @@ public record CollectorNode(
     public CollectorNode withResult(AgentModels.OrchestratorCollectorResult result) {
         return toBuilder()
                 .collectorResult(result)
+                .collectorDecision(result != null ? result.collectorDecision() : collectorDecision)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public CollectorNode withCollectedNodes(List<CollectedNodeStatus> nodes) {
+        return toBuilder()
+                .collectedNodes(nodes)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

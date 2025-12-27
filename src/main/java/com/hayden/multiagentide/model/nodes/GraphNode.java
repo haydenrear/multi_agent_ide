@@ -10,8 +10,7 @@ import java.util.Map;
  * This is a data-oriented interface that composes capabilities.
  */
 public sealed interface GraphNode
-        permits ReviewNode, CollectorNode, DiscoveryCollectorNode, DiscoveryNode, DiscoveryOrchestratorNode, EditorNode, MergeNode,
-                OrchestratorNode, PlanningCollectorNode, PlanningNode, PlanningOrchestratorNode, SummaryNode {
+        permits CollectorNode, DiscoveryCollectorNode, DiscoveryNode, DiscoveryOrchestratorNode, MergeNode, OrchestratorNode, PlanningCollectorNode, PlanningNode, PlanningOrchestratorNode, ReviewNode, SummaryNode, TicketCollectorNode, TicketNode, TicketOrchestratorNode {
 
     GraphNode withStatus(NodeStatus nodeStatus);
 

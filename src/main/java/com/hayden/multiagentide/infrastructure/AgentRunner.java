@@ -10,6 +10,7 @@ import static com.hayden.multiagentide.agent.AgentInterfaces.PlanningCollector.P
 import static com.hayden.multiagentide.agent.AgentInterfaces.PlanningOrchestrator.PLANNING_ORCHESTRATOR_MESSAGE;
 import static com.hayden.multiagentide.agent.AgentInterfaces.ReviewAgent.REVIEW_AGENT_START_MESSAGE;
 import static com.hayden.multiagentide.agent.AgentInterfaces.TicketAgent.TICKET_AGENT_START_MESSAGE;
+import static com.hayden.multiagentide.agent.AgentInterfaces.TicketCollector.TICKET_COLLECTOR_START_MESSAGE;
 import static com.hayden.multiagentide.agent.AgentInterfaces.TicketOrchestrator.TICKET_ORCHESTRATOR_START_MESSAGE;
 
 import com.hayden.multiagentide.agent.AgentInterfaces;
@@ -24,13 +25,7 @@ import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.WorktreeService;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -59,6 +54,7 @@ public class AgentRunner {
 
     private final AgentInterfaces.TicketOrchestrator ticketOrchestrator;
     private final AgentInterfaces.TicketAgent ticketAgent;
+    private final AgentInterfaces.TicketCollector ticketCollector;
     private final AgentInterfaces.ReviewAgent reviewAgent;
     private final AgentInterfaces.MergerAgent mergerAgent;
 
@@ -73,6 +69,8 @@ public class AgentRunner {
     private static final String META_TICKET_POINTER = "ticket_pointer";
     private static final String META_PARENT_WORKTREE = "parent_worktree_id";
     private static final String META_FINAL_REVIEW = "final_review_requested";
+    private static final String META_COLLECTOR_REVIEW_GATE = "collector_review_gate";
+    private static final String META_COLLECTOR_REVIEW_DECISION = "collector_review_decision";
 
     public record AgentDispatchArgs(
             GraphNode self,
@@ -144,17 +142,30 @@ public class AgentRunner {
             case PlanningCollectorNode planningCollectorNode when isCompletionEvent(d.agentEvent) -> {
                 this.handlePlanningCollectorCompleted(planningCollectorNode, parent);
             }
-            case EditorNode editorNode when isTicketOrchestrator(editorNode) && isNodeReady(editorNode) -> {
-                this.runTicketOrchestratorAgent(editorNode, parent);
+            case TicketCollectorNode ticketCollectorNode when isNodeReady(ticketCollectorNode) -> {
+                this.runTicketCollector(ticketCollectorNode, parent);
             }
-            case EditorNode editorNode when isNodeReady(editorNode) -> {
-                this.runTicketAgent(editorNode, parent);
+            case TicketCollectorNode ticketCollectorNode when isNodeCompleted(ticketCollectorNode) && isCompletionEvent(d.agentEvent) -> {
+                this.handleTicketCollectorCompleted(ticketCollectorNode, parent);
+            }
+            case TicketOrchestratorNode ticketNode when isNodeReady(ticketNode) -> {
+                this.runTicketOrchestratorAgent(ticketNode, parent);
+            }
+            case TicketNode ticketNode when isNodeReady(ticketNode) -> {
+                this.runTicketAgent(ticketNode, parent);
             }
             case ReviewNode reviewNode when isNodeReady(reviewNode) -> {
                 this.runReviewAgent(reviewNode, parent);
             }
+            case MergeNode mergeNode when isNodeReady(mergeNode) && isFinalMerge(mergeNode) -> {
+                this.runFinalMerge(mergeNode, parent);
+            }
             case MergeNode mergeNode when isNodeReady(mergeNode) -> {
                 this.runMergeAgent(mergeNode, parent);
+            }
+            case ReviewNode reviewNode when isNodeCompleted(reviewNode) && isCompletionEvent(d.agentEvent) -> {
+            }
+            case CollectorNode collectorNode when isNodeCompleted(collectorNode) && isCompletionEvent(d.agentEvent) -> {
             }
             case MergeNode mergeNode when isNodeCompleted(mergeNode) && isCompletionEvent(d.agentEvent) -> {
                 this.handleMergeCompleted(mergeNode);
@@ -167,7 +178,7 @@ public class AgentRunner {
             }
             case DiscoveryOrchestratorNode discoveryOrchestratorNode -> {
             }
-            case EditorNode editorNode -> {
+            case TicketNode ticketNode -> {
             }
             case MergeNode mergeNode -> {
             }
@@ -183,7 +194,15 @@ public class AgentRunner {
             }
             case SummaryNode summaryNode -> {
             }
+            case TicketCollectorNode ticketCollectorNode -> {
+            }
+            case TicketOrchestratorNode ticketOrchestratorNode -> {
+            }
         }
+    }
+
+    private boolean isFinalMerge(MergeNode mergeNode) {
+        return mergeNode.isFinalMerge();
     }
 
     public void addMessageToAgent(
@@ -204,16 +223,34 @@ public class AgentRunner {
 
             }
             case DiscoveryCollectorNode node -> {
+                AgentModels.CollectorDecisionType decision =
+                        parseCollectorDecisionFromMessage(
+                                addMessageEvent.toAddMessage()
+                        );
+                applyCollectorReviewDecision(
+                        node,
+                        dispatchArgs.parent,
+                        decision
+                );
             }
             case DiscoveryOrchestratorNode node -> {
             }
-            case EditorNode node -> {
+            case TicketNode node -> {
             }
             case MergeNode node -> {
             }
             case OrchestratorNode node -> {
             }
             case PlanningCollectorNode node -> {
+                AgentModels.CollectorDecisionType decision =
+                        parseCollectorDecisionFromMessage(
+                                addMessageEvent.toAddMessage()
+                        );
+                applyCollectorReviewDecision(
+                        node,
+                        dispatchArgs.parent,
+                        decision
+                );
             }
             case PlanningNode node -> {
             }
@@ -222,6 +259,19 @@ public class AgentRunner {
             case ReviewNode node -> {
             }
             case SummaryNode node -> {
+            }
+            case TicketCollectorNode node -> {
+                AgentModels.CollectorDecisionType decision =
+                        parseCollectorDecisionFromMessage(
+                                addMessageEvent.toAddMessage()
+                        );
+                applyCollectorReviewDecision(
+                        node,
+                        dispatchArgs.parent,
+                        decision
+                );
+            }
+            case TicketOrchestratorNode ticketOrchestratorNode -> {
             }
         }
     }
@@ -249,13 +299,6 @@ public class AgentRunner {
     private static boolean isCompletionEvent(Events.AgentEvent event) {
         return event instanceof Events.NodeStatusChangedEvent statusChanged &&
                 statusChanged.newStatus() == GraphNode.NodeStatus.COMPLETED;
-    }
-
-    private static boolean isTicketOrchestrator(EditorNode node) {
-        String agentType = Optional.ofNullable(node.agentType())
-                .orElse("")
-                .toLowerCase();
-        return agentType.contains("ticket-orchestrator");
     }
 
     private static boolean isDiscoveryMerger(GraphNode node) {
@@ -486,6 +529,8 @@ public class AgentRunner {
                     running,
                     DiscoveryNode.class
             );
+            List<CollectedNodeStatus> collectedNodes =
+                    collectSiblingStatusSnapshots(running, DiscoveryNode.class);
 
             AgentModels.DiscoveryCollectorResult result =
                     discoveryCollector.consolidateDiscoveryFindings(
@@ -502,12 +547,11 @@ public class AgentRunner {
 
             DiscoveryCollectorNode withContent = running
                     .withResult(result)
-                    .withContent(mergedFindings);
+                    .withContent(mergedFindings)
+                    .withCollectedNodes(collectedNodes);
             graphRepository.save(withContent);
             markNodeCompleted(withContent);
 
-            // Next: Transition to Phase 2 - Planning
-            kickOffPlanningPhase(withContent, mergedFindings);
         } catch (Exception e) {
             markNodeFailed(running, e);
             log.error(
@@ -703,6 +747,8 @@ public class AgentRunner {
                     running,
                     PlanningNode.class
             );
+            List<CollectedNodeStatus> collectedNodes =
+                    collectSiblingStatusSnapshots(running, PlanningNode.class);
 
             AgentModels.PlanningCollectorResult result =
                     planningMerger.consolidatePlansIntoTickets(
@@ -719,12 +765,11 @@ public class AgentRunner {
 
             PlanningCollectorNode withPlan = running
                     .withResult(result)
-                    .withPlanContent(tickets);
+                    .withPlanContent(tickets)
+                    .withCollectedNodes(collectedNodes);
             graphRepository.save(withPlan);
             markNodeCompleted(withPlan);
 
-            // Next: Transition to Phase 3 - Ticket Implementation
-            kickOffTicketPhase(withPlan, tickets);
         } catch (Exception e) {
             markNodeFailed(running, e);
             log.error(
@@ -752,7 +797,7 @@ public class AgentRunner {
         // Get discovery context from parent chain
         String discoveryContext = extractDiscoveryContext(planningMergerNode);
         String planningContext = tickets;
-        String parentWorktreeId = null;
+        String parentWorktreeId;
 
         OrchestratorNode root = findRootOrchestrator(planningMergerNode)
                 .map(OrchestratorNode.class::cast)
@@ -766,9 +811,7 @@ public class AgentRunner {
         String ticketBranchName =
                 "ticket-orch-" + shortId(planningMergerNode.nodeId());
         String ticketMainWorktreeId = root.mainWorktreeId();
-        List<String> branchedSubmodules = new ArrayList<>(
-                root.submoduleWorktreeIds()
-        );
+        List<HasWorktree.WorkTree> branchedSubmodules = new ArrayList<>();
 
         try {
             ticketMainWorktreeId = worktreeService
@@ -782,13 +825,13 @@ public class AgentRunner {
                     .submoduleWorktreeIds()
                     .stream()
                     .map(submoduleId ->
-                            worktreeService
+                            new HasWorktree.WorkTree(worktreeService
                                     .branchSubmoduleWorktree(
                                             submoduleId,
                                             ticketBranchName,
                                             planningMergerNode.nodeId()
                                     )
-                                    .worktreeId()
+                                    .worktreeId(),submoduleId, new ArrayList<>())
                     )
                     .toList();
         } catch (Exception e) {
@@ -798,7 +841,7 @@ public class AgentRunner {
             );
         }
 
-        EditorNode ticketOrchestrator = new EditorNode(
+        TicketOrchestratorNode ticketOrchestrator = new TicketOrchestratorNode(
                 newNodeId(),
                 "Ticket Orchestrator",
                 planningMergerNode.goal(),
@@ -817,8 +860,7 @@ public class AgentRunner {
                 ),
                 Instant.now(),
                 Instant.now(),
-                ticketMainWorktreeId,
-                branchedSubmodules,
+                new HasWorktree.WorkTree(ticketMainWorktreeId, root.mainWorktreeId(), branchedSubmodules),
                 0,
                 0,
                 "ticket-orchestrator",
@@ -839,13 +881,13 @@ public class AgentRunner {
      * Output: orchestration plan.
      * Next: Kick off TicketAgent(s) in sequence, each followed by ReviewAgent and MergerAgent.
      */
-    public void runTicketOrchestratorAgent(EditorNode node, GraphNode parent) {
+    public void runTicketOrchestratorAgent(TicketOrchestratorNode node, GraphNode parent) {
         log.info(
                 "Executing TicketOrchestratorAgent for node: {}",
                 node.nodeId()
         );
         try {
-            EditorNode running = markNodeRunning(node);
+            TicketOrchestratorNode running = markNodeRunning(node);
             // Get contexts from parent chain
             String discoveryContext = extractDiscoveryContext(running);
             String planningContext = extractPlanningContext(running);
@@ -868,10 +910,10 @@ public class AgentRunner {
                     orchestrationPlan
             );
 
-            EditorNode withPlan = running
+            TicketOrchestratorNode withPlan = running
                     .withTicketOrchestratorResult(result)
                     .withOutput(orchestrationPlan, 0);
-            EditorNode withQueue = persistTicketQueue(withPlan, ticketList);
+            TicketOrchestratorNode withQueue = persistTicketQueue(withPlan, ticketList);
             graphRepository.save(withQueue);
 
             if (ticketList.isEmpty()) {
@@ -899,7 +941,7 @@ public class AgentRunner {
      * Creates and kicks off the first TicketAgent for the first ticket.
      */
     private void kickOffFirstTicketAgent(
-            EditorNode orchestratorNode,
+            TicketOrchestratorNode orchestratorNode,
             List<String> tickets,
             String discoveryContext,
             String planningContext
@@ -914,7 +956,7 @@ public class AgentRunner {
     }
 
     private void kickOffTicketAtIndex(
-            EditorNode orchestratorNode,
+            TicketOrchestratorNode orchestratorNode,
             List<String> tickets,
             int index,
             String discoveryContext,
@@ -933,12 +975,12 @@ public class AgentRunner {
         String ticketBranchName =
                 "ticket-" + (index + 1) + "-" + shortId(orchestratorNode.nodeId());
 
-        String mainWorktreeId = orchestratorNode.mainWorktreeId();
-        List<String> submoduleWorktrees =
+        String branchedWorktree = null;
+        List<HasWorktree.WorkTree> submoduleWorktrees =
                 orchestratorNode.submoduleWorktreeIds();
 
         try {
-            mainWorktreeId = worktreeService
+            branchedWorktree = worktreeService
                     .branchWorktree(
                             orchestratorNode.mainWorktreeId(),
                             ticketBranchName,
@@ -949,13 +991,17 @@ public class AgentRunner {
                     .submoduleWorktreeIds()
                     .stream()
                     .map(id ->
-                            worktreeService
-                                    .branchSubmoduleWorktree(
-                                            id,
-                                            ticketBranchName,
-                                            orchestratorNode.nodeId()
-                                    )
-                                    .worktreeId()
+                            new HasWorktree.WorkTree(
+                                    worktreeService
+                                            .branchSubmoduleWorktree(
+                                                    id.worktreeId(),
+                                                    ticketBranchName,
+                                                    orchestratorNode.nodeId()
+                                            )
+                                            .worktreeId(),
+                                    id.worktreeId(),
+                                    new ArrayList<>()
+                            )
                     )
                     .toList();
         } catch (Exception e) {
@@ -975,7 +1021,7 @@ public class AgentRunner {
                         Integer.toString(index)
                 )
         );
-        EditorNode ticketNode = new EditorNode(
+        TicketNode ticketNode = new TicketNode(
                 newNodeId(),
                 "Ticket " + (index + 1),
                 ticketDetails,
@@ -985,8 +1031,7 @@ public class AgentRunner {
                 metadataMap,
                 Instant.now(),
                 Instant.now(),
-                mainWorktreeId,
-                submoduleWorktrees,
+                new HasWorktree.WorkTree(branchedWorktree, orchestratorNode.mainWorktreeId(), submoduleWorktrees),
                 0,
                 0,
                 "ticket-agent",
@@ -1014,10 +1059,10 @@ public class AgentRunner {
      * Output: implementation summary.
      * Next: Invoke ReviewAgent to review the implementation.
      */
-    public void runTicketAgent(EditorNode node, GraphNode parent) {
+    public void runTicketAgent(TicketNode node, GraphNode parent) {
         log.info("Executing TicketAgent for node: {}", node.nodeId());
         try {
-            EditorNode running = markNodeRunning(node);
+            TicketNode running = markNodeRunning(node);
             // Get contexts from parent chain
             String discoveryContext = extractDiscoveryContext(running);
             String planningContext = extractPlanningContext(running);
@@ -1040,7 +1085,7 @@ public class AgentRunner {
                     running.nodeId()
             );
 
-            EditorNode withOutput = running
+            TicketNode withOutput = running
                     .withTicketAgentResult(result)
                     .withOutput(implementation, 0);
             graphRepository.save(withOutput);
@@ -1053,11 +1098,43 @@ public class AgentRunner {
         }
     }
 
+    public void runTicketCollector(TicketCollectorNode node, GraphNode parent) {
+        log.info("Executing TicketCollector for node: {}", node.nodeId());
+        TicketCollectorNode running = markNodeRunning(node);
+        try {
+            String allTicketResults = collectSiblingOutputs(
+                    running,
+                    TicketNode.class
+            );
+            List<CollectedNodeStatus> collectedNodes =
+                    collectSiblingStatusSnapshots(running, TicketNode.class);
+
+            AgentModels.TicketCollectorResult result =
+                    ticketCollector.consolidateTicketResults(
+                            running.nodeId(),
+                            TICKET_COLLECTOR_START_MESSAGE,
+                            running.goal(),
+                            allTicketResults
+                    );
+            String summary = result.consolidatedOutput();
+
+            TicketCollectorNode withSummary = running
+                    .withResult(result)
+                    .withSummary(summary)
+                    .withCollectedNodes(collectedNodes);
+            graphRepository.save(withSummary);
+            markNodeCompleted(withSummary);
+        } catch (Exception e) {
+            markNodeFailed(running, e);
+            log.error("TicketCollector failed for node: {}", node.nodeId(), e);
+        }
+    }
+
     /**
      * Creates and kicks off ReviewAgent for a ticket implementation.
      */
     private void kickOffTicketReview(
-            EditorNode ticketNode,
+            TicketNode ticketNode,
             String implementation
     ) {
         log.info("Kicking off ReviewAgent for ticket: {}", ticketNode.nodeId());
@@ -1181,8 +1258,8 @@ public class AgentRunner {
                 reviewNode.metadata().getOrDefault(META_FINAL_REVIEW, "false")
         );
 
-        String childWorktreeId = reviewed instanceof EditorNode editor
-                ? editor.mainWorktreeId()
+        String childWorktreeId = reviewed instanceof HasWorktree editor && editor.worktree() != null
+                ? editor.worktree().worktreeId()
                 : "";
         String targetWorktreeId = resolveTargetWorktree(reviewNode, reviewed);
         Map<String, String> metadata = new HashMap<>();
@@ -1211,6 +1288,23 @@ public class AgentRunner {
         );
     }
 
+    public void runFinalMerge(MergeNode node, GraphNode parent) {
+        log.info("Executing MergerAgent for node: {}", node.nodeId());
+        try {
+
+            String childWorktreeId = node
+                    .metadata()
+                    .getOrDefault("child_worktree_id", "");
+            String targetWorktreeId = node
+                    .metadata()
+                    .getOrDefault("target_worktree_id", "");
+
+            doMergeAgent(node, childWorktreeId, targetWorktreeId);
+        } catch (Exception e) {
+            log.error("MergerAgent failed for node: {}", node.nodeId(), e);
+        }
+    }
+
     /**
      * Runs MergerAgent to merge changes.
      * Can merge:
@@ -1222,71 +1316,121 @@ public class AgentRunner {
     public void runMergeAgent(MergeNode node, GraphNode parent) {
         log.info("Executing MergerAgent for node: {}", node.nodeId());
         try {
-            MergeNode running = markNodeRunning(node);
 
-            String childWorktreeId = running
+            String childWorktreeId = node
                     .metadata()
                     .getOrDefault("child_worktree_id", "");
-            String targetWorktreeId = running
+            String targetWorktreeId = node
                     .metadata()
                     .getOrDefault("target_worktree_id", "");
 
-            MergeResult mergeResult = null;
-            if (!childWorktreeId.isBlank() && !targetWorktreeId.isBlank()) {
-                mergeResult = worktreeService.mergeWorktrees(
-                        childWorktreeId,
-                        targetWorktreeId
-                );
-            }
-
-            AgentModels.MergerAgentResult agentResult = null;
-            String mergeSummary;
-            if (mergeResult != null) {
-                mergeSummary = summarizeMerge(mergeResult);
-            } else {
-                agentResult = mergerAgent.performMerge(
-                        running.nodeId(),
-                        MERGER_AGENT_START_MESSAGE,
-                        running.goal()
-                );
-                mergeSummary = agentResult.output();
-            }
-
-            log.info(
-                    "MergerAgent completed merge for node: {}",
-                    running.nodeId()
-            );
-
-            MergeNode withContent = agentResult != null
-                    ? running.withResult(agentResult).withContent(mergeSummary)
-                    : running.withContent(mergeSummary);
-            graphRepository.save(withContent);
-
-            if (mergeResult != null) {
-                if (!mergeResult.conflicts().isEmpty()) {
-                    MergeNode waiting = updateNodeStatus(
-                            withContent,
-                            GraphNode.NodeStatus.WAITING_INPUT
-                    );
-                    graphRepository.save(waiting);
-                    computationGraphOrchestrator.emitStatusChangeEvent(
-                            withContent.nodeId(),
-                            GraphNode.NodeStatus.RUNNING,
-                            GraphNode.NodeStatus.WAITING_INPUT,
-                            "Merge conflicts detected"
-                    );
-                    return;
-                }
-                updateWorktreeStatus(
-                        childWorktreeId,
-                        WorktreeContext.WorktreeStatus.MERGED
-                );
-            }
-
-            markNodeCompleted(withContent);
+            doMergeAgent(node, childWorktreeId, targetWorktreeId);
         } catch (Exception e) {
             log.error("MergerAgent failed for node: {}", node.nodeId(), e);
         }
+    }
+
+    private boolean doMergeAgent(MergeNode node, String childWorktreeId, String targetWorktreeId) {
+        MergeNode running = markNodeRunning(node);
+
+        if (childWorktreeId.isBlank() || targetWorktreeId.isBlank()) {
+            log.info(
+                    "Skipping merge; missing worktree identifiers for node: {}",
+                    running.nodeId()
+            );
+            MergeNode noMerge = running.withContent(
+                    "No merge performed: missing worktree identifiers."
+            );
+            graphRepository.save(noMerge);
+            markNodeCompleted(noMerge);
+            return true;
+        }
+
+        MergeResult mergeResult = null;
+        if (!childWorktreeId.isBlank() && !targetWorktreeId.isBlank()) {
+            mergeResult = worktreeService.mergeWorktrees(
+                    childWorktreeId,
+                    targetWorktreeId
+            );
+        }
+
+        String mergeSummary = mergeResult != null
+                ? summarizeMerge(mergeResult)
+                : "Merge result unavailable (merge service returned null).";
+        String conflictFiles = mergeResult != null
+                ? mergeResult.conflicts().stream()
+                .map(MergeResult.MergeConflict::filePath)
+                .filter(path -> path != null && !path.isBlank())
+                .distinct()
+                .collect(Collectors.joining("\n"))
+                : "";
+        String mergeContext = buildMergeContext(
+                running,
+                childWorktreeId,
+                targetWorktreeId,
+                mergeResult
+        );
+        AgentModels.MergerAgentResult agentResult = mergerAgent.performMerge(
+                running.nodeId(),
+                MERGER_AGENT_START_MESSAGE,
+                mergeContext,
+                mergeSummary,
+                conflictFiles.isBlank() ? "None" : conflictFiles
+        );
+        String agentOutput = agentResult.output();
+        String combinedSummary = mergeResult != null
+                ? mergeSummary + "\n\nMergerAgent:\n" + agentOutput
+                : agentOutput;
+
+        log.info(
+                "MergerAgent completed merge for node: {}",
+                running.nodeId()
+        );
+
+        MergeNode withContent = running
+                .withResult(agentResult)
+                .withContent(combinedSummary);
+        graphRepository.save(withContent);
+
+        if (agentResult.isNeedingAgentReview()) {
+            throw new RuntimeException("Did nto implement yet!");
+        } else if (agentResult.isNeedingHumanReview()) {
+            MergeNode waiting = updateNodeStatus(
+                    withContent,
+                    GraphNode.NodeStatus.WAITING_INPUT
+            );
+            graphRepository.save(waiting);
+            computationGraphOrchestrator.emitStatusChangeEvent(
+                    withContent.nodeId(),
+                    GraphNode.NodeStatus.RUNNING,
+                    GraphNode.NodeStatus.WAITING_INPUT,
+                    "Merge conflicts detected"
+            );
+            return true;
+        } else if (worktreeService.containsMergeConflicts(childWorktreeId, targetWorktreeId)) {
+            log.error("Detected merge conflicts not fixed but also did not request any more review!");
+            MergeNode waiting = updateNodeStatus(
+                    withContent,
+                    GraphNode.NodeStatus.WAITING_INPUT
+            );
+            graphRepository.save(waiting);
+            computationGraphOrchestrator.emitStatusChangeEvent(
+                    withContent.nodeId(),
+                    GraphNode.NodeStatus.RUNNING,
+                    GraphNode.NodeStatus.WAITING_INPUT,
+                    "Merge conflicts detected"
+            );
+            return true;
+        }
+
+
+        updateWorktreeStatus(
+                childWorktreeId,
+                WorktreeContext.WorktreeStatus.MERGED
+        );
+
+        markNodeCompleted(withContent);
+        return false;
     }
 
     /**
@@ -1294,7 +1438,7 @@ public class AgentRunner {
      */
     private void handleMergeCompleted(MergeNode mergeNode) {
         log.info("Determining next step after merge: {}", mergeNode.nodeId());
-        Optional<EditorNode> orchestratorOpt = findAncestorTicketOrchestrator(
+        Optional<TicketOrchestratorNode> orchestratorOpt = findAncestorTicketOrchestrator(
                 mergeNode
         );
         if (orchestratorOpt.isEmpty()) {
@@ -1305,7 +1449,7 @@ public class AgentRunner {
             return;
         }
 
-        EditorNode orchestratorNode = orchestratorOpt.get();
+        TicketOrchestratorNode orchestratorNode = orchestratorOpt.get();
         List<String> tickets = loadTicketQueue(orchestratorNode);
         int currentIndex = currentTicketPointer(orchestratorNode);
         int nextIndex = currentIndex + 1;
@@ -1314,12 +1458,10 @@ public class AgentRunner {
         String discoveryContext = extractDiscoveryContext(orchestratorNode);
         String planningContext = extractPlanningContext(orchestratorNode);
 
-        boolean isFinalMerge = "final".equals(
-                mergeNode.metadata().get("merge_scope")
-        );
+        boolean isFinalMerge = "final".equals(mergeNode.metadata().get("merge_scope"));
 
         if (isFinalMerge) {
-            finalizeWorkflow(orchestratorNode);
+            ensureTicketCollector(orchestratorNode);
             return;
         }
 
@@ -1351,9 +1493,7 @@ public class AgentRunner {
         Optional<GraphNode> reviewedOpt = computationGraphOrchestrator.getNode(
                 reviewNode.reviewedNodeId()
         );
-        if (
-                reviewedOpt.isEmpty() || !(reviewedOpt.get() instanceof EditorNode)
-        ) {
+        if (reviewedOpt.isEmpty() || !(reviewedOpt.get() instanceof TicketNode)) {
             log.warn(
                     "Reviewed node {} missing for revision",
                     reviewNode.reviewedNodeId()
@@ -1361,8 +1501,9 @@ public class AgentRunner {
             return;
         }
 
-        EditorNode original = (EditorNode) reviewedOpt.get();
-        EditorNode revisionNode = new EditorNode(
+        TicketNode original = (TicketNode) reviewedOpt.get();
+
+        TicketNode revisionNode = new TicketNode(
                 newNodeId(),
                 original.title() + " (Revision)",
                 original.goal() + "\n\nRevision Feedback:\n" + feedback,
@@ -1383,8 +1524,7 @@ public class AgentRunner {
                 ),
                 Instant.now(),
                 Instant.now(),
-                original.mainWorktreeId(),
-                original.submoduleWorktreeIds(),
+                original.worktree(),
                 original.completedSubtasks(),
                 original.totalSubtasks(),
                 original.agentType(),
@@ -1431,6 +1571,163 @@ public class AgentRunner {
             }
         }
         return collected.toString();
+    }
+
+    private <T extends GraphNode> List<CollectedNodeStatus> collectSiblingStatusSnapshots(
+            GraphNode node,
+            Class<T> siblingType
+    ) {
+        List<CollectedNodeStatus> collected = new ArrayList<>();
+        Optional<GraphNode> parentOpt = computationGraphOrchestrator.getNode(
+                node.parentNodeId()
+        );
+        if (parentOpt.isEmpty()) {
+            return collected;
+        }
+        GraphNode parent = parentOpt.get();
+        for (String childId : parent.childNodeIds()) {
+            Optional<GraphNode> childOpt =
+                    computationGraphOrchestrator.getNode(childId);
+            if (childOpt.isEmpty() || !siblingType.isInstance(childOpt.get())) {
+                continue;
+            }
+            GraphNode child = childOpt.get();
+            collected.add(new CollectedNodeStatus(
+                    child.nodeId(),
+                    child.title(),
+                    child.nodeType(),
+                    child.status()
+            ));
+        }
+        return collected;
+    }
+
+    private AgentModels.CollectorDecisionType resolveCollectorDecision(
+            AgentModels.CollectorDecision decision
+    ) {
+        if (decision == null || decision.decisionType() == null) {
+            return AgentModels.CollectorDecisionType.ADVANCE_PHASE;
+        }
+        return decision.decisionType();
+    }
+
+    private AgentModels.CollectorDecisionType parseCollectorDecisionOverride(
+            GraphNode node
+    ) {
+        String value = node.metadata().get(META_COLLECTOR_REVIEW_DECISION);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim().toUpperCase();
+        return switch (normalized) {
+            case "ROUTE_BACK" -> AgentModels.CollectorDecisionType.ROUTE_BACK;
+            case "STOP" -> AgentModels.CollectorDecisionType.STOP;
+            case "ADVANCE_PHASE" -> AgentModels.CollectorDecisionType.ADVANCE_PHASE;
+            default -> null;
+        };
+    }
+
+    private AgentModels.CollectorDecisionType parseCollectorDecisionFromMessage(
+            String message
+    ) {
+        if (message == null || message.isBlank()) {
+            return null;
+        }
+        String lower = message.toLowerCase();
+        if (lower.contains("rerun") || lower.contains("route back") || lower.contains("back")) {
+            return AgentModels.CollectorDecisionType.ROUTE_BACK;
+        }
+        if (lower.contains("stop") || lower.contains("halt")) {
+            return AgentModels.CollectorDecisionType.STOP;
+        }
+        if (lower.contains("advance") || lower.contains("next") || lower.contains("proceed")) {
+            return AgentModels.CollectorDecisionType.ADVANCE_PHASE;
+        }
+        return null;
+    }
+
+    private boolean isCollectorReviewGateEnabled(GraphNode node) {
+        return "true".equalsIgnoreCase(
+                node.metadata().get(META_COLLECTOR_REVIEW_GATE)
+        );
+    }
+
+    private void requestCollectorReview(GraphNode node) {
+        GraphNode waiting = updateNodeStatus(
+                node,
+                GraphNode.NodeStatus.WAITING_INPUT
+        );
+        graphRepository.save(waiting);
+        computationGraphOrchestrator.emitStatusChangeEvent(
+                node.nodeId(),
+                node.status(),
+                GraphNode.NodeStatus.WAITING_INPUT,
+                "Collector review requested"
+        );
+        String content = "";
+        if (waiting instanceof Viewable<?> viewable && viewable.getView() != null) {
+            content = viewable.getView().toString();
+        }
+        computationGraphOrchestrator.emitReviewRequestedEvent(
+                waiting.nodeId(),
+                waiting.nodeId(),
+                "human",
+                content
+        );
+    }
+
+    private void applyCollectorReviewDecision(
+            GraphNode node,
+            GraphNode parent,
+            AgentModels.CollectorDecisionType decisionType
+    ) {
+        if (decisionType == null) {
+            return;
+        }
+        node.metadata().put(META_COLLECTOR_REVIEW_DECISION, decisionType.name());
+        GraphNode updated = updateNodeStatus(
+                node,
+                GraphNode.NodeStatus.COMPLETED
+        );
+        graphRepository.save(updated);
+        computationGraphOrchestrator.emitStatusChangeEvent(
+                node.nodeId(),
+                node.status(),
+                GraphNode.NodeStatus.COMPLETED,
+                "Collector review decision received"
+        );
+
+        if (updated instanceof DiscoveryCollectorNode discoveryCollector) {
+            handleDiscoveryCollectorCompleted(discoveryCollector, parent);
+        } else if (updated instanceof PlanningCollectorNode planningCollector) {
+            handlePlanningCollectorCompleted(planningCollector, parent);
+        } else if (updated instanceof TicketCollectorNode ticketCollectorNode) {
+            handleTicketCollectorCompleted(ticketCollectorNode, parent);
+        }
+    }
+
+    private void applyCollectorDecision(
+            AgentModels.CollectorDecision decision,
+            Runnable onAdvance,
+            Runnable onRouteBack,
+            Runnable onStop
+    ) {
+        switch (resolveCollectorDecision(decision)) {
+            case ROUTE_BACK -> onRouteBack.run();
+            case STOP -> onStop.run();
+            case ADVANCE_PHASE -> onAdvance.run();
+        }
+    }
+
+    private void triggerOrchestratorRerun(GraphNode parent, String reason) {
+        GraphNode updated = updateNodeStatus(parent, GraphNode.NodeStatus.READY);
+        graphRepository.save(updated);
+        computationGraphOrchestrator.emitStatusChangeEvent(
+                parent.nodeId(),
+                parent.status(),
+                GraphNode.NodeStatus.READY,
+                reason
+        );
     }
 
     private List<String> parseDivisionStrategy(String strategy) {
@@ -1520,11 +1817,43 @@ public class AgentRunner {
         if (!(parent instanceof DiscoveryOrchestratorNode discoveryParent)) {
             return;
         }
+        AgentModels.CollectorDecisionType overrideDecision =
+                parseCollectorDecisionOverride(node);
+        if (isCollectorReviewGateEnabled(node) && overrideDecision == null) {
+            requestCollectorReview(node);
+            return;
+        }
         String mergedFindings = Optional.ofNullable(node.summaryContent()).orElse("");
         DiscoveryOrchestratorNode updatedParent =
                 discoveryParent.withContent(mergedFindings);
-        graphRepository.save(
-                updatedParent.withStatus(GraphNode.NodeStatus.COMPLETED)
+        AgentModels.CollectorDecision decision =
+                overrideDecision != null
+                        ? new AgentModels.CollectorDecision(
+                        overrideDecision,
+                        "human review",
+                        null
+                )
+                        : node.discoveryCollectorResult() != null
+                        ? node.discoveryCollectorResult().collectorDecision()
+                        : null;
+        applyCollectorDecision(
+                decision,
+                () -> {
+                    graphRepository.save(
+                            updatedParent.withStatus(GraphNode.NodeStatus.COMPLETED)
+                    );
+                    kickOffPlanningPhase(node, mergedFindings);
+                },
+                () -> {
+                    graphRepository.save(updatedParent);
+                    triggerOrchestratorRerun(
+                            updatedParent,
+                            "Discovery collector requested rerun"
+                    );
+                },
+                () -> graphRepository.save(
+                        updatedParent.withStatus(GraphNode.NodeStatus.COMPLETED)
+                )
         );
     }
 
@@ -1535,11 +1864,86 @@ public class AgentRunner {
         if (!(parent instanceof PlanningOrchestratorNode planningParent)) {
             return;
         }
+        AgentModels.CollectorDecisionType overrideDecision =
+                parseCollectorDecisionOverride(node);
+        if (isCollectorReviewGateEnabled(node) && overrideDecision == null) {
+            requestCollectorReview(node);
+            return;
+        }
         String tickets = Optional.ofNullable(node.planContent()).orElse("");
         PlanningOrchestratorNode updatedParent =
                 planningParent.withPlanContent(tickets);
-        graphRepository.save(
-                updatedParent.withStatus(GraphNode.NodeStatus.COMPLETED)
+        AgentModels.CollectorDecision decision =
+                overrideDecision != null
+                        ? new AgentModels.CollectorDecision(
+                        overrideDecision,
+                        "human review",
+                        null
+                )
+                        : node.planningCollectorResult() != null
+                        ? node.planningCollectorResult().collectorDecision()
+                        : null;
+        applyCollectorDecision(
+                decision,
+                () -> {
+                    graphRepository.save(
+                            updatedParent.withStatus(GraphNode.NodeStatus.COMPLETED)
+                    );
+                    kickOffTicketPhase(node, tickets);
+                },
+                () -> {
+                    graphRepository.save(updatedParent);
+                    triggerOrchestratorRerun(
+                            updatedParent,
+                            "Planning collector requested rerun"
+                    );
+                },
+                () -> graphRepository.save(
+                        updatedParent.withStatus(GraphNode.NodeStatus.COMPLETED)
+                )
+        );
+    }
+
+    private void handleTicketCollectorCompleted(
+            TicketCollectorNode node,
+            GraphNode parent
+    ) {
+        if (!(parent instanceof TicketOrchestratorNode t)) {
+            return;
+        }
+        AgentModels.CollectorDecisionType overrideDecision =
+                parseCollectorDecisionOverride(node);
+        if (isCollectorReviewGateEnabled(node) && overrideDecision == null) {
+            requestCollectorReview(node);
+            return;
+        }
+        String summary = Optional.ofNullable(node.ticketSummary()).orElse("");
+        TicketOrchestratorNode updatedParent = t.withOutput(
+                summary,
+                t.streamingTokenCount()
+        );
+        graphRepository.save(updatedParent);
+        AgentModels.CollectorDecision decision =
+                overrideDecision != null
+                        ? new AgentModels.CollectorDecision(
+                        overrideDecision,
+                        "human review",
+                        null
+                )
+                        : node.ticketCollectorResult() != null
+                        ? node.ticketCollectorResult().collectorDecision()
+                        : null;
+        applyCollectorDecision(
+                decision,
+                () -> finalizeWorkflow(t),
+                () -> triggerOrchestratorRerun(
+                        updatedParent,
+                        "Ticket collector requested rerun"
+                ),
+                () -> log.info(
+                        "Ticket collector requested stop for node: {}",
+                        node.nodeId()
+                )
         );
     }
 
@@ -1593,6 +1997,34 @@ public class AgentRunner {
                 parent.planContent(),
                 parent.estimatedSubtasks(),
                 parent.completedSubtasks()
+        );
+        computationGraphOrchestrator.addChildNodeAndEmitEvent(
+                parent.nodeId(),
+                collector
+        );
+    }
+
+    private void ensureTicketCollector(TicketOrchestratorNode parent) {
+        boolean exists = computationGraphOrchestrator
+                .getChildNodes(parent.nodeId())
+                .stream()
+                .anyMatch(TicketCollectorNode.class::isInstance);
+        if (exists) {
+            return;
+        }
+        TicketCollectorNode collector = new TicketCollectorNode(
+                newNodeId(),
+                "Ticket Collector",
+                parent.goal(),
+                GraphNode.NodeStatus.READY,
+                parent.nodeId(),
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                "",
+                0,
+                0
         );
         computationGraphOrchestrator.addChildNodeAndEmitEvent(
                 parent.nodeId(),
@@ -1663,13 +2095,81 @@ public class AgentRunner {
     }
 
     private String performMerge(MergeNode mergeNode) {
-        return mergerAgent
-                .performMerge(
+        String childWorktreeId = mergeNode.metadata().getOrDefault(
+                "child_worktree_id",
+                ""
+        );
+        String targetWorktreeId = mergeNode.metadata().getOrDefault(
+                "target_worktree_id",
+                ""
+        );
+        String mergeContext = buildMergeContext(
+                mergeNode,
+                childWorktreeId,
+                targetWorktreeId,
+                null
+        );
+        return mergerAgent.performMerge(
                         mergeNode.nodeId(),
                         MERGER_AGENT_START_MESSAGE,
-                        mergeNode.goal()
+                        mergeContext,
+                        "Merge summary unavailable.",
+                        "None"
                 )
                 .output();
+    }
+
+    private String buildMergeContext(
+            MergeNode node,
+            String childWorktreeId,
+            String targetWorktreeId,
+            @Nullable MergeResult mergeResult
+    ) {
+        StringBuilder context = new StringBuilder();
+        context.append("Merge scope: ")
+                .append(node.metadata().getOrDefault("merge_scope", "unspecified"))
+                .append("\n");
+        context.append("Child worktree id: ").append(childWorktreeId).append("\n");
+        context.append("Target worktree id: ").append(targetWorktreeId).append("\n");
+
+        worktreeRepository.findById(childWorktreeId)
+                .ifPresent(worktree -> context.append("Child worktree path: ")
+                        .append(worktree.worktreePath())
+                        .append("\n"));
+        worktreeRepository.findById(targetWorktreeId)
+                .ifPresent(worktree -> context.append("Target worktree path: ")
+                        .append(worktree.worktreePath())
+                        .append("\n"));
+
+        if (mergeResult != null) {
+            context.append("Merge status: ")
+                    .append(mergeResult.successful() ? "SUCCESS" : "FAILED")
+                    .append("\n");
+            context.append("Merge commit: ")
+                    .append(Optional.ofNullable(mergeResult.mergeCommitHash()).orElse(""))
+                    .append("\n");
+            context.append("Merge message: ")
+                    .append(Optional.ofNullable(mergeResult.mergeMessage()).orElse(""))
+                    .append("\n");
+            if (!mergeResult.submoduleUpdates().isEmpty()) {
+                context.append("Submodule updates:\n");
+                for (MergeResult.SubmodulePointerUpdate update : mergeResult.submoduleUpdates()) {
+                    context.append("- ")
+                            .append(update.submoduleName())
+                            .append(": ")
+                            .append(Optional.ofNullable(update.oldCommitHash()).orElse(""))
+                            .append(" -> ")
+                            .append(Optional.ofNullable(update.newCommitHash()).orElse(""))
+                            .append(" (needs resolution=")
+                            .append(update.requiresResolution())
+                            .append(")\n");
+                }
+            }
+        } else {
+            context.append("Merge status: NOT_AVAILABLE (merge service returned null)\n");
+        }
+
+        return context.toString().trim();
     }
 
     private String newNodeId() {
@@ -1809,6 +2309,24 @@ public class AgentRunner {
         return Optional.empty();
     }
 
+    private <T extends GraphNode> Optional<T> findParentOrchestrator(GraphNode node, Class<T> c) {
+        String parentId = node.parentNodeId();
+        while (parentId != null) {
+            Optional<GraphNode> parentOpt =
+                    computationGraphOrchestrator.getNode(parentId);
+            if (parentOpt.isPresent()) {
+                GraphNode parent = parentOpt.get();
+                if (parent.getClass().equals(c)) {
+                    return Optional.of((T) parent);
+                }
+                parentId = parent.parentNodeId();
+            } else {
+                break;
+            }
+        }
+        return Optional.empty();
+    }
+
     private String buildReviewCriteria() {
         return "Code quality, tests, requirements compliance";
     }
@@ -1817,12 +2335,12 @@ public class AgentRunner {
         if (reviewNode.metadata().containsKey(META_PARENT_WORKTREE)) {
             return reviewNode.metadata().get(META_PARENT_WORKTREE);
         }
-        Optional<EditorNode> orchestratorOpt =
+        Optional<TicketOrchestratorNode> orchestratorOpt =
                 findAncestorTicketOrchestrator(reviewNode);
         if (orchestratorOpt.isPresent()) {
             return orchestratorOpt.get().mainWorktreeId();
         }
-        if (reviewed instanceof EditorNode editor) {
+        if (reviewed instanceof HasWorktree editor) {
             return editor.mainWorktreeId();
         }
         return "";
@@ -1866,7 +2384,7 @@ public class AgentRunner {
                 });
     }
 
-    private Optional<EditorNode> findAncestorTicketOrchestrator(GraphNode node) {
+    private Optional<TicketOrchestratorNode> findAncestorTicketOrchestrator(GraphNode node) {
         String parentId = node.parentNodeId();
         while (parentId != null) {
             Optional<GraphNode> parentOpt =
@@ -1875,7 +2393,7 @@ public class AgentRunner {
                 break;
             }
             GraphNode parent = parentOpt.get();
-            if (parent instanceof EditorNode editor && isTicketOrchestrator(editor)) {
+            if (parent instanceof TicketOrchestratorNode editor) {
                 return Optional.of(editor);
             }
             parentId = parent.parentNodeId();
@@ -1883,35 +2401,20 @@ public class AgentRunner {
         return Optional.empty();
     }
 
-    private EditorNode persistTicketQueue(
-            EditorNode node,
+    private TicketOrchestratorNode persistTicketQueue(
+            TicketOrchestratorNode node,
             List<String> tickets
     ) {
         Map<String, String> metadata = new ConcurrentHashMap<>(node.metadata());
         metadata.put(META_TICKET_QUEUE, String.join("\n", tickets));
         metadata.put(META_TICKET_POINTER, "0");
-        return new EditorNode(
-                node.nodeId(),
-                node.title(),
-                node.goal(),
-                node.status(),
-                node.parentNodeId(),
-                node.childNodeIds(),
-                metadata,
-                node.createdAt(),
-                Instant.now(),
-                node.mainWorktreeId(),
-                node.submoduleWorktreeIds(),
-                node.completedSubtasks(),
-                node.totalSubtasks(),
-                node.agentType(),
-                node.workOutput(),
-                node.mergeRequired(),
-                node.streamingTokenCount()
-        );
+        return node.toBuilder()
+                .metadata(metadata)
+                .lastUpdatedAt(Instant.now())
+                .build();
     }
 
-    private List<String> loadTicketQueue(EditorNode orchestratorNode) {
+    private List<String> loadTicketQueue(TicketOrchestratorNode orchestratorNode) {
         String raw = orchestratorNode.metadata().getOrDefault(
                 META_TICKET_QUEUE,
                 ""
@@ -1925,7 +2428,7 @@ public class AgentRunner {
                 .toList();
     }
 
-    private int currentTicketPointer(EditorNode orchestratorNode) {
+    private int currentTicketPointer(TicketOrchestratorNode orchestratorNode) {
         try {
             return Integer.parseInt(orchestratorNode.metadata().getOrDefault(META_TICKET_POINTER, "0"));
         } catch (NumberFormatException e) {
@@ -1933,35 +2436,19 @@ public class AgentRunner {
         }
     }
 
-    private void updateTicketPointer(EditorNode orchestratorNode, int pointer) {
+    private void updateTicketPointer(TicketOrchestratorNode orchestratorNode, int pointer) {
         orchestratorNode
                 .metadata()
                 .put(META_TICKET_POINTER, Integer.toString(pointer));
         graphRepository.save(
-                new EditorNode(
-                        orchestratorNode.nodeId(),
-                        orchestratorNode.title(),
-                        orchestratorNode.goal(),
-                        orchestratorNode.status(),
-                        orchestratorNode.parentNodeId(),
-                        orchestratorNode.childNodeIds(),
-                        orchestratorNode.metadata(),
-                        orchestratorNode.createdAt(),
-                        Instant.now(),
-                        orchestratorNode.mainWorktreeId(),
-                        orchestratorNode.submoduleWorktreeIds(),
-                        orchestratorNode.completedSubtasks(),
-                        orchestratorNode.totalSubtasks(),
-                        orchestratorNode.agentType(),
-                        orchestratorNode.workOutput(),
-                        orchestratorNode.mergeRequired(),
-                        orchestratorNode.streamingTokenCount()
-                )
+                orchestratorNode.toBuilder()
+                        .lastUpdatedAt(Instant.now())
+                        .build()
         );
     }
 
     private void kickOffFinalReview(
-            EditorNode orchestratorNode,
+            TicketOrchestratorNode orchestratorNode,
             String discoveryContext,
             String planningContext
     ) {
@@ -2010,7 +2497,7 @@ public class AgentRunner {
         );
     }
 
-    private void finalizeWorkflow(EditorNode orchestratorNode) {
+    private void finalizeWorkflow(TicketOrchestratorNode orchestratorNode) {
         markNodeCompleted(orchestratorNode);
         findRootOrchestrator(orchestratorNode)
                 .ifPresent(root -> {

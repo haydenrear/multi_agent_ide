@@ -232,7 +232,7 @@ public class ComputationGraphOrchestrator {
                             .childNodeIds(childIds)
                             .lastUpdatedAt(Instant.now())
                             .build();
-            case EditorNode p ->
+            case TicketNode p ->
                     p.toBuilder()
                             .childNodeIds(childIds)
                             .lastUpdatedAt(Instant.now())
@@ -262,6 +262,11 @@ public class ComputationGraphOrchestrator {
                             .childNodeIds(childIds)
                             .lastUpdatedAt(Instant.now())
                             .build();
+            case TicketCollectorNode p ->
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
             case CollectorNode p -> p.toBuilder()
                     .childNodeIds(childIds)
                     .lastUpdatedAt(Instant.now())
@@ -278,6 +283,11 @@ public class ComputationGraphOrchestrator {
                             .build();
             case SummaryNode p ->
                     p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
+            case TicketOrchestratorNode ticketOrchestratorNode ->
+                    ticketOrchestratorNode.toBuilder()
                             .childNodeIds(childIds)
                             .lastUpdatedAt(Instant.now())
                             .build();

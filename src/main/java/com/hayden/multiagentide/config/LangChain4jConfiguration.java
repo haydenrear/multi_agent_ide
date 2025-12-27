@@ -54,6 +54,7 @@ public class LangChain4jConfiguration {
     private static final String OUTPUT_PLANNING_CONTEXT = KEY_PLANNING_CONTEXT;
     private static final String OUTPUT_TICKET_ORCHESTRATION = "ticketOrchestrationPlan";
     private static final String OUTPUT_TICKET_IMPLEMENTATION = "ticketImplementationSummary";
+    private static final String OUTPUT_TICKET_COLLECTOR = "ticketCollectorSummary";
     private static final String OUTPUT_MERGE_STRATEGY = "mergeStrategy";
     private static final String OUTPUT_REVIEW_EVALUATION = "reviewEvaluation";
     private static final String OUTPUT_ORCHESTRATOR = "orchestratorOutput";
@@ -368,6 +369,34 @@ public class LangChain4jConfiguration {
                 .build(), AgentInterfaces.TicketAgent.class);
     }
 
+    /**
+     * Build Ticket Collector Agent using AgenticServices with lifecycle management.
+     * Consolidates ticket execution results.
+     * Before invocation: registers ticket collector node
+     * After invocation: updates node with summary and routing decision
+     */
+    @Bean
+    public AgentInterfaces.TicketCollector ticketCollectorAgent(
+            ChatModel chatModel,
+            LangChain4jAgentTools tools,
+            @Lazy AgentLifecycleHandler lifecycleHandler
+    ) {
+        return wrap(AgenticServices.agentBuilder(AgentInterfaces.TicketCollector.class)
+                .chatModel(chatModel)
+                .tools(tools)
+                .outputKey(OUTPUT_TICKET_COLLECTOR)
+                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .beforeAgentInvocation(request -> {
+                    lifecycleHandler.beforeTicketCollectorInvocation(nodeId(request));
+                })
+                .afterAgentInvocation(response -> {
+                    AgentModels.TicketCollectorResult result =
+                            toTicketCollectorResult(response.output(), nodeId(response));
+                    lifecycleHandler.afterTicketCollectorInvocation(result, nodeId(response));
+                })
+                .build(), AgentInterfaces.TicketCollector.class);
+    }
+
 
     /**
      * Build Merger Agent using AgenticServices with lifecycle management.
@@ -589,6 +618,10 @@ public class LangChain4jConfiguration {
 
     private AgentModels.TicketAgentResult toTicketAgentResult(Object output, String nodeId) {
         return castResult(output, nodeId, AgentModels.TicketAgentResult.class);
+    }
+
+    private AgentModels.TicketCollectorResult toTicketCollectorResult(Object output, String nodeId) {
+        return castResult(output, nodeId, AgentModels.TicketCollectorResult.class);
     }
 
     private AgentModels.MergerAgentResult toMergerAgentResult(Object output, String nodeId) {

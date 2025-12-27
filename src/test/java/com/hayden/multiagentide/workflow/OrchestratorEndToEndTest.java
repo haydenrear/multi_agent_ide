@@ -3,7 +3,10 @@ package com.hayden.multiagentide.workflow;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
@@ -12,11 +15,14 @@ import com.hayden.multiagentide.infrastructure.AgentEventListener;
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.MergeResult;
 import com.hayden.multiagentide.model.events.Events;
-import com.hayden.multiagentide.model.nodes.EditorNode;
+import com.hayden.multiagentide.model.nodes.DiscoveryCollectorNode;
+import com.hayden.multiagentide.model.nodes.DiscoveryOrchestratorNode;
+import com.hayden.multiagentide.model.nodes.TicketNode;
 import com.hayden.multiagentide.model.nodes.GraphNode;
 import com.hayden.multiagentide.model.nodes.MergeNode;
 import com.hayden.multiagentide.model.nodes.OrchestratorNode;
 import com.hayden.multiagentide.model.nodes.ReviewNode;
+import com.hayden.multiagentide.model.nodes.TicketCollectorNode;
 import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
 import com.hayden.multiagentide.model.worktree.WorktreeContext;
@@ -98,10 +104,17 @@ class OrchestratorEndToEndTest extends AgentTestBase {
                 "discovery-results",
                 List.of()
             ));
+        AgentModels.CollectorDecision advanceDecision =
+            new AgentModels.CollectorDecision(
+                AgentModels.CollectorDecisionType.ADVANCE_PHASE,
+                "default",
+                "next"
+            );
         when(discoveryCollector.consolidateDiscoveryFindings(anyString(), anyString(), anyString(), anyString()))
             .thenReturn(new AgentModels.DiscoveryCollectorResult(
                 "discovery-summary",
-                List.of()
+                List.of(),
+                advanceDecision
             ));
         when(planningOrchestrator.decomposePlanAndCreateWorkItems(anyString(), anyString(), anyString()))
             .thenReturn(new AgentModels.PlanningOrchestratorResult(
@@ -117,13 +130,20 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         when(planningCollector.consolidatePlansIntoTickets(anyString(), anyString(), anyString(), anyString()))
             .thenReturn(new AgentModels.PlanningCollectorResult(
                 "- Ticket 1",
-                List.of()
+                List.of(),
+                advanceDecision
             ));
         when(ticketOrchestrator.orchestrateTicketExecution(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
             .thenReturn(new AgentModels.TicketOrchestratorResult(
                 null,
                 List.of(),
                 "ticket-orchestration"
+            ));
+        when(ticketCollector.consolidateTicketResults(anyString(), anyString(), anyString(), anyString()))
+            .thenReturn(new AgentModels.TicketCollectorResult(
+                "ticket-summary",
+                List.of(),
+                advanceDecision
             ));
         when(ticketAgent.implementTicket(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
             .thenReturn(new AgentModels.TicketAgentResult(
@@ -135,7 +155,7 @@ class OrchestratorEndToEndTest extends AgentTestBase {
                 "approved",
                 List.of()
             ));
-        when(mergerAgent.performMerge(anyString(), anyString(), anyString()))
+        when(mergerAgent.performMerge(anyString(), anyString(), anyString(), anyString(), anyString()))
             .thenReturn(new AgentModels.MergerAgentResult(
                 "merged",
                 List.of()
@@ -148,6 +168,8 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         assertThat(root.status()).isEqualTo(GraphNode.NodeStatus.COMPLETED);
 
         assertNoFailedNodes();
+        assertExpectedCoreEvents();
+        assertAgentsInvoked();
 
         List<Events.WorktreeCreatedEvent> worktreeEvents =
             testEventListener.eventsOfType(Events.WorktreeCreatedEvent.class);
@@ -163,6 +185,12 @@ class OrchestratorEndToEndTest extends AgentTestBase {
             .map(ReviewNode.class::cast)
             .anyMatch(node -> node.status() == GraphNode.NodeStatus.COMPLETED);
         assertThat(hasReviewNode).isTrue();
+
+        boolean hasTicketCollector = graphRepository.findAll().stream()
+            .filter(TicketCollectorNode.class::isInstance)
+            .map(TicketCollectorNode.class::cast)
+            .anyMatch(node -> node.status() == GraphNode.NodeStatus.COMPLETED);
+        assertThat(hasTicketCollector).isTrue();
 
         assertThat(testEventListener.eventsOfType(
             Events.NodeStatusChangedEvent.class,
@@ -180,6 +208,8 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         OrchestratorNode root = startOrchestration(true);
         assertThat(root.status()).isEqualTo(GraphNode.NodeStatus.COMPLETED);
         assertNoFailedNodes();
+        assertExpectedCoreEvents();
+        assertAgentsInvoked();
 
         List<Events.WorktreeCreatedEvent> worktreeEvents =
             testEventListener.eventsOfType(Events.WorktreeCreatedEvent.class);
@@ -204,12 +234,103 @@ class OrchestratorEndToEndTest extends AgentTestBase {
 
         OrchestratorNode root = startOrchestration(false);
         assertThat(root.status()).isEqualTo(GraphNode.NodeStatus.COMPLETED);
+        assertExpectedCoreEvents();
 
         boolean hasRevisionNode = graphRepository.findAll().stream()
-            .filter(EditorNode.class::isInstance)
-            .map(EditorNode.class::cast)
+            .filter(TicketNode.class::isInstance)
+            .map(TicketNode.class::cast)
             .anyMatch(node -> node.title().contains("Revision"));
         assertThat(hasRevisionNode).isTrue();
+        verify(reviewAgent, atLeast(2))
+            .evaluateContent(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void collectorReviewGatePausesUntilDecision() {
+        DiscoveryOrchestratorNode parent = new DiscoveryOrchestratorNode(
+            "discovery-orch",
+            "Discovery Orchestrator",
+            "Test goal",
+            GraphNode.NodeStatus.RUNNING,
+            null,
+            new ArrayList<>(List.of("discovery-collector")),
+            new java.util.HashMap<>(),
+            Instant.now(),
+            Instant.now(),
+            "",
+            0,
+            0
+        );
+        DiscoveryCollectorNode collector = new DiscoveryCollectorNode(
+            "discovery-collector",
+            "Discovery Collector",
+            "Test goal",
+            GraphNode.NodeStatus.RUNNING,
+            parent.nodeId(),
+            new ArrayList<>(),
+            new java.util.HashMap<>(
+                java.util.Map.of("collector_review_gate", "true")
+            ),
+            Instant.now(),
+            Instant.now(),
+            "",
+            0,
+            0
+        );
+        graphRepository.save(parent);
+        graphRepository.save(collector);
+
+        eventBus.publish(new Events.NodeStatusChangedEvent(
+            UUID.randomUUID().toString(),
+            Instant.now(),
+            collector.nodeId(),
+            GraphNode.NodeStatus.RUNNING,
+            GraphNode.NodeStatus.COMPLETED,
+            "completed"
+        ));
+
+        Optional<GraphNode> updated = graphRepository.findById(collector.nodeId());
+        assertThat(updated).isPresent();
+        assertThat(updated.orElseThrow().status())
+            .isEqualTo(GraphNode.NodeStatus.WAITING_INPUT);
+        assertThat(testEventListener.hasEventOfType(Events.NodeReviewRequestedEvent.class))
+            .isTrue();
+    }
+
+    private void assertExpectedCoreEvents() {
+        assertThat(testEventListener.hasEventOfType(Events.NodeAddedEvent.class))
+            .isTrue();
+        assertThat(testEventListener.hasEventOfType(Events.NodeStatusChangedEvent.class))
+            .isTrue();
+        assertThat(testEventListener.hasEventOfType(Events.WorktreeCreatedEvent.class))
+            .isTrue();
+    }
+
+    private void assertAgentsInvoked() {
+        verify(orchestratorAgent, atLeastOnce())
+            .coordinateWorkflow(anyString(), anyString(), anyString(), anyString());
+        verify(discoveryOrchestrator, atLeastOnce())
+            .kickOffAnyNumberOfAgentsForCodeSearch(anyString(), anyString(), anyString());
+        verify(discoveryAgent, atLeastOnce())
+            .discoverCodebaseSection(anyString(), anyString(), anyString(), anyString());
+        verify(discoveryCollector, atLeastOnce())
+            .consolidateDiscoveryFindings(anyString(), anyString(), anyString(), anyString());
+        verify(planningOrchestrator, atLeastOnce())
+            .decomposePlanAndCreateWorkItems(anyString(), anyString(), anyString());
+        verify(planningAgent, atLeastOnce())
+            .decomposePlanAndCreateWorkItems(anyString(), anyString(), anyString());
+        verify(planningCollector, atLeastOnce())
+            .consolidatePlansIntoTickets(anyString(), anyString(), anyString(), anyString());
+        verify(ticketOrchestrator, atLeastOnce())
+            .orchestrateTicketExecution(anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+        verify(ticketAgent, atLeastOnce())
+            .implementTicket(anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+        verify(ticketCollector, atLeastOnce())
+            .consolidateTicketResults(anyString(), anyString(), anyString(), anyString());
+        verify(reviewAgent, atLeastOnce())
+            .evaluateContent(anyString(), anyString(), anyString(), anyString());
+        verify(mergerAgent, atLeastOnce())
+            .performMerge(anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -367,9 +488,9 @@ class OrchestratorEndToEndTest extends AgentTestBase {
                     UUID.randomUUID().toString(),
                     childId,
                     parentId,
-                    true,
+                    false,
                     "merge-commit",
-                    List.of(),
+                    List.of(new MergeResult.MergeConflict("", "", "", "", "")),
                     List.of(),
                     "merge successful",
                     Instant.now()

@@ -106,6 +106,13 @@ public class AgentEventListener implements EventListener {
         }
 
         GraphNode node = nodeOpt.get();
+        if (event.newStatus() == GraphNode.NodeStatus.COMPLETED && node instanceof Collector) {
+            log.info(
+                    "Collector completed: {} ({})",
+                    node.title(),
+                    nodeId
+            );
+        }
         log.info("Node completed: {} ({}), triggering next phase", node.title(), nodeId);
 
         try {

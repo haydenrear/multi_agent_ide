@@ -97,6 +97,7 @@ public class AgentLifecycleHandler {
         CollectorNode updated = node.toBuilder()
                 .orchestratorOutput(result.consolidatedOutput())
                 .collectorResult(result)
+                .collectorDecision(result.collectorDecision())
                 .lastUpdatedAt(Instant.now())
                 .build();
         graphRepository.save(updated);
@@ -343,6 +344,7 @@ public class AgentLifecycleHandler {
                 .status(GraphNode.NodeStatus.COMPLETED)
                 .summaryContent(result.consolidatedOutput())
                 .discoveryCollectorResult(result)
+                .collectorDecision(result.collectorDecision())
                 .lastUpdatedAt(Instant.now())
                 .build();
         graphRepository.save(updated);
@@ -489,6 +491,7 @@ public class AgentLifecycleHandler {
                 .generatedTicketIds(new ArrayList<>())
                 .planContent(result.consolidatedOutput())
                 .planningCollectorResult(result)
+                .collectorDecision(result.collectorDecision())
                 .lastUpdatedAt(Instant.now())
                 .build();
         graphRepository.save(updated);
@@ -499,6 +502,47 @@ public class AgentLifecycleHandler {
                 "%s status updated".formatted(node.getClass().getSimpleName())
         );
         log.info("Planning merger node {} updated with merged tickets", nodeId);
+    }
+
+    public void beforeTicketCollectorInvocation(String nodeId) {
+        Optional<TicketCollectorNode> nodeOpt =
+                findNode(nodeId, TicketCollectorNode.class, "ticket collector");
+        if (nodeOpt.isEmpty()) {
+            return;
+        }
+        TicketCollectorNode node = nodeOpt.get();
+        ensureNodeAttached(node);
+        markNodeRunning(node);
+        log.info("Ticket collector node {} registered", nodeId);
+    }
+
+    public void afterTicketCollectorInvocation(AgentModels.TicketCollectorResult result, String nodeId) {
+        Optional<TicketCollectorNode> nodeOpt =
+                findNode(nodeId, TicketCollectorNode.class, "ticket collector");
+        if (nodeOpt.isEmpty()) {
+            return;
+        }
+        TicketCollectorNode node = nodeOpt.get();
+        if (result == null) {
+            log.warn("No ticket collector result available for node {}", nodeId);
+            return;
+        }
+
+        TicketCollectorNode updated = node.toBuilder()
+                .status(GraphNode.NodeStatus.COMPLETED)
+                .ticketSummary(result.consolidatedOutput())
+                .ticketCollectorResult(result)
+                .collectorDecision(result.collectorDecision())
+                .lastUpdatedAt(Instant.now())
+                .build();
+        graphRepository.save(updated);
+        orchestrator.emitStatusChangeEvent(
+                updated.nodeId(),
+                node.status(),
+                updated.status(),
+                "Ticket collector status updated"
+        );
+        log.info("Ticket collector node {} updated with summary", nodeId);
     }
 
     /**
@@ -558,12 +602,12 @@ public class AgentLifecycleHandler {
      * Registers a ticket orchestrator node and creates worktrees for ticket implementation.
      */
     public void beforeTicketOrchestratorInvocation(String nodeId) {
-        Optional<EditorNode> nodeOpt =
-                findNode(nodeId, EditorNode.class, "ticket orchestrator");
+        Optional<TicketOrchestratorNode> nodeOpt =
+                findNode(nodeId, TicketOrchestratorNode.class, "ticket orchestrator");
         if (nodeOpt.isEmpty()) {
             return;
         }
-        EditorNode node = nodeOpt.get();
+        TicketOrchestratorNode node = nodeOpt.get();
         ensureNodeAttached(node);
         markNodeRunning(node);
         log.info("Ticket orchestrator node {} registered", nodeId);
@@ -574,18 +618,18 @@ public class AgentLifecycleHandler {
      * Updates ticket orchestrator node and may kick off first TicketAgent.
      */
     public void afterTicketOrchestratorInvocation(AgentModels.TicketOrchestratorResult result, String nodeId) {
-        Optional<EditorNode> nodeOpt =
-                findNode(nodeId, EditorNode.class, "ticket orchestrator");
+        Optional<TicketOrchestratorNode> nodeOpt =
+                findNode(nodeId, TicketOrchestratorNode.class, "ticket orchestrator");
         if (nodeOpt.isEmpty()) {
             return;
         }
-        EditorNode node = nodeOpt.get();
+        TicketOrchestratorNode node = nodeOpt.get();
         if (result == null) {
             log.warn("No ticket orchestrator result available for node {}", nodeId);
             return;
         }
 
-        EditorNode updated = node.toBuilder()
+        TicketOrchestratorNode updated = node.toBuilder()
                 .workOutput(result.output())
                 .ticketOrchestratorResult(result)
                 .streamingTokenCount(0)
@@ -606,12 +650,12 @@ public class AgentLifecycleHandler {
      * Registers a ticket node in the computation graph and creates feature branch.
      */
     public void beforeTicketAgentInvocation(String nodeId) {
-        Optional<EditorNode> nodeOpt =
-                findNode(nodeId, EditorNode.class, "ticket");
+        Optional<TicketNode> nodeOpt =
+                findNode(nodeId, TicketNode.class, "ticket");
         if (nodeOpt.isEmpty()) {
             return;
         }
-        EditorNode node = nodeOpt.get();
+        TicketNode node = nodeOpt.get();
         ensureNodeAttached(node);
         markNodeRunning(node);
         log.info("Ticket node {} registered for implementation", nodeId);
@@ -622,18 +666,18 @@ public class AgentLifecycleHandler {
      * Updates ticket node with implementation summary and commits changes.
      */
     public void afterTicketAgentInvocation(AgentModels.TicketAgentResult result, String nodeId) {
-        Optional<EditorNode> nodeOpt =
-                findNode(nodeId, EditorNode.class, "ticket");
+        Optional<TicketNode> nodeOpt =
+                findNode(nodeId, TicketNode.class, "ticket");
         if (nodeOpt.isEmpty()) {
             return;
         }
-        EditorNode node = nodeOpt.get();
+        TicketNode node = nodeOpt.get();
         if (result == null) {
             log.warn("No ticket agent result available for node {}", nodeId);
             return;
         }
 
-        EditorNode updated = node.toBuilder()
+        TicketNode updated = node.toBuilder()
                 .status(GraphNode.NodeStatus.COMPLETED)
                 .workOutput(result.output())
                 .ticketAgentResult(result)

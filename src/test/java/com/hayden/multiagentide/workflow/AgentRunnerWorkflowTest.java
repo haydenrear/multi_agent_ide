@@ -7,10 +7,7 @@ import static org.mockito.Mockito.when;
 import com.hayden.multiagentide.agent.AgentModels;
 import com.hayden.multiagentide.infrastructure.AgentRunner;
 import com.hayden.multiagentide.model.MergeResult;
-import com.hayden.multiagentide.model.nodes.EditorNode;
-import com.hayden.multiagentide.model.nodes.GraphNode;
-import com.hayden.multiagentide.model.nodes.MergeNode;
-import com.hayden.multiagentide.model.nodes.ReviewNode;
+import com.hayden.multiagentide.model.nodes.*;
 import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentide.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.GraphRepository;
@@ -28,6 +25,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -55,8 +53,8 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
 
     @Test
     void reviewApprovalCreatesMergeNode() {
-        EditorNode ticketOrchestrator = ticketOrchestrator("orchestrator-1", "parent-wt");
-        EditorNode ticketNode = ticketNode("ticket-1", ticketOrchestrator.nodeId(), "child-wt");
+        TicketOrchestratorNode ticketOrchestrator = ticketOrchestrator("orchestrator-1", new HasWorktree.WorkTree("parent-wt", null, new ArrayList<>()));
+        TicketNode ticketNode = ticketNode("ticket-1", ticketOrchestrator.nodeId(), new HasWorktree.WorkTree("child-wt", "parent-wt", new ArrayList<>()));
         ReviewNode reviewNode = reviewNode("review-1", ticketNode.nodeId());
 
         graphRepository.save(ticketOrchestrator);
@@ -91,8 +89,8 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
 
     @Test
     void reviewRejectionCreatesRevisionNode() {
-        EditorNode ticketOrchestrator = ticketOrchestrator("orchestrator-2", "parent-wt-2");
-        EditorNode ticketNode = ticketNode("ticket-2", ticketOrchestrator.nodeId(), "child-wt-2");
+        TicketOrchestratorNode ticketOrchestrator = ticketOrchestrator("orchestrator-2", new HasWorktree.WorkTree("parent-wt-2", null, new ArrayList<>()));
+        TicketNode ticketNode = ticketNode("ticket-2", ticketOrchestrator.nodeId(), new HasWorktree.WorkTree("child-wt-2", "parent-wt-2", new ArrayList<>()));
         ReviewNode reviewNode = reviewNode("review-2", ticketNode.nodeId());
 
         graphRepository.save(ticketOrchestrator);
@@ -113,8 +111,8 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
 
         List<GraphNode> orchestratorChildren = graphRepository.findByParentId(ticketOrchestrator.nodeId());
         boolean hasRevision = orchestratorChildren.stream()
-            .filter(EditorNode.class::isInstance)
-            .map(EditorNode.class::cast)
+            .filter(TicketNode.class::isInstance)
+            .map(TicketNode.class::cast)
             .anyMatch(node -> node.title().contains("(Revision)") &&
                 node.metadata().containsKey("review_feedback"));
 
@@ -174,6 +172,10 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
             "conflicts",
             Instant.now()
         );
+
+        Mockito.when(mergerAgent.performMerge(anyString(), anyString(), anyString(), anyString(), anyString()))
+                        .thenReturn(new AgentModels.MergerAgentResult("hello!", List.of(AgentModels.InterruptType.HUMAN_REVIEW)));
+
         when(worktreeService.mergeWorktrees(childWorktreeId, parentWorktreeId))
             .thenReturn(mergeResult);
 
@@ -186,8 +188,8 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         assertThat(reloaded.status()).isEqualTo(WorktreeContext.WorktreeStatus.ACTIVE);
     }
 
-    private EditorNode ticketOrchestrator(String nodeId, String mainWorktreeId) {
-        return new EditorNode(
+    private TicketOrchestratorNode ticketOrchestrator(String nodeId, HasWorktree.WorkTree mainWorktreeId) {
+        return new TicketOrchestratorNode(
             nodeId,
             "Ticket Orchestrator",
             "Implement goal",
@@ -198,7 +200,6 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
             Instant.now(),
             Instant.now(),
             mainWorktreeId,
-            new ArrayList<>(),
             0,
             0,
             "ticket-orchestrator",
@@ -208,8 +209,8 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         );
     }
 
-    private EditorNode ticketNode(String nodeId, String parentId, String mainWorktreeId) {
-        return new EditorNode(
+    private TicketNode ticketNode(String nodeId, String parentId, HasWorktree.WorkTree mainWorktreeId) {
+        return new TicketNode(
             nodeId,
             "Ticket 1",
             "Implement ticket",
@@ -220,7 +221,6 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
             Instant.now(),
             Instant.now(),
             mainWorktreeId,
-            new ArrayList<>(),
             0,
             0,
             "ticket-agent",

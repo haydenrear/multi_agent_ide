@@ -3,6 +3,8 @@ package com.hayden.multiagentide.service;
 import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
 import com.hayden.multiagentide.model.MergeResult;
+import org.springframework.util.CollectionUtils;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -137,4 +139,8 @@ public interface WorktreeService {
      * @return list of files with conflicts
      */
     List<String> detectMergeConflicts(String childWorktreeId, String parentWorktreeId);
+
+    default boolean containsMergeConflicts(String childWorktreeId, String parentWorktreeId) {
+        return !CollectionUtils.isEmpty(detectMergeConflicts(childWorktreeId, parentWorktreeId));
+    }
 }

@@ -21,6 +21,19 @@ public interface AgentModels {
         PRUNE
     }
 
+    enum CollectorDecisionType {
+        ROUTE_BACK,
+        ADVANCE_PHASE,
+        STOP
+    }
+
+    record CollectorDecision(
+            CollectorDecisionType decisionType,
+            String rationale,
+            String requestedPhase
+    ) {
+    }
+
     /**
      * Shared data models describing agent interactions, results, and interrupts.
      * These are intentionally transport-agnostic and can be serialized as needed.
@@ -102,6 +115,15 @@ public interface AgentModels {
             String output,
             List<InterruptType> interruptsRequested
     ) {
+
+        public boolean isNeedingHumanReview() {
+            return interruptsRequested.contains(InterruptType.HUMAN_REVIEW);
+        }
+
+
+        public boolean isNeedingAgentReview() {
+            return interruptsRequested.contains(InterruptType.AGENT_REVIEW);
+        }
     }
 
     record SummaryAgentResult(
@@ -121,25 +143,36 @@ public interface AgentModels {
      */
     record DiscoveryCollectorResult(
             String consolidatedOutput,
-            List<InterruptType> interruptsRequested
+            List<InterruptType> interruptsRequested,
+            CollectorDecision collectorDecision
     ) {
     }
 
     record PlanningCollectorResult(
             String consolidatedOutput,
-            List<InterruptType> interruptsRequested
+            List<InterruptType> interruptsRequested,
+            CollectorDecision collectorDecision
     ) {
     }
 
     record ContextCollectorResult(
             String consolidatedOutput,
-            List<InterruptType> interruptsRequested
+            List<InterruptType> interruptsRequested,
+            CollectorDecision collectorDecision
     ) {
     }
 
     record OrchestratorCollectorResult(
             String consolidatedOutput,
-            List<InterruptType> interruptsRequested
+            List<InterruptType> interruptsRequested,
+            CollectorDecision collectorDecision
+    ) {
+    }
+
+    record TicketCollectorResult(
+            String consolidatedOutput,
+            List<InterruptType> interruptsRequested,
+            CollectorDecision collectorDecision
     ) {
     }
 }

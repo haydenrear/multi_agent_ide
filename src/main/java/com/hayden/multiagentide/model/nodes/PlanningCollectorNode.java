@@ -27,12 +27,14 @@ public record PlanningCollectorNode(
         String planContent,
         int estimatedSubtasks,
         int completedSubtasks,
+        List<CollectedNodeStatus> collectedNodes,
+        AgentModels.CollectorDecision collectorDecision,
         AgentModels.PlanningCollectorResult planningCollectorResult
-) implements GraphNode, Viewable<String>, Orchestrator {
+) implements GraphNode, Viewable<String>, Collector {
 
     public PlanningCollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> generatedTicketIds, String planContent, int estimatedSubtasks, int completedSubtasks) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, null);
+                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, new ArrayList<>(), null, null);
     }
 
     public PlanningCollectorNode {
@@ -41,6 +43,7 @@ public record PlanningCollectorNode(
         if (childNodeIds == null) childNodeIds = new ArrayList<>();
         if (metadata == null) metadata = new HashMap<>();
         if (generatedTicketIds == null) generatedTicketIds = new ArrayList<>();
+        if (collectedNodes == null) collectedNodes = new ArrayList<>();
     }
 
     @Override
@@ -99,6 +102,14 @@ public record PlanningCollectorNode(
     public PlanningCollectorNode withResult(AgentModels.PlanningCollectorResult result) {
         return toBuilder()
                 .planningCollectorResult(result)
+                .collectorDecision(result != null ? result.collectorDecision() : collectorDecision)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public PlanningCollectorNode withCollectedNodes(List<CollectedNodeStatus> nodes) {
+        return toBuilder()
+                .collectedNodes(nodes)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }
