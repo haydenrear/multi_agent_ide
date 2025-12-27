@@ -22,6 +22,8 @@ import dev.langchain4j.data.message.*
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.listener.ChatModelListener
 import dev.langchain4j.model.chat.request.ChatRequest
+import dev.langchain4j.model.chat.request.ChatRequestParameters
+import dev.langchain4j.model.chat.request.MultiAgentIdeChatRequestParameters
 import dev.langchain4j.model.chat.response.ChatResponse
 import dev.langchain4j.model.openai.internal.OpenAiUtils
 import io.modelcontextprotocol.server.IdeMcpAsyncServer.TOOL_ALLOWLIST_HEADER
@@ -51,8 +53,12 @@ class AcpChatModel(private val properties: AcpModelProperties) : ChatModel {
     @Volatile
     private var sessionContext: AcpSessionContext? = null
 
-    override fun listeners(): List<ChatModelListener?>? {
-        return listeners;
+    override fun listeners(): List<ChatModelListener?> {
+        return listeners
+    }
+
+    override fun defaultRequestParameters(): ChatRequestParameters? {
+        return MultiAgentIdeChatRequestParameters.builder().build();
     }
 
     override fun doChat(chatRequest: ChatRequest?): ChatResponse {
