@@ -99,6 +99,10 @@ public class MultiAgentIdeChatRequestParameters implements ChatRequestParameters
         return responseFormat;
     }
 
+    public Object memoryId() {
+        return memoryId;
+    }
+
     @Override
     public ChatRequestParameters overrideWith(ChatRequestParameters that) {
         return MultiAgentIdeChatRequestParameters.builder()

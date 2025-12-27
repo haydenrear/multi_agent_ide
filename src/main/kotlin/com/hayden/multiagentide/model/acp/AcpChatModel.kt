@@ -18,6 +18,7 @@ import com.agentclientprotocol.protocol.Protocol
 import com.agentclientprotocol.transport.Transport
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.hayden.multiagentide.config.AcpModelProperties
+import com.hayden.multiagentide.model.acp.ChatMemoryContext
 import dev.langchain4j.data.message.*
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.listener.ChatModelListener
@@ -40,18 +41,21 @@ import kotlinx.io.asSource
 import kotlinx.io.buffered
 import kotlinx.serialization.json.JsonElement
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * ACP-backed ChatModel implementation using the agentclientprotocol SDK.
  */
-class AcpChatModel(private val properties: AcpModelProperties) : ChatModel {
+class AcpChatModel(
+    private val properties: AcpModelProperties,
+    private val chatMemoryContext: ChatMemoryContext?
+) : ChatModel {
 
     private val sessionLock = Any()
 
     private val listeners: List<ChatModelListener>  = mutableListOf();
 
-    @Volatile
-    private var sessionContext: AcpSessionContext? = null
+    private val sessionContexts = ConcurrentHashMap<Any, AcpSessionContext>()
 
     override fun listeners(): List<ChatModelListener?> {
         return listeners
@@ -62,15 +66,19 @@ class AcpChatModel(private val properties: AcpModelProperties) : ChatModel {
     }
 
     override fun doChat(chatRequest: ChatRequest?): ChatResponse {
-        return if (sessionExists(chatRequest)) {
-            invokeChat(mutableListOf(chatRequest?.messages()?.last()!!))
+        val request = requireNotNull(chatRequest) { "chatRequest must not be null" }
+        val memoryId = resolveMemoryId(request)
+        val hasSession = sessionExists(memoryId)
+        val messages = if (hasSession) {
+            listOf(request.messages().last())
         } else {
-            invokeChat(chatRequest?.messages()!!)
+            resolveMessages(request, memoryId)
         }
+        return invokeChat(messages, memoryId)
     }
 
-    fun invokeChat(messages: List<ChatMessage>): ChatResponse = runBlocking {
-        val session = getOrCreateSession()
+    fun invokeChat(messages: List<ChatMessage>, memoryId: Any?): ChatResponse = runBlocking {
+        val session = getOrCreateSession(memoryId)
         val responseText = StringBuilder()
         val content = listOf(ContentBlock.Text(formatMessages(messages)))
 
@@ -107,25 +115,37 @@ class AcpChatModel(private val properties: AcpModelProperties) : ChatModel {
         )
     }
 
-    private fun getOrCreateSession(): ClientSession {
-        return getOrCreateSession(null)
+    private fun sessionExists(memoryId: Any?): Boolean {
+        return memoryId != null && sessionContexts.containsKey(memoryId)
     }
 
-    private fun sessionExists(chatRequest: ChatRequest?): Boolean {
-        return sessionContext != null
-    }
-
-    private fun getOrCreateSession(chatRequest: ChatRequest?): ClientSession {
-        sessionContext?.let { return it.session }
-        synchronized(sessionLock) {
-            if (sessionContext == null) {
-                sessionContext = runBlocking { createSessionContext(chatRequest) }
-            }
+    private fun resolveMessages(chatRequest: ChatRequest, memoryId: Any?): List<ChatMessage> {
+        if (memoryId == null) {
+            return chatRequest.messages()
         }
-        return requireNotNull(sessionContext).session
+        val history = chatMemoryContext?.getMessages(memoryId).orEmpty()
+        return if (history.isNotEmpty()) history else chatRequest.messages()
     }
 
-    private suspend fun createSessionContext(chatRequest: ChatRequest?): AcpSessionContext {
+    private fun resolveMemoryId(chatRequest: ChatRequest): Any? {
+        val params = chatRequest.parameters()
+        return if (params is MultiAgentIdeChatRequestParameters) params.memoryId() else null
+    }
+
+    private fun getOrCreateSession(memoryId: Any?): ClientSession {
+        if (memoryId == null) {
+            return runBlocking { createSessionContext() }.session
+        }
+        sessionContexts[memoryId]?.let { return it.session }
+        synchronized(sessionLock) {
+            sessionContexts[memoryId]?.let { return it.session }
+            val context = runBlocking { createSessionContext() }
+            sessionContexts[memoryId] = context
+            return context.session
+        }
+    }
+
+    private suspend fun createSessionContext(): AcpSessionContext {
         if (!properties.transport.equals("stdio", ignoreCase = true)) {
             throw IllegalStateException("Only stdio transport is supported for ACP integration")
         }

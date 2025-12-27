@@ -6,6 +6,8 @@ import com.hayden.multiagentide.agent.AgentModels;
 import com.hayden.multiagentide.agent.LangChain4jAgentTools;
 import com.hayden.multiagentide.model.acp.AcpChatModel;
 import com.hayden.multiagentide.model.acp.AcpStreamingChatModel;
+import com.hayden.multiagentide.model.acp.ChatMemoryContext;
+import com.hayden.multiagentide.model.acp.DefaultChatMemoryContext;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import dev.langchain4j.agentic.agent.AgentRequest;
 import dev.langchain4j.agentic.agent.AgentResponse;
@@ -14,6 +16,7 @@ import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.http.client.spring.restclient.SpringRestClientBuilder;
+import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
@@ -22,6 +25,9 @@ import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
+import dev.langchain4j.store.memory.chat.ChatMemoryStore;
+import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -88,9 +94,10 @@ public class LangChain4jConfiguration {
      */
     @Bean
     @Primary
-    public ChatModel chatLanguageModel(AcpModelProperties acpModelProperties) {
+    public ChatModel chatLanguageModel(AcpModelProperties acpModelProperties,
+                                       ChatMemoryContext chatMemoryContext) {
         if ("acp".equalsIgnoreCase(modelProvider)) {
-            return getAcpChatModel(acpModelProperties);
+            return getAcpChatModel(acpModelProperties, chatMemoryContext);
         }
         if (apiKey == null || apiKey.isEmpty()) {
             // Return a no-op mock if no API key is configured
@@ -111,9 +118,9 @@ public class LangChain4jConfiguration {
      * Used by Editor agent for token-by-token code generation.
      */
     @Bean
-    public StreamingChatModel streamingChatLanguageModel(AcpModelProperties acpModelProperties) {
+    public StreamingChatModel streamingChatLanguageModel(AcpModelProperties acpModelProperties, ChatMemoryContext chatMemoryContext) {
         if ("acp".equalsIgnoreCase(modelProvider)) {
-            return new AcpStreamingChatModel(getAcpChatModel(acpModelProperties));
+            return new AcpStreamingChatModel(getAcpChatModel(acpModelProperties, chatMemoryContext));
         }
         if (apiKey == null || apiKey.isEmpty()) {
             // Return a no-op mock if no API key is configured
@@ -131,15 +138,35 @@ public class LangChain4jConfiguration {
                 .build();
     }
 
-    private AcpChatModel getAcpChatModel(AcpModelProperties acpModelProperties) {
+    private AcpChatModel getAcpChatModel(AcpModelProperties acpModelProperties,
+                                         ChatMemoryContext chatMemoryContext) {
         if (acpChatModel == null) {
             synchronized (this) {
                 if (acpChatModel == null) {
-                    acpChatModel = new AcpChatModel(acpModelProperties);
+                    acpChatModel = new AcpChatModel(acpModelProperties, chatMemoryContext);
                 }
             }
         }
         return acpChatModel;
+    }
+
+    @Bean
+    public ChatMemoryStore chatMemoryStore() {
+        return new InMemoryChatMemoryStore();
+    }
+
+    @Bean
+    public ChatMemoryProvider chatMemoryProvider(ChatMemoryStore chatMemoryStore) {
+        return memoryId -> MessageWindowChatMemory.builder()
+                .id(memoryId)
+                .maxMessages(1024)
+                .chatMemoryStore(chatMemoryStore)
+                .build();
+    }
+
+    @Bean
+    public ChatMemoryContext chatMemoryContext(ChatMemoryProvider chatMemoryProvider) {
+        return new DefaultChatMemoryContext(chatMemoryProvider);
     }
 
 
@@ -153,13 +180,15 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.DiscoveryOrchestrator discoveryOrchestratorAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider,
+            ChatMemoryContext chatMemoryContext
     ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.DiscoveryOrchestrator.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_DISCOVERY_DIVISION)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     lifecycleHandler.beforeDiscoveryOrchestratorInvocation(nodeId(request));
                 })
@@ -181,13 +210,14 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.DiscoveryAgent discoveryAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider
     ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.DiscoveryAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_DISCOVERY_RESULTS)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     lifecycleHandler.beforeDiscoveryAgentInvocation(nodeId(request));
                 })
@@ -209,13 +239,14 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.DiscoveryCollector discoveryMergerAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider
     ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.DiscoveryCollector.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_DISCOVERY_CONTEXT)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     lifecycleHandler.beforeDiscoveryCollectorInvocation(nodeId(request));
                 })
@@ -237,13 +268,14 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.PlanningOrchestrator planningOrchestratorAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider
     ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.PlanningOrchestrator.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_PLANNING_DIVISION)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     lifecycleHandler.beforePlanningOrchestratorInvocation(nodeId(request));
                 })
@@ -265,13 +297,14 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.PlanningAgent planningAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider
     ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.PlanningAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_PLANNING_RESULTS)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     // Register planning node before agent executes
                     lifecycleHandler.beforePlanningAgentInvocation(nodeId(request));
@@ -295,13 +328,14 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.PlanningCollector planningMergerAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider
     ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.PlanningCollector.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_PLANNING_CONTEXT)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     lifecycleHandler.beforePlanningCollectorInvocation(nodeId(request));
                 })
@@ -323,13 +357,14 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.TicketOrchestrator ticketOrchestratorAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider
     ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.TicketOrchestrator.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_TICKET_ORCHESTRATION)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     lifecycleHandler.beforeTicketOrchestratorInvocation(nodeId(request));
                 })
@@ -351,13 +386,14 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.TicketAgent ticketAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider
     ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.TicketAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_TICKET_IMPLEMENTATION)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     lifecycleHandler.beforeTicketAgentInvocation(nodeId(request));
                 })
@@ -379,13 +415,14 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.TicketCollector ticketCollectorAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider
     ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.TicketCollector.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_TICKET_COLLECTOR)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     lifecycleHandler.beforeTicketCollectorInvocation(nodeId(request));
                 })
@@ -408,12 +445,14 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.MergerAgent mergerAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler) {
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider
+    ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.MergerAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_MERGE_STRATEGY)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     // Register merger node before agent executes
                     lifecycleHandler.beforeMergerAgentInvocation(nodeId(request));
@@ -437,12 +476,14 @@ public class LangChain4jConfiguration {
     public AgentInterfaces.ReviewAgent reviewAgent(
             ChatModel chatModel,
             LangChain4jAgentTools tools,
-            @Lazy AgentLifecycleHandler lifecycleHandler) {
+            @Lazy AgentLifecycleHandler lifecycleHandler,
+            ChatMemoryProvider chatMemoryProvider
+    ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.ReviewAgent.class)
                 .chatModel(chatModel)
                 .tools(tools)
                 .outputKey(OUTPUT_REVIEW_EVALUATION)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     // Register review node before agent executes
                     lifecycleHandler.beforeReviewAgentInvocation(nodeId(request));
@@ -472,10 +513,12 @@ public class LangChain4jConfiguration {
     @Bean
     public AgentInterfaces.OrchestratorAgent orchestratorAgent(ChatModel chatModel,
                                                                LangChain4jAgentTools tools,
-                                                                @Lazy AgentLifecycleHandler lifecycleHandler) {
+                                                               @Lazy AgentLifecycleHandler lifecycleHandler,
+                                                               ChatMemoryProvider chatMemoryProvider
+    ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.OrchestratorAgent.class)
                 .outputKey(OUTPUT_ORCHESTRATOR)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     // Register planning node before agent executes
                     lifecycleHandler.beforeOrchestrator(nodeId(request));
@@ -494,10 +537,12 @@ public class LangChain4jConfiguration {
     @Bean
     public AgentInterfaces.OrchestratorCollectorAgent orchestratorCollectorAgent(ChatModel chatModel,
                                                                                  LangChain4jAgentTools tools,
-                                                                                 @Lazy AgentLifecycleHandler lifecycleHandler) {
+                                                                                 @Lazy AgentLifecycleHandler lifecycleHandler,
+                                                                                 ChatMemoryProvider chatMemoryProvider
+    ) {
         return wrap(AgenticServices.agentBuilder(AgentInterfaces.OrchestratorCollectorAgent.class)
                 .outputKey(OUTPUT_ORCHESTRATOR_COLLECTOR)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
+                .chatMemoryProvider(chatMemoryProvider)
                 .beforeAgentInvocation(request -> {
                     // Register planning node before agent executes
                     lifecycleHandler.beforeOrchestratorCollector(nodeId(request));
