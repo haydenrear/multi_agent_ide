@@ -24,12 +24,13 @@ public record MergeNode(
         String summaryContent,
         int totalTasksCompleted,
         int totalTasksFailed,
-        AgentModels.MergerAgentResult mergerResult
-) implements GraphNode, Viewable<String> {
+        AgentModels.MergerAgentResult mergerResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Interruptible {
 
     public MergeNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                summaryContent, totalTasksCompleted, totalTasksFailed, null);
+                summaryContent, totalTasksCompleted, totalTasksFailed, null, null);
     }
 
     public MergeNode {
@@ -78,6 +79,13 @@ public record MergeNode(
     public MergeNode withResult(AgentModels.MergerAgentResult result) {
         return toBuilder()
                 .mergerResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public MergeNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

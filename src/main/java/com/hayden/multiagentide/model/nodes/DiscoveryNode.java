@@ -24,12 +24,13 @@ public record DiscoveryNode(
         String summaryContent,
         int totalTasksCompleted,
         int totalTasksFailed,
-        AgentModels.DiscoveryAgentResult discoveryResult
-) implements GraphNode, Viewable<String> {
+        AgentModels.DiscoveryAgentResult discoveryResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Interruptible {
 
     public DiscoveryNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                summaryContent, totalTasksCompleted, totalTasksFailed, null);
+                summaryContent, totalTasksCompleted, totalTasksFailed, null, null);
     }
 
     public DiscoveryNode {
@@ -71,6 +72,13 @@ public record DiscoveryNode(
     public DiscoveryNode withResult(AgentModels.DiscoveryAgentResult result) {
         return toBuilder()
                 .discoveryResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public DiscoveryNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

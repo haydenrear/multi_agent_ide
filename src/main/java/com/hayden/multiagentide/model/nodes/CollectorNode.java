@@ -31,19 +31,20 @@ public record CollectorNode(
         List<SubmoduleNode> submodules,
         List<CollectedNodeStatus> collectedNodes,
         AgentModels.CollectorDecision collectorDecision,
-        AgentModels.OrchestratorCollectorResult collectorResult
-) implements GraphNode, Viewable<String>, Collector {
+        AgentModels.OrchestratorCollectorResult collectorResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Collector, Interruptible {
 
     public CollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
-                new ArrayList<>(), new ArrayList<>(), null, null);
+                new ArrayList<>(), new ArrayList<>(), null, null, null);
     }
 
     public CollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput, List<SubmoduleNode> submodules) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
-                submodules, new ArrayList<>(), null, null);
+                submodules, new ArrayList<>(), null, null, null);
     }
 
     public CollectorNode {
@@ -109,6 +110,13 @@ public record CollectorNode(
     public CollectorNode withCollectedNodes(List<CollectedNodeStatus> nodes) {
         return toBuilder()
                 .collectedNodes(nodes)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public CollectorNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

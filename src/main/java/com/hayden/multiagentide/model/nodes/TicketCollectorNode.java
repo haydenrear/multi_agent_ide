@@ -28,12 +28,13 @@ public record TicketCollectorNode(
         int totalTicketsFailed,
         List<CollectedNodeStatus> collectedNodes,
         AgentModels.CollectorDecision collectorDecision,
-        AgentModels.TicketCollectorResult ticketCollectorResult
-) implements GraphNode, Viewable<String>, Collector {
+        AgentModels.TicketCollectorResult ticketCollectorResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Collector, Interruptible {
 
     public TicketCollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String ticketSummary, int totalTicketsCompleted, int totalTicketsFailed) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                ticketSummary, totalTicketsCompleted, totalTicketsFailed, new ArrayList<>(), null, null);
+                ticketSummary, totalTicketsCompleted, totalTicketsFailed, new ArrayList<>(), null, null, null);
     }
 
     public TicketCollectorNode {
@@ -78,6 +79,13 @@ public record TicketCollectorNode(
         return toBuilder()
                 .ticketCollectorResult(result)
                 .collectorDecision(result != null ? result.collectorDecision() : collectorDecision)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public TicketCollectorNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

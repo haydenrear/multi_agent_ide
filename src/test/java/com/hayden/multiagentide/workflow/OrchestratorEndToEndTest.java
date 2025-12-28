@@ -7,18 +7,23 @@ import static org.mockito.Mockito.*;
 
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.agent.AgentModels;
+import com.hayden.multiagentide.controller.AgentControlController;
 import com.hayden.multiagentide.infrastructure.AgentEventListener;
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.MergeResult;
 import com.hayden.multiagentide.model.events.Events;
 import com.hayden.multiagentide.model.nodes.DiscoveryCollectorNode;
+import com.hayden.multiagentide.model.nodes.DiscoveryNode;
 import com.hayden.multiagentide.model.nodes.DiscoveryOrchestratorNode;
-import com.hayden.multiagentide.model.nodes.TicketNode;
 import com.hayden.multiagentide.model.nodes.GraphNode;
+import com.hayden.multiagentide.model.nodes.HasWorktree;
+import com.hayden.multiagentide.model.nodes.InterruptNode;
 import com.hayden.multiagentide.model.nodes.MergeNode;
 import com.hayden.multiagentide.model.nodes.OrchestratorNode;
+import com.hayden.multiagentide.model.nodes.PlanningNode;
 import com.hayden.multiagentide.model.nodes.ReviewNode;
 import com.hayden.multiagentide.model.nodes.TicketCollectorNode;
+import com.hayden.multiagentide.model.nodes.TicketNode;
 import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
 import com.hayden.multiagentide.model.worktree.WorktreeContext;
@@ -34,6 +39,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,6 +81,9 @@ class OrchestratorEndToEndTest extends AgentTestBase {
 
     @MockitoBean
     private WorktreeService worktreeService;
+
+    @Autowired
+    private AgentControlController agentControlController;
 
     @BeforeEach
     void setUp() {
@@ -293,6 +304,138 @@ class OrchestratorEndToEndTest extends AgentTestBase {
             .isTrue();
     }
 
+    @Test
+    void workflowHandlesDiscoveryAgentPauseInterrupt() {
+        when(discoveryAgent.discoverCodebaseSection(anyString(), anyString(), anyString(), anyString()))
+            .thenReturn(new AgentModels.DiscoveryAgentResult(
+                "discovery-results",
+                List.of(AgentModels.InterruptType.PAUSE)
+            ));
+
+        startOrchestration(false);
+
+        DiscoveryNode discovery = graphRepository.findAll().stream()
+            .filter(DiscoveryNode.class::isInstance)
+            .map(DiscoveryNode.class::cast)
+            .findFirst()
+            .orElseThrow();
+        assertThat(discovery.status()).isEqualTo(GraphNode.NodeStatus.WAITING_INPUT);
+        assertThat(discovery.interruptType())
+            .isEqualTo(AgentModels.InterruptType.PAUSE);
+
+        boolean hasInterruptNode = graphRepository.findAll().stream()
+            .filter(InterruptNode.class::isInstance)
+            .map(InterruptNode.class::cast)
+            .anyMatch(node -> node.interruptType() == AgentModels.InterruptType.PAUSE
+                && discovery.nodeId().equals(node.interruptOriginNodeId()));
+        assertThat(hasInterruptNode).isTrue();
+    }
+
+    @Test
+    void workflowHandlesInterruptsAcrossStages() {
+        when(discoveryAgent.discoverCodebaseSection(anyString(), anyString(), anyString(), anyString()))
+            .thenReturn(
+                new AgentModels.DiscoveryAgentResult(
+                    "discovery-results",
+                    List.of(AgentModels.InterruptType.PAUSE)
+                ),
+                new AgentModels.DiscoveryAgentResult(
+                    "discovery-results",
+                    List.of()
+                )
+            );
+        when(planningAgent.decomposePlanAndCreateWorkItems(anyString(), anyString(), anyString()))
+            .thenReturn(new AgentModels.PlanningAgentResult(
+                "- plan-segment",
+                List.of(AgentModels.InterruptType.HUMAN_REVIEW)
+            ));
+
+        startOrchestration(false);
+
+        DiscoveryNode discovery = graphRepository.findAll().stream()
+            .filter(DiscoveryNode.class::isInstance)
+            .map(DiscoveryNode.class::cast)
+            .findFirst()
+            .orElseThrow();
+
+        eventBus.publish(new Events.AddMessageEvent(
+            UUID.randomUUID().toString(),
+            Instant.now(),
+            discovery.nodeId(),
+            "resume"
+        ));
+
+        PlanningNode planning = graphRepository.findAll().stream()
+            .filter(PlanningNode.class::isInstance)
+            .map(PlanningNode.class::cast)
+            .findFirst()
+            .orElseThrow();
+        assertThat(planning.status()).isEqualTo(GraphNode.NodeStatus.WAITING_INPUT);
+
+        boolean hasReviewNode = graphRepository.findAll().stream()
+            .filter(ReviewNode.class::isInstance)
+            .map(ReviewNode.class::cast)
+            .anyMatch(node -> node.interruptType() == AgentModels.InterruptType.HUMAN_REVIEW
+                && planning.nodeId().equals(node.interruptOriginNodeId()));
+        assertThat(hasReviewNode).isTrue();
+    }
+
+    @Test
+    void workflowHandlesTicketAgentStopInterrupt() {
+        when(ticketAgent.implementTicket(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+            .thenReturn(new AgentModels.TicketAgentResult(
+                "implementation",
+                List.of(AgentModels.InterruptType.STOP)
+            ));
+
+        startOrchestration(false);
+
+        TicketNode ticket = graphRepository.findAll().stream()
+            .filter(TicketNode.class::isInstance)
+            .map(TicketNode.class::cast)
+            .findFirst()
+            .orElseThrow();
+        assertThat(ticket.status()).isEqualTo(GraphNode.NodeStatus.CANCELED);
+
+        boolean hasInterruptNode = graphRepository.findAll().stream()
+            .filter(InterruptNode.class::isInstance)
+            .map(InterruptNode.class::cast)
+            .anyMatch(node -> node.interruptType() == AgentModels.InterruptType.STOP
+                && ticket.nodeId().equals(node.interruptOriginNodeId()));
+        assertThat(hasInterruptNode).isTrue();
+    }
+
+    @Test
+    void controllerEmitsInterruptStatusEvents() {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            when(discoveryAgent.discoverCodebaseSection(anyString(), anyString(), anyString(), anyString()))
+                .thenAnswer(invocation -> {
+                    String nodeId = invocation.getArgument(0);
+                    executor.submit(() -> agentControlController.stop(nodeId));
+                    return new AgentModels.DiscoveryAgentResult(
+                        "discovery-results",
+                        List.of()
+                    );
+                });
+
+            startOrchestration(false);
+
+            DiscoveryNode discovery = graphRepository.findAll().stream()
+                .filter(DiscoveryNode.class::isInstance)
+                .map(DiscoveryNode.class::cast)
+                .findFirst()
+                .orElseThrow();
+
+            awaitInterruptStatus(discovery.nodeId(), AgentModels.InterruptType.STOP);
+
+            GraphNode updated = graphRepository.findById(discovery.nodeId()).orElseThrow();
+            assertThat(updated.status()).isEqualTo(GraphNode.NodeStatus.CANCELED);
+        } finally {
+            executor.shutdown();
+        }
+    }
+
     private void assertExpectedCoreEvents() {
         assertThat(testEventListener.hasEventOfType(Events.NodeAddedEvent.class))
             .isTrue();
@@ -495,5 +638,47 @@ class OrchestratorEndToEndTest extends AgentTestBase {
 
         when(worktreeService.detectMergeConflicts(anyString(), anyString()))
             .thenReturn(List.of());
+    }
+
+    private void awaitInterruptStatus(String nodeId, AgentModels.InterruptType interruptType) {
+        long deadline = System.currentTimeMillis() + 5000L;
+        while (System.currentTimeMillis() < deadline) {
+            boolean found = testEventListener.eventsOfType(Events.InterruptStatusEvent.class).stream()
+                .anyMatch(event -> nodeId.equals(event.nodeId())
+                    && interruptType.name().equals(event.interruptType()));
+            if (found) {
+                return;
+            }
+            try {
+                TimeUnit.MILLISECONDS.sleep(50);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        throw new AssertionError("Interrupt status event not received for node " + nodeId);
+    }
+
+    private TicketNode createRunningTicket(String nodeId) {
+        TicketNode ticket = new TicketNode(
+            nodeId,
+            "Ticket " + nodeId,
+            "Test goal",
+            GraphNode.NodeStatus.RUNNING,
+            null,
+            new ArrayList<>(),
+            new java.util.HashMap<>(),
+            Instant.now(),
+            Instant.now(),
+            new HasWorktree.WorkTree("wt-" + nodeId, "parent", new ArrayList<>()),
+            0,
+            0,
+            "ticket-agent",
+            "",
+            false,
+            0
+        );
+        graphRepository.save(ticket);
+        return ticket;
     }
 }

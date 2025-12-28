@@ -29,12 +29,13 @@ public record PlanningCollectorNode(
         int completedSubtasks,
         List<CollectedNodeStatus> collectedNodes,
         AgentModels.CollectorDecision collectorDecision,
-        AgentModels.PlanningCollectorResult planningCollectorResult
-) implements GraphNode, Viewable<String>, Collector {
+        AgentModels.PlanningCollectorResult planningCollectorResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Collector, Interruptible {
 
     public PlanningCollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> generatedTicketIds, String planContent, int estimatedSubtasks, int completedSubtasks) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, new ArrayList<>(), null, null);
+                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, new ArrayList<>(), null, null, null);
     }
 
     public PlanningCollectorNode {
@@ -110,6 +111,13 @@ public record PlanningCollectorNode(
     public PlanningCollectorNode withCollectedNodes(List<CollectedNodeStatus> nodes) {
         return toBuilder()
                 .collectedNodes(nodes)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public PlanningCollectorNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

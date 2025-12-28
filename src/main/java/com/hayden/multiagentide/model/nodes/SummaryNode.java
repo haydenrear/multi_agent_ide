@@ -30,12 +30,13 @@ public record SummaryNode(
         String summaryContent,
         int totalTasksCompleted,
         int totalTasksFailed,
-        AgentModels.SummaryAgentResult summaryResult
-) implements GraphNode, Viewable<String> {
+        AgentModels.SummaryAgentResult summaryResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Interruptible {
 
     public SummaryNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> summarizedNodeIds, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                summarizedNodeIds, summaryContent, totalTasksCompleted, totalTasksFailed, null);
+                summarizedNodeIds, summaryContent, totalTasksCompleted, totalTasksFailed, null, null);
     }
 
     public SummaryNode {
@@ -90,6 +91,13 @@ public record SummaryNode(
     public SummaryNode withResult(AgentModels.SummaryAgentResult result) {
         return toBuilder()
                 .summaryResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public SummaryNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

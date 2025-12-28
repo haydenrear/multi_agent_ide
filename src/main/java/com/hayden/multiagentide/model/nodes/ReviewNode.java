@@ -32,12 +32,13 @@ public record ReviewNode(
         String agentFeedback,
         String reviewerAgentType,
         Instant reviewCompletedAt,
-        AgentModels.ReviewAgentResult reviewResult
-) implements GraphNode, Viewable<String> {
+        AgentModels.ReviewAgentResult reviewResult,
+        InterruptContext interruptContext
+) implements GraphNode, Viewable<String>, InterruptRecord {
 
     public ReviewNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String reviewedNodeId, String reviewContent, boolean approved, boolean humanFeedbackRequested, String agentFeedback, String reviewerAgentType, Instant reviewCompletedAt) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                reviewedNodeId, reviewContent, approved, humanFeedbackRequested, agentFeedback, reviewerAgentType, reviewCompletedAt, null);
+                reviewedNodeId, reviewContent, approved, humanFeedbackRequested, agentFeedback, reviewerAgentType, reviewCompletedAt, null, null);
     }
 
     public ReviewNode {
@@ -46,11 +47,27 @@ public record ReviewNode(
         if (reviewerAgentType == null || reviewerAgentType.isEmpty()) throw new IllegalArgumentException("reviewerAgentType required");
         if (childNodeIds == null) childNodeIds = new ArrayList<>();
         if (metadata == null) metadata = new HashMap<>();
+        if (interruptContext == null) {
+            AgentModels.InterruptType type = "human".equalsIgnoreCase(reviewerAgentType)
+                    ? AgentModels.InterruptType.HUMAN_REVIEW
+                    : AgentModels.InterruptType.AGENT_REVIEW;
+            interruptContext = new InterruptContext(
+                    type,
+                    InterruptContext.InterruptStatus.REQUESTED,
+                    reviewContent,
+                    reviewedNodeId,
+                    reviewedNodeId,
+                    nodeId,
+                    null
+            );
+        }
     }
 
     @Override
     public NodeType nodeType() {
-        return NodeType.AGENT_REVIEW;
+        return "human".equalsIgnoreCase(reviewerAgentType)
+                ? NodeType.HUMAN_REVIEW
+                : NodeType.AGENT_REVIEW;
     }
 
     @Override

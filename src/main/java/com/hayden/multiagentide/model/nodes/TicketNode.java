@@ -29,14 +29,15 @@ public record TicketNode(
         String workOutput,
         boolean mergeRequired,
         int streamingTokenCount,
-        AgentModels.TicketAgentResult ticketAgentResult
-) implements GraphNode, Viewable<String>, HasWorktree {
+        AgentModels.TicketAgentResult ticketAgentResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, HasWorktree, Interruptible {
 
     public TicketNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds,
                       Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, WorkTree worktree, int completedSubtasks, int totalSubtasks, String agentType, String workOutput, boolean mergeRequired, int streamingTokenCount) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
                 worktree, completedSubtasks, totalSubtasks, agentType,
-                workOutput, mergeRequired, streamingTokenCount, null);
+                workOutput, mergeRequired, streamingTokenCount, null, null);
     }
 
     public TicketNode {
@@ -115,6 +116,13 @@ public record TicketNode(
     public TicketNode withTicketAgentResult(AgentModels.TicketAgentResult result) {
         return toBuilder()
                 .ticketAgentResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public TicketNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

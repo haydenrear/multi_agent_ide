@@ -32,19 +32,20 @@ public record OrchestratorNode(
         List<String> submoduleWorktreeIds,
         String orchestratorOutput,
         List<SubmoduleNode> submodules,
-        AgentModels.OrchestratorAgentResult orchestratorResult
-) implements GraphNode, Viewable<String>, Orchestrator {
+        AgentModels.OrchestratorAgentResult orchestratorResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Orchestrator, Interruptible {
 
     public OrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
-                new ArrayList<>(), null);
+                new ArrayList<>(), null, null);
     }
 
     public OrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String repositoryUrl, String baseBranch, boolean hasSubmodules, List<String> submoduleNames, String mainWorktreeId, List<String> submoduleWorktreeIds, String orchestratorOutput, List<SubmoduleNode> submodules) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
                 repositoryUrl, baseBranch, hasSubmodules, submoduleNames, mainWorktreeId, submoduleWorktreeIds, orchestratorOutput,
-                submodules, null);
+                submodules, null, null);
     }
 
     public OrchestratorNode {
@@ -101,6 +102,13 @@ public record OrchestratorNode(
     public OrchestratorNode withResult(AgentModels.OrchestratorAgentResult result) {
         return toBuilder()
                 .orchestratorResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public OrchestratorNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

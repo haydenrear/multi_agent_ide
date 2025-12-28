@@ -27,12 +27,13 @@ public record PlanningOrchestratorNode(
         String planContent,
         int estimatedSubtasks,
         int completedSubtasks,
-        AgentModels.PlanningOrchestratorResult planningOrchestratorResult
-) implements GraphNode, Viewable<String>, Orchestrator {
+        AgentModels.PlanningOrchestratorResult planningOrchestratorResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Orchestrator, Interruptible {
 
     public PlanningOrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> generatedTicketIds, String planContent, int estimatedSubtasks, int completedSubtasks) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, null);
+                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, null, null);
     }
 
     public PlanningOrchestratorNode {
@@ -99,6 +100,13 @@ public record PlanningOrchestratorNode(
     public PlanningOrchestratorNode withResult(AgentModels.PlanningOrchestratorResult result) {
         return toBuilder()
                 .planningOrchestratorResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public PlanningOrchestratorNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

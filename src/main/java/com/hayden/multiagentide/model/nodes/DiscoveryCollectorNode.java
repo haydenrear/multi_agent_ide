@@ -26,12 +26,13 @@ public record DiscoveryCollectorNode(
         int totalTasksFailed,
         List<CollectedNodeStatus> collectedNodes,
         AgentModels.CollectorDecision collectorDecision,
-        AgentModels.DiscoveryCollectorResult discoveryCollectorResult
-) implements GraphNode, Viewable<String>, Collector {
+        AgentModels.DiscoveryCollectorResult discoveryCollectorResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Collector, Interruptible {
 
     public DiscoveryCollectorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                summaryContent, totalTasksCompleted, totalTasksFailed, new ArrayList<>(), null, null);
+                summaryContent, totalTasksCompleted, totalTasksFailed, new ArrayList<>(), null, null, null);
     }
 
     public DiscoveryCollectorNode {
@@ -82,6 +83,13 @@ public record DiscoveryCollectorNode(
     public DiscoveryCollectorNode withCollectedNodes(List<CollectedNodeStatus> nodes) {
         return toBuilder()
                 .collectedNodes(nodes)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public DiscoveryCollectorNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

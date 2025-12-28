@@ -90,8 +90,28 @@ public class AgentRunner {
                             d,
                             addMessageEvent
                     );
-            case Events.InterruptAgentEvent addMessageEvent -> {
-                throw new RuntimeException("Not implemented!");
+            case Events.PauseEvent pauseEvent ->
+                    handleUserInterrupt(
+                            d,
+                            AgentModels.InterruptType.PAUSE,
+                            pauseEvent.toAddMessage()
+                    );
+            case Events.StopAgentEvent stopAgentEvent ->
+                    handleUserInterrupt(
+                            d,
+                            AgentModels.InterruptType.STOP,
+                            "User stop requested"
+                    );
+            case Events.NodeReviewRequestedEvent reviewRequestedEvent -> {
+                if (d.self instanceof ReviewNode) {
+                    log.error("Received request to review review node.");
+                } else {
+                    handleUserInterrupt(
+                            d,
+                            AgentModels.InterruptType.HUMAN_REVIEW,
+                            reviewRequestedEvent.contentToReview()
+                    );
+                }
             }
             case Events.NodeBranchedEvent branched -> {
                 //              Implement ability to split what the agent is doing in
@@ -108,6 +128,9 @@ public class AgentRunner {
     }
 
     private void graphEvent(AgentDispatchArgs d, GraphNode parent) {
+        if (d.agentEvent instanceof Events.NodeStatusChangedEvent statusChangedEvent) {
+            handleInterruptStatusChange(d.self, statusChangedEvent);
+        }
         switch (d.self) {
             case OrchestratorNode orchestratorNode when isNodeReady(orchestratorNode) -> {
                 this.runOrchestratorAgent(orchestratorNode);
@@ -198,6 +221,8 @@ public class AgentRunner {
             }
             case TicketOrchestratorNode ticketOrchestratorNode -> {
             }
+            case InterruptNode interruptNode -> {
+            }
         }
     }
 
@@ -209,6 +234,9 @@ public class AgentRunner {
             AgentDispatchArgs dispatchArgs,
             Events.AddMessageEvent addMessageEvent
     ) {
+        if (resumeInterruptedNode(dispatchArgs.self, addMessageEvent)) {
+            return;
+        }
         //        TODO: do this for the rest of the node types
         switch (dispatchArgs.self) {
             case DiscoveryNode node -> {
@@ -273,6 +301,8 @@ public class AgentRunner {
             }
             case TicketOrchestratorNode ticketOrchestratorNode -> {
             }
+            case InterruptNode interruptNode -> {
+            }
         }
     }
 
@@ -301,17 +331,424 @@ public class AgentRunner {
                 statusChanged.newStatus() == GraphNode.NodeStatus.COMPLETED;
     }
 
-    private static boolean isDiscoveryMerger(GraphNode node) {
-        return (
-                node.title().contains("Discovery") ||
-                        node.goal().contains("discovery")
+    private void handleUserInterrupt(
+            AgentDispatchArgs dispatchArgs,
+            AgentModels.InterruptType interruptType,
+            String reason
+    ) {
+        GraphNode node = dispatchArgs.self;
+        if (!(node instanceof Interruptible)) {
+            log.warn("Ignoring interrupt for non-interruptible node {}", node.nodeId());
+            return;
+        }
+        if (isTerminalStatus(node.status())
+                && interruptType != AgentModels.InterruptType.STOP
+                && interruptType != AgentModels.InterruptType.PRUNE) {
+            log.warn(
+                    "Ignoring interrupt for node {} in status {}",
+                    node.nodeId(),
+                    node.status()
+            );
+            return;
+        }
+
+        String interruptResult = sendInterruptSequence(node, interruptType, reason);
+        GraphNode withInterrupt = applyInterruptContext(node, interruptType, reason, interruptResult);
+        graphRepository.save(withInterrupt);
+        computationGraphOrchestrator.emitInterruptStatusEvent(
+                node.nodeId(),
+                interruptType.name(),
+                "RESULT_STORED",
+                node.nodeId(),
+                node.nodeId()
+        );
+
+        GraphNode.NodeStatus newStatus = switch (interruptType) {
+            case PAUSE, HUMAN_REVIEW, BRANCH -> GraphNode.NodeStatus.WAITING_INPUT;
+            case AGENT_REVIEW -> GraphNode.NodeStatus.WAITING_REVIEW;
+            case STOP -> GraphNode.NodeStatus.CANCELED;
+            case PRUNE -> GraphNode.NodeStatus.PRUNED;
+        };
+
+        GraphNode updated = updateNodeStatus(withInterrupt, newStatus);
+        graphRepository.save(updated);
+        computationGraphOrchestrator.emitStatusChangeEvent(
+                node.nodeId(),
+                GraphNode.NodeStatus.RUNNING,
+                newStatus,
+                "Interrupt requested: " + interruptType
+        );
+        computationGraphOrchestrator.emitInterruptStatusEvent(
+                node.nodeId(),
+                interruptType.name(),
+                "STATUS_EMITTED",
+                node.nodeId(),
+                node.nodeId()
         );
     }
 
-    private static boolean isPlanningMerger(GraphNode node) {
-        return (
-                node.title().contains("Planning") ||
-                        node.goal().contains("planning")
+    private boolean handleAgentInterrupts(
+            GraphNode node,
+            List<AgentModels.InterruptType> interruptsRequested,
+            String reason,
+            String resultPayload
+    ) {
+        if (interruptsRequested == null || interruptsRequested.isEmpty()) {
+            return false;
+        }
+        if (!(node instanceof Interruptible)) {
+            log.warn("Ignoring interrupt for non-interruptible node {}", node.nodeId());
+            return false;
+        }
+        AgentModels.InterruptType interruptType = interruptsRequested.get(0);
+        GraphNode withInterrupt = applyInterruptContext(node, interruptType, reason, resultPayload);
+        graphRepository.save(withInterrupt);
+        computationGraphOrchestrator.emitInterruptStatusEvent(
+                node.nodeId(),
+                interruptType.name(),
+                "RESULT_STORED",
+                node.nodeId(),
+                node.nodeId()
+        );
+
+        GraphNode.NodeStatus newStatus = switch (interruptType) {
+            case PAUSE, HUMAN_REVIEW, BRANCH -> GraphNode.NodeStatus.WAITING_INPUT;
+            case AGENT_REVIEW -> GraphNode.NodeStatus.WAITING_REVIEW;
+            case STOP -> GraphNode.NodeStatus.CANCELED;
+            case PRUNE -> GraphNode.NodeStatus.PRUNED;
+        };
+
+        GraphNode updated = updateNodeStatus(withInterrupt, newStatus);
+        graphRepository.save(updated);
+        computationGraphOrchestrator.emitStatusChangeEvent(
+                node.nodeId(),
+                GraphNode.NodeStatus.RUNNING,
+                newStatus,
+                "Agent interrupt requested: " + interruptType
+        );
+        computationGraphOrchestrator.emitInterruptStatusEvent(
+                node.nodeId(),
+                interruptType.name(),
+                "STATUS_EMITTED",
+                node.nodeId(),
+                node.nodeId()
+        );
+        return true;
+    }
+
+    private void handleInterruptStatusChange(
+            GraphNode node,
+            Events.NodeStatusChangedEvent statusChangedEvent
+    ) {
+        if (statusChangedEvent.newStatus() == GraphNode.NodeStatus.RUNNING) {
+            return;
+        }
+        if (!isInterruptStatus(statusChangedEvent.newStatus())) {
+            return;
+        }
+        if (!(node instanceof Interruptible interruptible)) {
+            return;
+        }
+        InterruptContext context = interruptible.interruptibleContext();
+        if (context == null) {
+            return;
+        }
+        if (context.interruptNodeId() != null && !context.interruptNodeId().isBlank()) {
+            return;
+        }
+
+        String interruptNodeId = newNodeId();
+        InterruptContext emittedContext = context
+                .withStatus(InterruptContext.InterruptStatus.STATUS_EMITTED)
+                .withInterruptNodeId(interruptNodeId);
+
+        GraphNode interruptNode = switch (context.type()) {
+            case HUMAN_REVIEW, AGENT_REVIEW -> buildReviewInterruptNode(
+                    node,
+                    emittedContext
+            );
+            default -> buildInterruptNode(
+                    node,
+                    emittedContext,
+                    statusChangedEvent.newStatus()
+            );
+        };
+
+        computationGraphOrchestrator.addChildNodeAndEmitEvent(
+                node.nodeId(),
+                interruptNode
+        );
+
+        GraphNode updated = updateNodeInterruptibleContext(node, emittedContext);
+        graphRepository.save(updated);
+    }
+
+    private boolean resumeInterruptedNode(GraphNode node, Events.AddMessageEvent addMessageEvent) {
+        if (node.status() != GraphNode.NodeStatus.WAITING_INPUT
+                && node.status() != GraphNode.NodeStatus.WAITING_REVIEW) {
+            return false;
+        }
+        InterruptContext context = switch (node) {
+            case InterruptRecord interruptNode -> interruptNode.interruptContext();
+            case Interruptible interruptible -> interruptible.interruptibleContext();
+            default -> null;
+        };
+        if (context == null) {
+            return false;
+        }
+
+        Optional<GraphNode> originOpt = graphRepository.findById(context.originNodeId());
+        if (originOpt.isEmpty()) {
+            return false;
+        }
+        GraphNode origin = originOpt.get();
+
+        if (context.type() == AgentModels.InterruptType.BRANCH) {
+            createBranchNode(origin, addMessageEvent.toAddMessage());
+        }
+
+        if (origin instanceof Interruptible) {
+            GraphNode updatedOrigin = updateNodeInterruptibleContext(
+                    origin,
+                    context.withStatus(InterruptContext.InterruptStatus.RESOLVED)
+            );
+            origin = updatedOrigin;
+        }
+
+        GraphNode resumed = updateNodeStatus(origin, GraphNode.NodeStatus.READY);
+        graphRepository.save(resumed);
+        computationGraphOrchestrator.emitStatusChangeEvent(
+                origin.nodeId(),
+                origin.status(),
+                GraphNode.NodeStatus.READY,
+                "Interrupt resolved: " + addMessageEvent.toAddMessage()
+        );
+        computationGraphOrchestrator.emitInterruptStatusEvent(
+                origin.nodeId(),
+                context.type().name(),
+                "RESOLVED",
+                context.originNodeId(),
+                context.resumeNodeId()
+        );
+
+        return true;
+    }
+
+    private void createBranchNode(GraphNode origin, String reason) {
+        String titleSuffix = reason != null && !reason.isBlank() ? " (branch: " + reason + ")" : " (branch)";
+        GraphNode branched = switch (origin) {
+            case DiscoveryNode n -> new DiscoveryNode(
+                    newNodeId(),
+                    n.title() + titleSuffix,
+                    n.goal(),
+                    GraphNode.NodeStatus.READY,
+                    origin.nodeId(),
+                    new ArrayList<>(),
+                    new HashMap<>(n.metadata()),
+                    Instant.now(),
+                    Instant.now(),
+                    "",
+                    0,
+                    0
+            );
+            case PlanningNode n -> new PlanningNode(
+                    newNodeId(),
+                    n.title() + titleSuffix,
+                    n.goal(),
+                    GraphNode.NodeStatus.READY,
+                    origin.nodeId(),
+                    new ArrayList<>(),
+                    new HashMap<>(n.metadata()),
+                    Instant.now(),
+                    Instant.now(),
+                    new ArrayList<>(),
+                    "",
+                    0,
+                    0
+            );
+            case TicketNode n -> new TicketNode(
+                    newNodeId(),
+                    n.title() + titleSuffix,
+                    n.goal(),
+                    GraphNode.NodeStatus.READY,
+                    origin.nodeId(),
+                    new ArrayList<>(),
+                    new HashMap<>(n.metadata()),
+                    Instant.now(),
+                    Instant.now(),
+                    n.worktree(),
+                    0,
+                    0,
+                    n.agentType(),
+                    "",
+                    n.mergeRequired(),
+                    0
+            );
+            default -> null;
+        };
+
+        if (branched == null) {
+            return;
+        }
+
+        computationGraphOrchestrator.addChildNodeAndEmitEvent(
+                origin.nodeId(),
+                branched
+        );
+    }
+
+    private boolean isInterruptStatus(GraphNode.NodeStatus status) {
+        return status == GraphNode.NodeStatus.WAITING_INPUT
+                || status == GraphNode.NodeStatus.WAITING_REVIEW
+                || status == GraphNode.NodeStatus.CANCELED
+                || status == GraphNode.NodeStatus.PRUNED;
+    }
+
+    private GraphNode applyInterruptContext(
+            GraphNode node,
+            AgentModels.InterruptType interruptType,
+            String reason,
+            String result
+    ) {
+        InterruptContext context = new InterruptContext(
+                interruptType,
+                InterruptContext.InterruptStatus.RESULT_STORED,
+                reason,
+                node.nodeId(),
+                node.nodeId(),
+                null,
+                result
+        );
+        return updateNodeInterruptibleContext(node, context);
+    }
+
+    private GraphNode updateNodeMetadata(GraphNode node, Map<String, String> metadata) {
+        return switch (node) {
+            case DiscoveryNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case DiscoveryCollectorNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case DiscoveryOrchestratorNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case PlanningNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case PlanningCollectorNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case PlanningOrchestratorNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case TicketNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case TicketCollectorNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case TicketOrchestratorNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case ReviewNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case MergeNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case OrchestratorNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case CollectorNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case SummaryNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case InterruptNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+        };
+    }
+
+    private GraphNode updateNodeInterruptibleContext(GraphNode node, InterruptContext context) {
+        return switch (node) {
+            case DiscoveryNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case DiscoveryCollectorNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case DiscoveryOrchestratorNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case PlanningNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case PlanningCollectorNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case PlanningOrchestratorNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case TicketNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case TicketCollectorNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case TicketOrchestratorNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case MergeNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case OrchestratorNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case CollectorNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            case SummaryNode n -> n.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build();
+            default -> node;
+        };
+    }
+
+    private String sendInterruptSequence(
+            GraphNode node,
+            AgentModels.InterruptType interruptType,
+            String reason
+    ) {
+        String message = "INTERRUPT: " + interruptType + " - " + reason;
+        try {
+            return switch (node) {
+                case DiscoveryNode n -> discoveryAgent.discoverCodebaseSection(
+                        n.nodeId(),
+                        message,
+                        n.goal(),
+                        n.title()
+                ).output();
+                case PlanningNode n -> planningAgent.decomposePlanAndCreateWorkItems(
+                        n.nodeId(),
+                        message,
+                        n.goal()
+                ).output();
+                case TicketNode n -> ticketAgent.implementTicket(
+                        n.nodeId(),
+                        message,
+                        n.goal(),
+                        "interrupt",
+                        extractDiscoveryContext(n),
+                        extractPlanningContext(n)
+                ).output();
+                case OrchestratorNode n -> orchestratorAgent.coordinateWorkflow(
+                        n.nodeId(),
+                        message,
+                        n.goal(),
+                        "interrupt"
+                ).output();
+                default -> "Interrupt acknowledged";
+            };
+        } catch (Exception e) {
+            log.error("Interrupt sequence failed for node {}", node.nodeId(), e);
+            return "Interrupt sequence failed: " + e.getMessage();
+        }
+    }
+
+    private InterruptNode buildInterruptNode(
+            GraphNode node,
+            InterruptContext context,
+            GraphNode.NodeStatus status
+    ) {
+        return new InterruptNode(
+                context.interruptNodeId(),
+                "Interrupt: " + context.type(),
+                node.goal(),
+                status,
+                node.nodeId(),
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                context
+        );
+    }
+
+    private ReviewNode buildReviewInterruptNode(
+            GraphNode node,
+            InterruptContext context
+    ) {
+        boolean isHuman = context.type() == AgentModels.InterruptType.HUMAN_REVIEW;
+        String reviewerAgentType = isHuman ? "human" : "agent-review";
+        GraphNode.NodeStatus status = isHuman
+                ? GraphNode.NodeStatus.WAITING_INPUT
+                : GraphNode.NodeStatus.READY;
+        return new ReviewNode(
+                context.interruptNodeId(),
+                "Review: " + node.title(),
+                node.goal(),
+                status,
+                node.nodeId(),
+                new ArrayList<>(),
+                new HashMap<>(),
+                Instant.now(),
+                Instant.now(),
+                context.originNodeId(),
+                context.reason(),
+                false,
+                true,
+                "",
+                reviewerAgentType,
+                null,
+                null,
+                context
         );
     }
 
@@ -504,6 +941,15 @@ public class AgentRunner {
                     .withResult(result)
                     .withContent(findings);
             graphRepository.save(withContent);
+
+            if (handleAgentInterrupts(
+                    withContent,
+                    result.interruptsRequested(),
+                    "Discovery interrupt requested",
+                    findings
+            )) {
+                return;
+            }
 
             markNodeCompleted(withContent);
         } catch (Exception e) {
@@ -723,6 +1169,16 @@ public class AgentRunner {
                     .withResult(result)
                     .withPlanContent(plan);
             graphRepository.save(withPlan);
+
+            if (handleAgentInterrupts(
+                    withPlan,
+                    result.interruptsRequested(),
+                    "Planning interrupt requested",
+                    plan
+            )) {
+                return;
+            }
+
             markNodeCompleted(withPlan);
         } catch (Exception e) {
             markNodeFailed(running, e);
@@ -1089,6 +1545,16 @@ public class AgentRunner {
                     .withTicketAgentResult(result)
                     .withOutput(implementation, 0);
             graphRepository.save(withOutput);
+
+            if (handleAgentInterrupts(
+                    withOutput,
+                    result.interruptsRequested(),
+                    "Ticket interrupt requested",
+                    implementation
+            )) {
+                return;
+            }
+
             markNodeCompleted(withOutput);
 
             // Next: Invoke ReviewAgent to review this ticket's implementation

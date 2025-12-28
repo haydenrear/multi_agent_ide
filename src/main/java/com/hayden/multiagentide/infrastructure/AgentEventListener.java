@@ -59,13 +59,16 @@ public class AgentEventListener implements EventListener {
                 log.debug("Node pruned: {}", nodePrunedEvent.eventId());
             }
             case Events.NodeReviewRequestedEvent nodeReviewRequestedEvent -> {
-                log.debug("Review requested for node: {}", nodeReviewRequestedEvent.eventId());
+                doAgentRunner(nodeReviewRequestedEvent);
             }
             case Events.NodeStreamDeltaEvent nodeStreamDeltaEvent -> {
                 log.debug("Node stream delta: {}", nodeStreamDeltaEvent.eventId());
             }
             case Events.NodeUpdatedEvent nodeUpdatedEvent -> {
                 log.debug("Node updated: {}", nodeUpdatedEvent.eventId());
+            }
+            case Events.InterruptStatusEvent interruptStatusEvent -> {
+                log.debug("Interrupt status event: {}", interruptStatusEvent.eventId());
             }
             case Events.WorktreeBranchedEvent worktreeBranchedEvent -> {
                 log.debug("Worktree branched: {}", worktreeBranchedEvent.eventId());
@@ -79,9 +82,11 @@ public class AgentEventListener implements EventListener {
             case Events.WorktreeMergedEvent worktreeMergedEvent -> {
                 log.debug("Worktree merged: {}", worktreeMergedEvent.eventId());
             }
-            case Events.InterruptAgentEvent interruptAgentEvent -> {
+            case Events.StopAgentEvent stopAgentEvent -> {
+                doAgentRunner(stopAgentEvent);
             }
             case Events.PauseEvent pauseEvent -> {
+                doAgentRunner(pauseEvent);
             }
         }
     }

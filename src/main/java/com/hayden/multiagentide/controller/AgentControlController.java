@@ -24,9 +24,9 @@ public class AgentControlController {
         return new ControlActionResponse(actionId, "queued");
     }
 
-    @PostMapping("/{nodeId}/interrupt")
-    public ControlActionResponse interrupt(@PathVariable String nodeId) {
-        String actionId = agentControlService.requestInterrupt(nodeId);
+    @PostMapping("/{nodeId}/stop")
+    public ControlActionResponse stop(@PathVariable String nodeId) {
+        String actionId = agentControlService.requestStop(nodeId);
         return new ControlActionResponse(actionId, "queued");
     }
 

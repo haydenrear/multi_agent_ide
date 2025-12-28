@@ -65,14 +65,14 @@ public interface Events {
         }
     }
 
-    record InterruptAgentEvent(
+    record StopAgentEvent(
             String eventId,
             Instant timestamp,
             String nodeId
     ) implements AgentEvent {
         @Override
         public String eventType() {
-            return "INTERRUPT_AGENT";
+            return "STOP_AGENT";
         }
     }
 
@@ -186,10 +186,28 @@ public interface Events {
             String reviewType,
             // "human", "agent", or specific agent type
             String contentToReview
-    ) implements Events.GraphEvent {
+    ) implements Events.AgentEvent {
         @Override
         public String eventType() {
             return "NODE_REVIEW_REQUESTED";
+        }
+    }
+
+    /**
+     * Emitted when interrupt status changes or is recorded.
+     */
+    record InterruptStatusEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String interruptType,
+            String interruptStatus,
+            String originNodeId,
+            String resumeNodeId
+    ) implements AgentEvent {
+        @Override
+        public String eventType() {
+            return "INTERRUPT_STATUS";
         }
     }
 

@@ -21,9 +21,9 @@ public class AgentControlService {
         return eventId;
     }
 
-    public String requestInterrupt(String nodeId) {
+    public String requestStop(String nodeId) {
         String eventId = UUID.randomUUID().toString();
-        eventBus.publish(new Events.InterruptAgentEvent(eventId, Instant.now(), nodeId));
+        eventBus.publish(new Events.StopAgentEvent(eventId, Instant.now(), nodeId));
         return eventId;
     }
 

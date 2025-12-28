@@ -30,12 +30,15 @@ public record PlanningNode(
         String planContent,
         int estimatedSubtasks,
         int completedSubtasks,
-        AgentModels.PlanningAgentResult planningResult
-) implements GraphNode, Viewable<String> {
+        AgentModels.PlanningAgentResult planningResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Interruptible {
 
-    public PlanningNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> generatedTicketIds, String planContent, int estimatedSubtasks, int completedSubtasks) {
+    public PlanningNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds,
+                        Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, List<String> generatedTicketIds, String planContent,
+                        int estimatedSubtasks, int completedSubtasks) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, null);
+                generatedTicketIds, planContent, estimatedSubtasks, completedSubtasks, null, null);
     }
 
     public PlanningNode {
@@ -102,6 +105,13 @@ public record PlanningNode(
     public PlanningNode withResult(AgentModels.PlanningAgentResult result) {
         return toBuilder()
                 .planningResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public PlanningNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }

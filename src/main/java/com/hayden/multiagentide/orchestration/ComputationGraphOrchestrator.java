@@ -214,6 +214,25 @@ public class ComputationGraphOrchestrator {
         eventBus.publish(event);
     }
 
+    public void emitInterruptStatusEvent(
+            String nodeId,
+            String interruptType,
+            String interruptStatus,
+            String originNodeId,
+            String resumeNodeId
+    ) {
+        Events.InterruptStatusEvent event = new Events.InterruptStatusEvent(
+                UUID.randomUUID().toString(),
+                Instant.now(),
+                nodeId,
+                interruptType,
+                interruptStatus,
+                originNodeId,
+                resumeNodeId
+        );
+        eventBus.publish(event);
+    }
+
     /**
      * Helper to update node children based on type.
      */
@@ -271,6 +290,11 @@ public class ComputationGraphOrchestrator {
                     .childNodeIds(childIds)
                     .lastUpdatedAt(Instant.now())
                     .build();
+            case InterruptNode p ->
+                    p.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
             case MergeNode p ->
                     p.toBuilder()
                             .childNodeIds(childIds)

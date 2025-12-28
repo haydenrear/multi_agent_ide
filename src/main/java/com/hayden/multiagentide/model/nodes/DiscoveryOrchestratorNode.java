@@ -24,12 +24,13 @@ public record DiscoveryOrchestratorNode(
         String summaryContent,
         int totalTasksCompleted,
         int totalTasksFailed,
-        AgentModels.DiscoveryOrchestratorResult discoveryOrchestratorResult
-) implements GraphNode, Viewable<String>, Orchestrator {
+        AgentModels.DiscoveryOrchestratorResult discoveryOrchestratorResult,
+        InterruptContext interruptibleContext
+) implements GraphNode, Viewable<String>, Orchestrator, Interruptible {
 
     public DiscoveryOrchestratorNode(String nodeId, String title, String goal, NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String summaryContent, int totalTasksCompleted, int totalTasksFailed) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
-                summaryContent, totalTasksCompleted, totalTasksFailed, null);
+                summaryContent, totalTasksCompleted, totalTasksFailed, null, null);
     }
 
     public DiscoveryOrchestratorNode {
@@ -71,6 +72,13 @@ public record DiscoveryOrchestratorNode(
     public DiscoveryOrchestratorNode withResult(AgentModels.DiscoveryOrchestratorResult result) {
         return toBuilder()
                 .discoveryOrchestratorResult(result)
+                .lastUpdatedAt(Instant.now())
+                .build();
+    }
+
+    public DiscoveryOrchestratorNode withInterruptibleContext(InterruptContext context) {
+        return toBuilder()
+                .interruptibleContext(context)
                 .lastUpdatedAt(Instant.now())
                 .build();
     }
