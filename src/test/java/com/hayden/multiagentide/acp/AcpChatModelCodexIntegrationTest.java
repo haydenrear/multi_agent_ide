@@ -8,8 +8,10 @@ import com.hayden.multiagentide.agent.LangChain4jAgentTools;
 import com.hayden.multiagentide.model.acp.AcpChatModel;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.AgenticServices;
-import dev.langchain4j.agentic.internal.AgentSpecification;
 import dev.langchain4j.agentic.internal.AgentUtil;
+import dev.langchain4j.agentic.observability.AgentListener;
+import dev.langchain4j.agentic.observability.AgentRequest;
+import dev.langchain4j.agentic.observability.AgentResponse;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
@@ -39,7 +41,7 @@ class AcpChatModelCodexIntegrationTest {
     @Autowired
     private LangChain4jAgentTools tools;
 
-    public interface TestAgent extends AgentSpecification {
+    public interface TestAgent {
         @Agent
         String kickOffAnyNumberOfAgentsForCodeSearch(@MemoryId String memId,
                                                      @UserMessage String msg);
@@ -64,11 +66,16 @@ class AcpChatModelCodexIntegrationTest {
                             .tools(tools)
                             .chatModel(chatModel)
                             .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(1024))
-                            .beforeAgentInvocation(ar -> {
-                                System.out.printf("");
-                            })
-                            .afterAgentInvocation(ar -> {
-                                System.out.printf("");
+                            .listener(new AgentListener() {
+                                @Override
+                                public void beforeAgentInvocation(AgentRequest agentRequest) {
+                                    AgentListener.super.beforeAgentInvocation(agentRequest);
+                                }
+
+                                @Override
+                                public void afterAgentInvocation(AgentResponse agentResponse) {
+                                    AgentListener.super.afterAgentInvocation(agentResponse);
+                                }
                             })
                             .build(),
                     TestAgent.class

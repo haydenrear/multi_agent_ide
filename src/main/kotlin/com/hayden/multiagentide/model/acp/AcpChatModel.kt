@@ -188,8 +188,10 @@ class AcpChatModel(
                 mutableListOf(
                     McpServer.Http("agent-tools", "http://localhost:8080/mcp",
                         mutableListOf(HttpHeader(TOOL_ALLOWLIST_HEADER, "emitGuiEvent"))),
-//                    TODO: add mcp-tool-gateway as Http - Stdio takes too long to start
-//                    McpServer
+                    McpServer.Http("gateway", "http://localhost:8081/mcp",
+                        mutableListOf(
+//                            HttpHeader(TOOL_ALLOWLIST_HEADER, "emitGuiEvent")
+                        )),
                 )
             )
 
@@ -269,14 +271,17 @@ class AcpChatModel(
     )
 
     private class AcpSessionOperations : ClientSessionOperations {
+
         override suspend fun requestPermissions(
             toolCall: SessionUpdate.ToolCallUpdate,
             permissions: List<PermissionOption>,
             _meta: JsonElement?
         ): RequestPermissionResponse {
-            val selection = permissions.firstOrNull()
-                ?: return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, _meta)
-            return RequestPermissionResponse(RequestPermissionOutcome.Selected(selection.optionId), _meta)
+//            val selection = permissions.firstOrNull()
+//                ?: return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, _meta)
+//            return RequestPermissionResponse(RequestPermissionOutcome.Selected(selection.optionId), _meta)
+//
+            return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, _meta)
         }
 
         override suspend fun notify(notification: SessionUpdate, _meta: JsonElement?) {

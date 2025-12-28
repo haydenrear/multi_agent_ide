@@ -10,3 +10,6 @@ This includes for the frontend:
 - Websocket connector and reader - building out the computation graph in memory, and displaying it on the frontend
 - For different types of nodes and content deltas, adding different types of view plugins
 - Adding all the knobs such as interrupt, add message, etc.
+
+
+Add the a2ui https://a2ui.org/transports/#how-it-works data flow for allowing agents to emit events to the UI.

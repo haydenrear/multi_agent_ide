@@ -24,7 +24,6 @@ public class AgentInterfaces {
                 """;
 
         @Agent(value = "Split the goal into tickets according to the discovery context.")
-//       TODO: add discovery context, return
         AgentModels.PlanningOrchestratorResult decomposePlanAndCreateWorkItems(@MemoryId String memId,
                                                                                @UserMessage String msg,
                                                                                @V("goal") String goal);
