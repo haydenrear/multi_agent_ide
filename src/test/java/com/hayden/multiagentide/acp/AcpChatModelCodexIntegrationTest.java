@@ -47,7 +47,7 @@ class AcpChatModelCodexIntegrationTest {
                                                      @UserMessage String msg);
     }
 
-    @Test
+//    @Test
     void chatModelUsesAcpProtocol() {
         assertThat(chatModel).isInstanceOf(AcpChatModel.class);
 

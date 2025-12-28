@@ -314,6 +314,9 @@ class OrchestratorEndToEndTest extends AgentTestBase {
 
         startOrchestration(false);
 
+        verify(discoveryAgent, atLeastOnce())
+            .discoverCodebaseSection(anyString(), anyString(), anyString(), anyString());
+
         DiscoveryNode discovery = graphRepository.findAll().stream()
             .filter(DiscoveryNode.class::isInstance)
             .map(DiscoveryNode.class::cast)
@@ -352,6 +355,11 @@ class OrchestratorEndToEndTest extends AgentTestBase {
 
         startOrchestration(false);
 
+        verify(discoveryAgent, atLeastOnce())
+            .discoverCodebaseSection(anyString(), anyString(), anyString(), anyString());
+        verify(planningAgent, times(0))
+            .decomposePlanAndCreateWorkItems(anyString(), anyString(), anyString());
+
         DiscoveryNode discovery = graphRepository.findAll().stream()
             .filter(DiscoveryNode.class::isInstance)
             .map(DiscoveryNode.class::cast)
@@ -364,6 +372,9 @@ class OrchestratorEndToEndTest extends AgentTestBase {
             discovery.nodeId(),
             "resume"
         ));
+
+        verify(planningAgent, atLeastOnce())
+                .decomposePlanAndCreateWorkItems(anyString(), anyString(), anyString());
 
         PlanningNode planning = graphRepository.findAll().stream()
             .filter(PlanningNode.class::isInstance)
@@ -390,6 +401,9 @@ class OrchestratorEndToEndTest extends AgentTestBase {
 
         startOrchestration(false);
 
+        verify(ticketAgent, atLeastOnce())
+            .implementTicket(anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+
         TicketNode ticket = graphRepository.findAll().stream()
             .filter(TicketNode.class::isInstance)
             .map(TicketNode.class::cast)
@@ -402,6 +416,63 @@ class OrchestratorEndToEndTest extends AgentTestBase {
             .map(InterruptNode.class::cast)
             .anyMatch(node -> node.interruptType() == AgentModels.InterruptType.STOP
                 && ticket.nodeId().equals(node.interruptOriginNodeId()));
+        assertThat(hasInterruptNode).isTrue();
+    }
+
+    @Test
+    void workflowHandlesOrchestratorInterrupt() {
+        when(orchestratorAgent.coordinateWorkflow(anyString(), anyString(), anyString(), anyString()))
+            .thenReturn(new AgentModels.OrchestratorAgentResult(
+                null,
+                List.of(AgentModels.InterruptType.PAUSE),
+                "pause-orchestrator"
+            ));
+
+        OrchestratorNode root = startOrchestration(false);
+        verify(orchestratorAgent, atLeastOnce())
+            .coordinateWorkflow(anyString(), anyString(), anyString(), anyString());
+        assertThat(root.status()).isEqualTo(GraphNode.NodeStatus.WAITING_INPUT);
+
+        boolean hasInterruptNode = graphRepository.findAll().stream()
+            .filter(InterruptNode.class::isInstance)
+            .map(InterruptNode.class::cast)
+            .anyMatch(node -> node.interruptType() == AgentModels.InterruptType.PAUSE
+                && root.nodeId().equals(node.interruptOriginNodeId()));
+        assertThat(hasInterruptNode).isTrue();
+    }
+
+    @Test
+    void workflowHandlesCollectorInterrupt() {
+        AgentModels.CollectorDecision advanceDecision =
+            new AgentModels.CollectorDecision(
+                AgentModels.CollectorDecisionType.ADVANCE_PHASE,
+                "default",
+                "next"
+            );
+        when(discoveryCollector.consolidateDiscoveryFindings(anyString(), anyString(), anyString(), anyString()))
+            .thenReturn(new AgentModels.DiscoveryCollectorResult(
+                "discovery-summary",
+                List.of(AgentModels.InterruptType.STOP),
+                advanceDecision
+            ));
+
+        startOrchestration(false);
+
+        verify(discoveryCollector, atLeastOnce())
+            .consolidateDiscoveryFindings(anyString(), anyString(), anyString(), anyString());
+
+        DiscoveryCollectorNode collector = graphRepository.findAll().stream()
+            .filter(DiscoveryCollectorNode.class::isInstance)
+            .map(DiscoveryCollectorNode.class::cast)
+            .findFirst()
+            .orElseThrow();
+        assertThat(collector.status()).isEqualTo(GraphNode.NodeStatus.CANCELED);
+
+        boolean hasInterruptNode = graphRepository.findAll().stream()
+            .filter(InterruptNode.class::isInstance)
+            .map(InterruptNode.class::cast)
+            .anyMatch(node -> node.interruptType() == AgentModels.InterruptType.STOP
+                && collector.nodeId().equals(node.interruptOriginNodeId()));
         assertThat(hasInterruptNode).isTrue();
     }
 
@@ -420,6 +491,8 @@ class OrchestratorEndToEndTest extends AgentTestBase {
                 });
 
             startOrchestration(false);
+            verify(discoveryAgent, atLeastOnce())
+                .discoverCodebaseSection(anyString(), anyString(), anyString(), anyString());
 
             DiscoveryNode discovery = graphRepository.findAll().stream()
                 .filter(DiscoveryNode.class::isInstance)

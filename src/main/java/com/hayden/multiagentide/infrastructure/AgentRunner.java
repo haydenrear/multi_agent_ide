@@ -779,6 +779,15 @@ public class AgentRunner {
             OrchestratorNode withResult = running.withResult(result);
             graphRepository.save(withResult.withOutput(output));
 
+            if (handleAgentInterrupts(
+                    withResult,
+                    result.interruptsRequested(),
+                    "Orchestrator interrupt requested",
+                    output
+            )) {
+                return;
+            }
+
             // Next: Kick off Discovery phase by invoking DiscoveryOrchestrator
             kickOffDiscoveryPhase(running);
         } catch (Exception e) {
@@ -862,6 +871,15 @@ public class AgentRunner {
                     .withResult(result)
                     .withContent(divisionStrategy);
             graphRepository.save(updated);
+
+            if (handleAgentInterrupts(
+                    updated,
+                    result.interruptsRequested(),
+                    "Discovery orchestrator interrupt requested",
+                    divisionStrategy
+            )) {
+                return;
+            }
 
             // Next: Kick off DiscoveryAgent(s) based on strategy
             kickOffDiscoveryAgents(updated, focusAreas);
@@ -996,6 +1014,16 @@ public class AgentRunner {
                     .withContent(mergedFindings)
                     .withCollectedNodes(collectedNodes);
             graphRepository.save(withContent);
+
+            if (handleAgentInterrupts(
+                    withContent,
+                    result.interruptsRequested(),
+                    "Discovery collector interrupt requested",
+                    mergedFindings
+            )) {
+                return;
+            }
+
             markNodeCompleted(withContent);
 
         } catch (Exception e) {
@@ -1088,6 +1116,15 @@ public class AgentRunner {
                     .withResult(result)
                     .withPlanContent(divisionStrategy);
             graphRepository.save(updated);
+
+            if (handleAgentInterrupts(
+                    updated,
+                    result.interruptsRequested(),
+                    "Planning orchestrator interrupt requested",
+                    divisionStrategy
+            )) {
+                return;
+            }
 
             // Next: Kick off PlanningAgent(s) based on strategy
             kickOffPlanningAgents(updated, planSegments, discoveryContext);
@@ -1224,6 +1261,16 @@ public class AgentRunner {
                     .withPlanContent(tickets)
                     .withCollectedNodes(collectedNodes);
             graphRepository.save(withPlan);
+
+            if (handleAgentInterrupts(
+                    withPlan,
+                    result.interruptsRequested(),
+                    "Planning collector interrupt requested",
+                    tickets
+            )) {
+                return;
+            }
+
             markNodeCompleted(withPlan);
 
         } catch (Exception e) {
@@ -1371,6 +1418,15 @@ public class AgentRunner {
                     .withOutput(orchestrationPlan, 0);
             TicketOrchestratorNode withQueue = persistTicketQueue(withPlan, ticketList);
             graphRepository.save(withQueue);
+
+            if (handleAgentInterrupts(
+                    withQueue,
+                    result.interruptsRequested(),
+                    "Ticket orchestrator interrupt requested",
+                    orchestrationPlan
+            )) {
+                return;
+            }
 
             if (ticketList.isEmpty()) {
                 markNodeCompleted(withQueue);
@@ -1589,6 +1645,16 @@ public class AgentRunner {
                     .withSummary(summary)
                     .withCollectedNodes(collectedNodes);
             graphRepository.save(withSummary);
+
+            if (handleAgentInterrupts(
+                    withSummary,
+                    result.interruptsRequested(),
+                    "Ticket collector interrupt requested",
+                    summary
+            )) {
+                return;
+            }
+
             markNodeCompleted(withSummary);
         } catch (Exception e) {
             markNodeFailed(running, e);
@@ -1664,6 +1730,15 @@ public class AgentRunner {
                     .withResult(result)
                     .withReviewDecision(approved, evaluation);
             graphRepository.save(withDecision);
+
+            if (handleAgentInterrupts(
+                    withDecision,
+                    result.interruptsRequested(),
+                    "Review interrupt requested",
+                    evaluation
+            )) {
+                return;
+            }
 
             if (humanNeeded && !approved) {
                 ReviewNode waiting = updateNodeStatus(
@@ -1857,6 +1932,15 @@ public class AgentRunner {
                 .withResult(agentResult)
                 .withContent(combinedSummary);
         graphRepository.save(withContent);
+
+        if (handleAgentInterrupts(
+                withContent,
+                agentResult.interruptsRequested(),
+                "Merge interrupt requested",
+                combinedSummary
+        )) {
+            return true;
+        }
 
         if (agentResult.isNeedingAgentReview()) {
             throw new RuntimeException("Did nto implement yet!");
