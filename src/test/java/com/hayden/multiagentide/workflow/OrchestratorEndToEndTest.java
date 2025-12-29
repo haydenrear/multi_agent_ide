@@ -5,7 +5,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import com.embabel.agent.api.annotation.support.ActionQosProvider;
 import com.embabel.agent.api.common.OperationContext;
+import com.embabel.agent.api.common.Transformation;
+import com.embabel.agent.core.ActionQos;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.agent.AgentModels;
@@ -35,6 +38,7 @@ import com.hayden.multiagentide.service.WorktreeService;
 import com.hayden.multiagentide.support.AgentTestBase;
 import com.hayden.multiagentide.support.TestEventListener;
 
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -67,6 +71,18 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         TestEventListener testEventListener() {
             return new TestEventListener();
         }
+
+        @Bean
+        public ActionQosProvider actionQosProvider() {
+            return new ActionQosProvider() {
+                @Override
+                public @org.jspecify.annotations.NonNull ActionQos provideActionQos(@org.jspecify.annotations.NonNull Method method,
+                                                                                    @org.jspecify.annotations.NonNull Object instance) {
+                    return new ActionQos(1, 1000, 5, 60000, false);
+                }
+            };
+        }
+
     }
 
     @Autowired
@@ -601,11 +617,12 @@ class OrchestratorEndToEndTest extends AgentTestBase {
                 .performMerge(any(AgentInterfaces.MergerAgentInput.class), any(OperationContext.class));
     }
 
-//    @Test takes too long to run, need to override Qos in action, but kind of hard to do
+    @Test
     void orchestratorCapturesFailureMetadata() {
         stubWorktreeService(false);
         when(discoveryAgent.discoverCodebaseSection(any(AgentInterfaces.DiscoveryAgentInput.class), any(OperationContext.class)))
                 .thenThrow(new RuntimeException("discovery failed"));
+
 
         lifecycleHandler.initializeOrchestrator(
                 "repo-url",

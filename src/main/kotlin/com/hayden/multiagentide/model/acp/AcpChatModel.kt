@@ -9,6 +9,7 @@ import com.agentclientprotocol.common.SessionCreationParameters
 import com.agentclientprotocol.model.*
 import com.agentclientprotocol.protocol.Protocol
 import com.agentclientprotocol.transport.Transport
+import com.embabel.agent.api.common.agentTransformer
 import com.hayden.multiagentide.config.AcpModelProperties
 import io.modelcontextprotocol.server.IdeMcpAsyncServer.TOOL_ALLOWLIST_HEADER
 import io.modelcontextprotocol.spec.McpSchema
@@ -153,6 +154,7 @@ class AcpChatModel(
                 }
             }
         }
+
 
         ChatResponse.builder()
             .generations(mutableListOf(Generation(AssistantMessage(responseText.stream().collect(Collectors.joining())))))
