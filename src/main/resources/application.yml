@@ -44,6 +44,7 @@ logging:
     root: INFO
     org.springframework.web: DEBUG
     com.hayden.multiagentide: DEBUG
+    com.embabel.agent: DEBUG
     dev.langchain4j: DEBUG
 otel:
   sdk:
@@ -58,3 +59,9 @@ management:
     logging:
       export:
         enabled: false
+embabel:
+  agent:
+    platform:
+      scanning:
+        bean: false
+        annotation: false

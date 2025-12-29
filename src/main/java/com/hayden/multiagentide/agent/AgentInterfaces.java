@@ -4,6 +4,7 @@ import com.embabel.agent.api.annotation.AchievesGoal;
 import com.embabel.agent.api.annotation.Action;
 import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.common.OperationContext;
+import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.Objects;
@@ -12,66 +13,66 @@ import java.util.Objects;
  * Embabel @Agent definitions for multi-agent IDE.
  * Each agent currently exposes a single action.
  */
-public sealed interface AgentInterfaces {
+public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, AgentInterfaces.ContextCollectorAgent, AgentInterfaces.ContextOrchestratorAgent, AgentInterfaces.DiscoveryAgent, AgentInterfaces.DiscoveryCollector, AgentInterfaces.DiscoveryOrchestrator, AgentInterfaces.MergerAgent, AgentInterfaces.OrchestratorAgent, AgentInterfaces.OrchestratorCollectorAgent, AgentInterfaces.PlanningAgent, AgentInterfaces.PlanningCollector, AgentInterfaces.ReviewAgent, AgentInterfaces.TicketAgent, AgentInterfaces.TicketCollector, AgentInterfaces.TicketOrchestrator, AgentInterfaces.PlanningOrchestrator {
 
-    String agentName();
+    String multiAgentAgentName();
 
-    public static final String ORCHESTRATOR_AGENT_NAME = "OrchestratorAgent";
-    public static final String DISCOVERY_ORCHESTRATOR_AGENT_NAME = "DiscoveryOrchestrator";
-    public static final String DISCOVERY_AGENT_NAME = "DiscoveryAgent";
-    public static final String DISCOVERY_COLLECTOR_AGENT_NAME = "DiscoveryCollector";
-    public static final String PLANNING_ORCHESTRATOR_AGENT_NAME = "PlanningOrchestrator";
-    public static final String PLANNING_AGENT_NAME = "PlanningAgent";
-    public static final String PLANNING_COLLECTOR_AGENT_NAME = "PlanningCollector";
-    public static final String TICKET_ORCHESTRATOR_AGENT_NAME = "TicketOrchestrator";
-    public static final String TICKET_AGENT_NAME = "TicketAgent";
-    public static final String TICKET_COLLECTOR_AGENT_NAME = "TicketCollector";
-    public static final String MERGER_AGENT_NAME = "MergerAgent";
-    public static final String REVIEW_AGENT_NAME = "ReviewAgent";
-    public static final String ORCHESTRATOR_COLLECTOR_AGENT_NAME = "OrchestratorCollectorAgent";
-    public static final String CONTEXT_ORCHESTRATOR_AGENT_NAME = "ContextOrchestratorAgent";
-    public static final String CONTEXT_AGENT_NAME = "ContextAgent";
-    public static final String CONTEXT_COLLECTOR_AGENT_NAME = "ContextCollectorAgent";
+    String ORCHESTRATOR_AGENT_NAME = "OrchestratorAgent";
+    String DISCOVERY_ORCHESTRATOR_AGENT_NAME = "DiscoveryOrchestrator";
+    String DISCOVERY_AGENT_NAME = "DiscoveryAgent";
+    String DISCOVERY_COLLECTOR_AGENT_NAME = "DiscoveryCollector";
+    String PLANNING_ORCHESTRATOR_AGENT_NAME = "PlanningOrchestrator";
+    String PLANNING_AGENT_NAME = "PlanningAgent";
+    String PLANNING_COLLECTOR_AGENT_NAME = "PlanningCollector";
+    String TICKET_ORCHESTRATOR_AGENT_NAME = "TicketOrchestrator";
+    String TICKET_AGENT_NAME = "TicketAgent";
+    String TICKET_COLLECTOR_AGENT_NAME = "TicketCollector";
+    String MERGER_AGENT_NAME = "MergerAgent";
+    String REVIEW_AGENT_NAME = "ReviewAgent";
+    String ORCHESTRATOR_COLLECTOR_AGENT_NAME = "OrchestratorCollectorAgent";
+    String CONTEXT_ORCHESTRATOR_AGENT_NAME = "ContextOrchestratorAgent";
+    String CONTEXT_AGENT_NAME = "ContextAgent";
+    String CONTEXT_COLLECTOR_AGENT_NAME = "ContextCollectorAgent";
 
-    public static final OrchestratorAgent ORCHESTRATOR_AGENT = new OrchestratorAgent();
-    public static final DiscoveryOrchestrator DISCOVERY_ORCHESTRATOR_AGENT = new DiscoveryOrchestrator();
-    public static final DiscoveryAgent DISCOVERY_AGENT = new DiscoveryAgent();
-    public static final DiscoveryCollector DISCOVERY_COLLECTOR_AGENT = new DiscoveryCollector();
-    public static final PlanningOrchestrator PLANNING_ORCHESTRATOR_AGENT = new PlanningOrchestrator();
-    public static final PlanningAgent PLANNING_AGENT = new PlanningAgent();
-    public static final PlanningCollector PLANNING_COLLECTOR_AGENT = new PlanningCollector();
-    public static final TicketOrchestrator TICKET_ORCHESTRATOR_AGENT = new TicketOrchestrator();
-    public static final TicketAgent TICKET_AGENT = new TicketAgent();
-    public static final TicketCollector TICKET_COLLECTOR_AGENT = new TicketCollector();
-    public static final MergerAgent MERGER_AGENT = new MergerAgent();
-    public static final ReviewAgent REVIEW_AGENT = new ReviewAgent ();
-    public static final OrchestratorCollectorAgent ORCHESTRATOR_COLLECTOR_AGENT = new OrchestratorCollectorAgent();
-    public static final ContextOrchestratorAgent CONTEXT_ORCHESTRATOR_AGENT = new ContextOrchestratorAgent();
-    public static final ContextAgent CONTEXT_AGENT = new ContextAgent();
-    public static final ContextCollectorAgent CONTEXT_COLLECTOR_AGENT = new ContextCollectorAgent();
+    OrchestratorAgent ORCHESTRATOR_AGENT = new OrchestratorAgent();
+    DiscoveryOrchestrator DISCOVERY_ORCHESTRATOR_AGENT = new DiscoveryOrchestrator();
+    DiscoveryAgent DISCOVERY_AGENT = new DiscoveryAgent();
+    DiscoveryCollector DISCOVERY_COLLECTOR_AGENT = new DiscoveryCollector();
+    PlanningOrchestrator PLANNING_ORCHESTRATOR_AGENT = new PlanningOrchestrator();
+    PlanningAgent PLANNING_AGENT = new PlanningAgent();
+    PlanningCollector PLANNING_COLLECTOR_AGENT = new PlanningCollector();
+    TicketOrchestrator TICKET_ORCHESTRATOR_AGENT = new TicketOrchestrator();
+    TicketAgent TICKET_AGENT = new TicketAgent();
+    TicketCollector TICKET_COLLECTOR_AGENT = new TicketCollector();
+    MergerAgent MERGER_AGENT = new MergerAgent();
+    ReviewAgent REVIEW_AGENT = new ReviewAgent ();
+    OrchestratorCollectorAgent ORCHESTRATOR_COLLECTOR_AGENT = new OrchestratorCollectorAgent();
+    ContextOrchestratorAgent CONTEXT_ORCHESTRATOR_AGENT = new ContextOrchestratorAgent();
+    ContextAgent CONTEXT_AGENT = new ContextAgent();
+    ContextCollectorAgent CONTEXT_COLLECTOR_AGENT = new ContextCollectorAgent();
 
-    public record OrchestratorInput(String goal, String phase) {
+    record OrchestratorInput(String goal, String phase) {
     }
 
-    public record DiscoveryOrchestratorInput(String goal) {
+    record DiscoveryOrchestratorInput(String goal) {
     }
 
-    public record DiscoveryAgentInput(String goal, String subdomainFocus) {
+    record DiscoveryAgentInput(String goal, String subdomainFocus) {
     }
 
-    public record DiscoveryCollectorInput(String goal, String discoveryResults) {
+    record DiscoveryCollectorInput(String goal, String discoveryResults) {
     }
 
-    public record PlanningOrchestratorInput(String goal) {
+    record PlanningOrchestratorInput(String goal) {
     }
 
-    public record PlanningAgentInput(String goal) {
+    record PlanningAgentInput(String goal) {
     }
 
-    public record PlanningCollectorInput(String goal, String planningResults) {
+    record PlanningCollectorInput(String goal, String planningResults) {
     }
 
-    public record TicketOrchestratorInput(
+    record TicketOrchestratorInput(
             String goal,
             String tickets,
             String discoveryContext,
@@ -79,7 +80,7 @@ public sealed interface AgentInterfaces {
     ) {
     }
 
-    public record TicketAgentInput(
+    record TicketAgentInput(
             String ticketDetails,
             String ticketDetailsFilePath,
             String discoveryContext,
@@ -87,28 +88,28 @@ public sealed interface AgentInterfaces {
     ) {
     }
 
-    public record TicketCollectorInput(String goal, String ticketResults) {
+    record TicketCollectorInput(String goal, String ticketResults) {
     }
 
-    public record MergerAgentInput(String mergeContext, String mergeSummary, String conflictFiles) {
+    record MergerAgentInput(String mergeContext, String mergeSummary, String conflictFiles) {
     }
 
-    public record ReviewAgentInput(String content, String criteria) {
+    record ReviewAgentInput(String content, String criteria) {
     }
 
-    public record OrchestratorCollectorInput(String goal, String phase) {
+    record OrchestratorCollectorInput(String goal, String phase) {
     }
 
-    public record ContextOrchestratorInput(String goal, String phase) {
+    record ContextOrchestratorInput(String goal, String phase) {
     }
 
-    public record ContextAgentInput(String goal, String phase) {
+    record ContextAgentInput(String goal, String phase) {
     }
 
-    public record ContextCollectorInput(String goal, String phase) {
+    record ContextCollectorInput(String goal, String phase) {
     }
 
-    private static String renderTemplate(String template, Map<String, String> values) {
+    public static String renderTemplate(String template, Map<String, String> values) {
         String rendered = template;
         for (var entry : values.entrySet()) {
             rendered = rendered.replace(
@@ -122,7 +123,7 @@ public sealed interface AgentInterfaces {
     @Agent(name = ORCHESTRATOR_AGENT_NAME, description = "Coordinates multiple agents to accomplish complex goals")
     record OrchestratorAgent() implements AgentInterfaces {
 
-        public String agentName() {
+        public String multiAgentAgentName() {
             return ORCHESTRATOR_AGENT_NAME;
         }
 
@@ -131,7 +132,6 @@ public sealed interface AgentInterfaces {
 
                 Goal: {{goal}}
                 Current phase: {{phase}}
-                Available agents: planning, editor, merger, review
 
                 Determine:
                 1. Next agent to invoke
@@ -153,91 +153,10 @@ public sealed interface AgentInterfaces {
         }
     }
 
-    @Agent(name = DISCOVERY_ORCHESTRATOR_AGENT_NAME, description = "Coordinates discovery work across agents")
-    record DiscoveryOrchestrator() implements AgentInterfaces {
-
-        public String agentName() {
-            return DISCOVERY_ORCHESTRATOR_AGENT_NAME;
-        }
-
-        public static final String DISCOVERY_ORCHESTRATOR_START_MESSAGE = """
-                Coordinate the following multi-agent workflow:
-
-                Goal: {{goal}}
-
-                Based on this information and files you find on the repository, or information about the ticket,
-                decide how to divide up the discovery phase of the workflow.
-
-                For example, based on the ticket, you may need to divide up to retrieve information about multiple
-                libraries, or modules, or the repository may be too big for one agent, so you decide how to divide
-                up this work.
-
-                Return how many agents to use to perform the discovery, and how to divide up the work, including an
-                an addition to the goal to send that agent.
-                """;
-
-        @Action
-        @AchievesGoal(description = "Create a discovery delegation plan")
-        public AgentModels.DiscoveryOrchestratorResult kickOffAnyNumberOfAgentsForCodeSearch(
-                DiscoveryOrchestratorInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    DISCOVERY_ORCHESTRATOR_START_MESSAGE,
-                    Map.of("goal", input.goal())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.DiscoveryOrchestratorResult.class);
-        }
-    }
-
-    @Agent(name = DISCOVERY_AGENT_NAME, description = "Discovers and analyzes codebase structure for specific domains")
-    record DiscoveryAgent() implements AgentInterfaces {
-        public String agentName() {
-            return DISCOVERY_AGENT_NAME;
-        }
-
-        public static final String DISCOVERY_AGENT_START_MESSAGE = """
-                Discover and analyze the codebase for the following subdomain:
-
-                Overall Goal: {{goal}}
-                Subdomain Focus: {{subdomainFocus}}
-
-                Use your tools to:
-                1. Search for relevant files and modules
-                2. Analyze key source files
-                3. Understand dependencies and imports
-                4. Identify architectural patterns
-                5. Document test patterns
-
-                Generate comprehensive discovery findings including:
-                - Module overview
-                - Key classes and responsibilities
-                - Data flow patterns
-                - Integration points
-                - Technology stack
-                - Test patterns
-
-                Return findings as structured document suitable for merging.
-                """;
-
-        @Action
-        @AchievesGoal(description = "Discover codebase section")
-        public AgentModels.DiscoveryAgentResult discoverCodebaseSection(
-                DiscoveryAgentInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    DISCOVERY_AGENT_START_MESSAGE,
-                    Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.DiscoveryAgentResult.class);
-        }
-    }
-
     @Agent(name = DISCOVERY_COLLECTOR_AGENT_NAME, description = "Consolidates discovery findings into unified codebase understanding")
     record DiscoveryCollector() implements AgentInterfaces {
 
-        public String agentName() {
+        public String multiAgentAgentName() {
             return DISCOVERY_COLLECTOR_AGENT_NAME;
         }
 
@@ -276,43 +195,10 @@ public sealed interface AgentInterfaces {
         }
     }
 
-    @Agent(name = PLANNING_ORCHESTRATOR_AGENT_NAME, description = "Split the goal into tickets according to the discovery context")
-    record PlanningOrchestrator() implements AgentInterfaces {
-
-
-        public static final String PLANNING_ORCHESTRATOR_MESSAGE = """
-                Decompose the planning for the goal according to the results from discovery.
-                Define tickets and update the spec file in .specify/.../spec.md.
-
-                Then, for each ticket, return the information to be provided to the planning agent to
-                plan for this ticket.
-
-                Goal: {{goal}}
-                """;
-
-        @Action
-        @AchievesGoal(description = "Create planning delegation plan")
-        public AgentModels.PlanningOrchestratorResult decomposePlanAndCreateWorkItems(
-                PlanningOrchestratorInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    PLANNING_ORCHESTRATOR_MESSAGE,
-                    Map.of("goal", input.goal())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.PlanningOrchestratorResult.class);
-        }
-
-        @Override
-        public String agentName() {
-            return PLANNING_ORCHESTRATOR_AGENT_NAME;
-        }
-    }
-
     @Agent(name = PLANNING_AGENT_NAME, description = "Decomposes high-level goals into structured work items")
     record PlanningAgent() implements AgentInterfaces {
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return PLANNING_AGENT_NAME;
         }
 
@@ -344,7 +230,7 @@ public sealed interface AgentInterfaces {
     @Agent(name = PLANNING_COLLECTOR_AGENT_NAME, description = "Consolidates planning outputs into structured tickets")
     record PlanningCollector() implements AgentInterfaces {
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return PLANNING_COLLECTOR_AGENT_NAME;
         }
 
@@ -385,7 +271,7 @@ public sealed interface AgentInterfaces {
     record TicketOrchestrator() implements AgentInterfaces {
 
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return TICKET_ORCHESTRATOR_AGENT_NAME;
         }
 
@@ -474,7 +360,7 @@ public sealed interface AgentInterfaces {
         }
 
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return TICKET_AGENT_NAME;
         }
     }
@@ -483,7 +369,7 @@ public sealed interface AgentInterfaces {
     record TicketCollector() implements AgentInterfaces {
 
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return TICKET_COLLECTOR_AGENT_NAME;
         }
 
@@ -522,7 +408,7 @@ public sealed interface AgentInterfaces {
     record MergerAgent() implements AgentInterfaces {
 
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return MERGER_AGENT_NAME;
         }
 
@@ -563,7 +449,7 @@ public sealed interface AgentInterfaces {
     record ReviewAgent() implements AgentInterfaces {
 
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return REVIEW_AGENT_NAME;
         }
 
@@ -604,7 +490,7 @@ public sealed interface AgentInterfaces {
     record OrchestratorCollectorAgent() implements AgentInterfaces {
 
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return ORCHESTRATOR_COLLECTOR_AGENT_NAME;
         }
 
@@ -636,7 +522,7 @@ public sealed interface AgentInterfaces {
     record ContextOrchestratorAgent() implements AgentInterfaces {
 
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return CONTEXT_ORCHESTRATOR_AGENT_NAME;
         }
 
@@ -665,7 +551,7 @@ public sealed interface AgentInterfaces {
     record ContextAgent() implements AgentInterfaces {
 
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return CONTEXT_AGENT_NAME;
         }
 
@@ -694,7 +580,7 @@ public sealed interface AgentInterfaces {
     record ContextCollectorAgent() implements AgentInterfaces {
 
         @Override
-        public String agentName() {
+        public String multiAgentAgentName() {
             return CONTEXT_COLLECTOR_AGENT_NAME;
         }
 
@@ -713,6 +599,122 @@ public sealed interface AgentInterfaces {
                     Map.of("goal", input.goal(), "phase", input.phase())
             );
             return context.ai().withDefaultLlm().createObject(prompt, AgentModels.ContextCollectorResult.class);
+        }
+    }
+
+    @Agent(name = DISCOVERY_AGENT_NAME, description = "Discovers and analyzes codebase structure for specific domains")
+    record DiscoveryAgent() implements AgentInterfaces {
+        public String multiAgentAgentName() {
+            return DISCOVERY_AGENT_NAME;
+        }
+
+        public static final String DISCOVERY_AGENT_START_MESSAGE = """
+                Discover and analyze the codebase for the following subdomain:
+                
+                Overall Goal: {{goal}}
+                Subdomain Focus: {{subdomainFocus}}
+                
+                Use your tools to:
+                1. Search for relevant files and modules
+                2. Analyze key source files
+                3. Understand dependencies and imports
+                4. Identify architectural patterns
+                5. Document test patterns
+                
+                Generate comprehensive discovery findings including:
+                - Module overview
+                - Key classes and responsibilities
+                - Data flow patterns
+                - Integration points
+                - Technology stack
+                - Test patterns
+                
+                Return findings as structured document suitable for merging.
+                """;
+
+        @Action
+        @AchievesGoal(description = "Discover codebase section")
+        public AgentModels.DiscoveryAgentResult discoverCodebaseSection(
+                DiscoveryAgentInput input,
+                OperationContext context
+        ) {
+            String prompt = AgentInterfaces.renderTemplate(
+                    DISCOVERY_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.DiscoveryAgentResult.class);
+        }
+    }
+
+    @Agent(name = DISCOVERY_ORCHESTRATOR_AGENT_NAME, description = "Coordinates discovery work across agents")
+    record DiscoveryOrchestrator() implements AgentInterfaces {
+
+        public String multiAgentAgentName() {
+            return DISCOVERY_ORCHESTRATOR_AGENT_NAME;
+        }
+
+        public static final String DISCOVERY_ORCHESTRATOR_START_MESSAGE = """
+                Coordinate the following multi-agent workflow:
+                
+                Goal: {{goal}}
+                
+                Based on this information and files you find on the repository, or information about the ticket,
+                decide how to divide up the discovery phase of the workflow.
+                
+                For example, based on the ticket, you may need to divide up to retrieve information about multiple
+                libraries, or modules, or the repository may be too big for one agent, so you decide how to divide
+                up this work.
+                
+                Return how many agents to use to perform the discovery, and how to divide up the work, including an
+                an addition to the goal to send that agent.
+                """;
+
+        @Action
+        @AchievesGoal(description = "Create a discovery delegation plan")
+        public AgentModels.DiscoveryOrchestratorResult kickOffAnyNumberOfAgentsForCodeSearch(
+                DiscoveryOrchestratorInput input,
+                OperationContext context
+        ) {
+            String prompt = AgentInterfaces.renderTemplate(
+                    DISCOVERY_ORCHESTRATOR_START_MESSAGE,
+                    Map.of("goal", input.goal())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.DiscoveryOrchestratorResult.class);
+        }
+    }
+
+    @Agent(name = PLANNING_ORCHESTRATOR_AGENT_NAME,
+            description = "Split the goal into tickets according to the discovery context")
+    @Component(PLANNING_ORCHESTRATOR_AGENT_NAME)
+    record PlanningOrchestrator() implements AgentInterfaces {
+
+
+        public static final String PLANNING_ORCHESTRATOR_MESSAGE = """
+                Decompose the planning for the goal according to the results from discovery.
+                Define tickets and update the spec file in .specify/.../spec.md.
+                
+                Then, for each ticket, return the information to be provided to the planning agent to
+                plan for this ticket.
+                
+                Goal: {{goal}}
+                """;
+
+        @Action
+        @AchievesGoal(description = "Create planning delegation plan")
+        public AgentModels.PlanningOrchestratorResult decomposePlanAndCreateWorkItems(
+                PlanningOrchestratorInput input,
+                OperationContext context
+        ) {
+            String prompt = AgentInterfaces.renderTemplate(
+                    PLANNING_ORCHESTRATOR_MESSAGE,
+                    Map.of("goal", input.goal())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.PlanningOrchestratorResult.class);
+        }
+
+        @Override
+        public String multiAgentAgentName() {
+            return PLANNING_ORCHESTRATOR_AGENT_NAME;
         }
     }
 }

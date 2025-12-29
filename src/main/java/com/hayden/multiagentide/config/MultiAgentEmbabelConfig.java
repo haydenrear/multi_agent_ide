@@ -1,23 +1,24 @@
 package com.hayden.multiagentide.config;
 
-import com.embabel.agent.core.Agent;
+import com.embabel.agent.api.annotation.support.AgentMetadataReader;
+import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.AgentProcess;
-import com.embabel.agent.core.ProcessOptions;
 import com.embabel.agent.spi.AgentProcessIdGenerator;
 import com.embabel.common.ai.model.Llm;
 import com.embabel.common.ai.model.LlmOptions;
 import com.embabel.common.ai.model.OptionsConverter;
+import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.model.acp.AcpChatModel;
 import com.hayden.multiagentide.model.acp.AcpChatRequestParameters;
 import com.hayden.multiagentide.model.acp.ChatMemoryContext;
-import com.hayden.multiagentide.model.acp.DefaultChatMemoryContext;
-import org.jetbrains.annotations.NotNull;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.StreamingChatModel;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,14 +27,16 @@ import org.springframework.util.StringUtils;
 import reactor.util.annotation.NonNull;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
  * Embabel configuration for chat models and LLM integration.
  */
+@Slf4j
 @Configuration
 @EnableConfigurationProperties(AcpModelProperties.class)
-public class EmbabelConfiguration {
+public class MultiAgentEmbabelConfig {
 
     @Value("${langchain4j.openai.chat-model.api-key:}")
     private String apiKey;
@@ -44,11 +47,21 @@ public class EmbabelConfiguration {
     private volatile AcpChatModel acpChatModel;
 
     @Bean
-    public ChatMemoryContext chatMemoryContext() {
-        return new DefaultChatMemoryContext();
+    public CommandLineRunner deployAgents(List<AgentInterfaces> agentInterfaces,
+                                          AgentPlatform agentPlatform,
+                                          AgentMetadataReader agentMetadataReader) {
+        for (AgentInterfaces agentInterface : agentInterfaces) {
+            Optional.ofNullable(agentMetadataReader.createAgentMetadata(agentInterface))
+                    .ifPresentOrElse(agentPlatform::deploy, () -> log.error("Error deploying {} - could not create agent metadata.", agentInterface));
+
+        }
+        return args -> {
+        };
     }
 
+
     @Bean
+    @Primary
     public AgentProcessIdGenerator nodeIdAgentProcessIdGenerator() {
         return (agent, processOptions) -> Optional.ofNullable(processOptions.getContextIdString())
                 .orElseGet(() -> AgentProcessIdGenerator.Companion.getRANDOM().createProcessId(agent, processOptions));

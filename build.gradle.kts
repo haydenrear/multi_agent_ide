@@ -17,6 +17,7 @@ dependencies {
     implementation("com.ag-ui.community:kotlin-core-jvm:0.2.4")
     implementation("com.embabel.agent:embabel-agent-starter-openai:0.3.1")
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")
+    implementation("org.jspecify:jspecify:1.0.0")
     implementation(project(":utilitymodule"))
     implementation(project(":commit-diff-context"))
     implementation(project(":commit-diff-model"))
