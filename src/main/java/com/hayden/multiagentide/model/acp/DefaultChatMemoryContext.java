@@ -1,25 +1,30 @@
 package com.hayden.multiagentide.model.acp;
 
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.memory.chat.ChatMemoryProvider;
-import dev.langchain4j.service.memory.ChatMemoryService;
-import java.util.List;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Component
 public class DefaultChatMemoryContext implements ChatMemoryContext {
 
-    private final ChatMemoryService chatMemoryService;
-
-    public DefaultChatMemoryContext(ChatMemoryProvider chatMemoryProvider) {
-        this.chatMemoryService = new ChatMemoryService(chatMemoryProvider);
-    }
+    private final Map<Object, List<Message>> messageStore = new ConcurrentHashMap<>();
 
     @Override
-    public List<ChatMessage> getMessages(Object memoryId) {
+    public List<Message> getMessages(Object memoryId) {
         if (memoryId == null) {
             return List.of();
         }
-        ChatMemory chatMemory = chatMemoryService.getOrCreateChatMemory(memoryId);
-        return chatMemory.messages();
+        return messageStore.getOrDefault(memoryId, List.of());
+    }
+
+    public void recordMessages(Object memoryId, List<Message> messages) {
+        if (memoryId == null || messages == null || messages.isEmpty()) {
+            return;
+        }
+        messageStore.put(memoryId, new ArrayList<>(messages));
     }
 }

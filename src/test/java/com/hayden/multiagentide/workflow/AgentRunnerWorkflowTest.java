@@ -1,9 +1,11 @@
 package com.hayden.multiagentide.workflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.embabel.agent.api.common.OperationContext;
+import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentModels;
 import com.hayden.multiagentide.infrastructure.AgentRunner;
 import com.hayden.multiagentide.model.MergeResult;
@@ -62,10 +64,8 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         graphRepository.save(reviewNode);
 
         when(reviewAgent.evaluateContent(
-            anyString(),
-            anyString(),
-            anyString(),
-            anyString()
+            any(AgentInterfaces.ReviewAgentInput.class),
+            any(OperationContext.class)
         )).thenReturn(new AgentModels.ReviewAgentResult(
             "approved",
             List.of()
@@ -98,10 +98,8 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         graphRepository.save(reviewNode);
 
         when(reviewAgent.evaluateContent(
-            anyString(),
-            anyString(),
-            anyString(),
-            anyString()
+            any(AgentInterfaces.ReviewAgentInput.class),
+            any(OperationContext.class)
         )).thenReturn(new AgentModels.ReviewAgentResult(
             "needs revision",
             List.of()
@@ -173,7 +171,10 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
             Instant.now()
         );
 
-        Mockito.when(mergerAgent.performMerge(anyString(), anyString(), anyString(), anyString(), anyString()))
+        Mockito.when(mergerAgent.performMerge(
+                any(AgentInterfaces.MergerAgentInput.class),
+                any(OperationContext.class)
+        ))
                         .thenReturn(new AgentModels.MergerAgentResult("hello!", List.of(AgentModels.InterruptType.HUMAN_REVIEW)));
 
         when(worktreeService.mergeWorktrees(childWorktreeId, parentWorktreeId))

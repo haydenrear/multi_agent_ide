@@ -1,9 +1,10 @@
 package com.hayden.multiagentide.model.acp;
 
-import dev.langchain4j.data.message.ChatMessage;
+import org.springframework.ai.chat.messages.Message;
+
 import java.util.List;
 
 public interface ChatMemoryContext {
 
-    List<ChatMessage> getMessages(Object memoryId);
+    List<Message> getMessages(Object memoryId);
 }

@@ -1,5 +1,11 @@
 package com.hayden.multiagentide.agent;
 
+import com.embabel.agent.api.event.AgentProcessCreationEvent;
+import com.embabel.agent.api.event.AgentProcessEvent;
+import com.embabel.agent.api.event.AgentProcessCompletedEvent;
+import com.embabel.agent.api.event.AgentProcessFinishedEvent;
+import com.embabel.agent.api.event.AgenticEventListener;
+import com.embabel.agent.core.*;
 import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentide.model.nodes.SubmoduleNode;
 import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
@@ -10,6 +16,9 @@ import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.WorktreeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
@@ -31,6 +40,181 @@ public class AgentLifecycleHandler {
     private final GraphRepository graphRepository;
     private final WorktreeRepository worktreeRepository;
     private final WorktreeService worktreeService;
+    private final AgentPlatform agentPlatform;
+
+    public Agent resolveAgent(String agentName) {
+        List<Agent> agents = agentPlatform.agents();
+        return agents.stream()
+                .filter(agent -> agent.getName().equals(agentName))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Agent not found: " + agentName));
+    }
+
+
+    public <T> T runAgent(AgentInterfaces agentInterface, Object input, Class<T> outputClass, String nodeId) {
+        Agent agent = resolveAgent(agentInterface.multiAgentAgentName());
+        ProcessOptions processOptions = ProcessOptions.DEFAULT.withContextId(nodeId)
+                .withListener(new AgenticEventListener() {
+                    @Override
+                    public void onProcessEvent(@NotNull AgentProcessEvent event) {
+//                      process ID is the same as Node ID
+                        var processId = event.getProcessId();
+                        if (event instanceof AgentProcessCreationEvent c) {
+                            switch(agentInterface) {
+                                case AgentInterfaces.ContextAgent contextAgent -> {
+                                }
+                                case AgentInterfaces.ContextCollectorAgent contextCollectorAgent -> {
+                                }
+                                case AgentInterfaces.ContextOrchestratorAgent contextOrchestratorAgent -> {
+                                }
+                                case AgentInterfaces.DiscoveryAgent discoveryAgent -> {
+                                    beforeDiscoveryAgentInvocation(processId);
+                                }
+                                case AgentInterfaces.DiscoveryCollector discoveryCollector -> {
+                                    beforeDiscoveryCollectorInvocation(processId);
+                                }
+                                case AgentInterfaces.DiscoveryOrchestrator discoveryOrchestrator -> {
+                                    beforeDiscoveryOrchestratorInvocation(processId);
+                                }
+                                case AgentInterfaces.MergerAgent mergerAgent -> {
+                                    beforeMergerAgentInvocation(processId);
+                                }
+                                case AgentInterfaces.OrchestratorAgent orchestratorAgent -> {
+                                    beforeOrchestrator(processId);
+                                }
+                                case AgentInterfaces.OrchestratorCollectorAgent orchestratorCollectorAgent -> {
+                                    beforeOrchestratorCollector(processId);
+                                }
+                                case AgentInterfaces.PlanningAgent planningAgent -> {
+                                    beforePlanningAgentInvocation(processId);
+                                }
+                                case AgentInterfaces.PlanningCollector planningCollector -> {
+                                    beforePlanningCollectorInvocation(processId);
+                                }
+                                case AgentInterfaces.PlanningOrchestrator planningOrchestrator -> {
+                                    beforePlanningOrchestratorInvocation(processId);
+                                }
+                                case AgentInterfaces.ReviewAgent reviewAgent -> {
+                                    beforeReviewAgentInvocation(processId);
+                                }
+                                case AgentInterfaces.TicketAgent ticketAgent -> {
+                                    beforeTicketAgentInvocation(processId);
+                                }
+                                case AgentInterfaces.TicketCollector ticketCollector -> {
+                                    beforeTicketCollectorInvocation(processId);
+                                }
+                                case AgentInterfaces.TicketOrchestrator ticketOrchestrator -> {
+                                    beforeTicketOrchestratorInvocation(processId);
+                                }
+                            }
+
+                        }
+
+                        if (event instanceof AgentProcessFinishedEvent c) {
+                            Object result = null;
+                            if (event instanceof AgentProcessCompletedEvent completedEvent) {
+                                result = completedEvent.getResult();
+                            }
+//                            process ID is the same as Node ID
+                            switch(agentInterface) {
+                                case AgentInterfaces.ContextAgent contextAgent -> {
+                                }
+                                case AgentInterfaces.ContextCollectorAgent contextCollectorAgent -> {
+                                }
+                                case AgentInterfaces.ContextOrchestratorAgent contextOrchestratorAgent -> {
+                                }
+                                case AgentInterfaces.DiscoveryAgent discoveryAgent -> {
+                                    afterDiscoveryAgentInvocation(
+                                            castResult(result, AgentModels.DiscoveryAgentResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.DiscoveryCollector discoveryCollector -> {
+                                    afterDiscoveryCollectorInvocation(
+                                            castResult(result, AgentModels.DiscoveryCollectorResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.DiscoveryOrchestrator discoveryOrchestrator -> {
+                                    afterDiscoveryOrchestratorInvocation(
+                                            castResult(result, AgentModels.DiscoveryOrchestratorResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.MergerAgent mergerAgent -> {
+                                    afterMergerAgentInvocation(
+                                            castResult(result, AgentModels.MergerAgentResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.OrchestratorAgent orchestratorAgent -> {
+                                    afterOrchestrator(
+                                            castResult(result, AgentModels.OrchestratorAgentResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.OrchestratorCollectorAgent orchestratorCollectorAgent -> {
+                                    afterOrchestratorCollector(
+                                            castResult(result, AgentModels.OrchestratorCollectorResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.PlanningAgent planningAgent -> {
+                                    afterPlanningAgentInvocation(
+                                            castResult(result, AgentModels.PlanningAgentResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.PlanningCollector planningCollector -> {
+                                    afterPlanningCollectorInvocation(
+                                            castResult(result, AgentModels.PlanningCollectorResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.PlanningOrchestrator planningOrchestrator -> {
+                                    afterPlanningOrchestratorInvocation(
+                                            castResult(result, AgentModels.PlanningOrchestratorResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.ReviewAgent reviewAgent -> {
+                                    afterReviewAgentInvocation(
+                                            castResult(result, AgentModels.ReviewAgentResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.TicketAgent ticketAgent -> {
+                                    afterTicketAgentInvocation(
+                                            castResult(result, AgentModels.TicketAgentResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.TicketCollector ticketCollector -> {
+                                    afterTicketCollectorInvocation(
+                                            castResult(result, AgentModels.TicketCollectorResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                                case AgentInterfaces.TicketOrchestrator ticketOrchestrator -> {
+                                    afterTicketOrchestratorInvocation(
+                                            castResult(result, AgentModels.TicketOrchestratorResult.class, processId, agentInterface),
+                                            processId
+                                    );
+                                }
+                            }
+                        }
+                    }
+                });
+
+
+        AgentProcess process = agentPlatform.runAgentFrom(
+                agent,
+                processOptions,
+                Map.of(IoBinding.DEFAULT_BINDING, input)
+        );
+        return process.run().resultOfType(outputClass);
+    }
+
 
     public void beforeOrchestrator(String nodeId) {
         Optional<OrchestratorNode> nodeOpt =
@@ -802,5 +986,23 @@ public class AgentLifecycleHandler {
 
     private boolean nodeExists(String nodeId) {
         return nodeId != null && orchestrator.getNode(nodeId).isPresent();
+    }
+
+    private <T> T castResult(Object result, Class<T> expectedType, String processId, AgentInterfaces agentInterface) {
+        if (result == null) {
+            log.warn("No result available for process {} ({})", processId, agentInterface.multiAgentAgentName());
+            return null;
+        }
+        if (!expectedType.isInstance(result)) {
+            log.warn(
+                    "Unexpected result type for process {} ({}): expected {}, got {}",
+                    processId,
+                    agentInterface.multiAgentAgentName(),
+                    expectedType.getSimpleName(),
+                    result.getClass().getSimpleName()
+            );
+            return null;
+        }
+        return expectedType.cast(result);
     }
 }

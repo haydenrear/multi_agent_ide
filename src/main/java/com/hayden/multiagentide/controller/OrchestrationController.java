@@ -1,6 +1,5 @@
 package com.hayden.multiagentide.controller;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -11,8 +10,4 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Component
 public class OrchestrationController {
-
-    private final AgentInterfaces.OrchestratorAgent orchestrator;
-
-
 }

@@ -1,47 +1,48 @@
 package com.hayden.multiagentide.model.acp
 
-import com.agentclientprotocol.agent.AgentInfo
-import com.agentclientprotocol.agent.AgentSession
-import com.agentclientprotocol.agent.AgentSupport
-import com.agentclientprotocol.agent.clientInfo
 import com.agentclientprotocol.client.Client
 import com.agentclientprotocol.client.ClientInfo
-import com.agentclientprotocol.client.ClientOperationsFactory
 import com.agentclientprotocol.client.ClientSession
 import com.agentclientprotocol.common.ClientSessionOperations
 import com.agentclientprotocol.common.Event
-import com.agentclientprotocol.common.FileSystemOperations
 import com.agentclientprotocol.common.SessionCreationParameters
-import com.agentclientprotocol.common.SessionParameters
 import com.agentclientprotocol.model.*
 import com.agentclientprotocol.protocol.Protocol
 import com.agentclientprotocol.transport.Transport
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.hayden.multiagentide.config.AcpModelProperties
-import com.hayden.multiagentide.model.acp.ChatMemoryContext
-import dev.langchain4j.data.message.*
-import dev.langchain4j.model.chat.ChatModel
-import dev.langchain4j.model.chat.listener.ChatModelListener
-import dev.langchain4j.model.chat.request.ChatRequest
-import dev.langchain4j.model.chat.request.ChatRequestParameters
-import dev.langchain4j.model.chat.request.MultiAgentIdeChatRequestParameters
-import dev.langchain4j.model.chat.response.ChatResponse
-import dev.langchain4j.model.openai.internal.OpenAiUtils
 import io.modelcontextprotocol.server.IdeMcpAsyncServer.TOOL_ALLOWLIST_HEADER
+import io.modelcontextprotocol.spec.McpSchema
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.reactor.asFlux
+import kotlinx.coroutines.reactor.flux
+import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
 import kotlinx.serialization.json.JsonElement
+import org.springframework.ai.chat.messages.AssistantMessage
+import org.springframework.ai.chat.messages.Message
+import org.springframework.ai.chat.messages.MessageType
+import org.springframework.ai.chat.messages.SystemMessage
+import org.springframework.ai.chat.messages.ToolResponseMessage
+import org.springframework.ai.chat.messages.UserMessage
+import org.springframework.ai.chat.model.ChatResponse
+import org.springframework.ai.chat.model.Generation
+import org.springframework.ai.chat.model.StreamingChatModel
+import org.springframework.ai.chat.prompt.ChatOptions
+import org.springframework.ai.chat.prompt.Prompt
+import org.springframework.messaging.support.GenericMessage
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Flux.defer
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.stream.Collectors
 
 /**
  * ACP-backed ChatModel implementation using the agentclientprotocol SDK.
@@ -49,37 +50,96 @@ import java.util.concurrent.ConcurrentHashMap
 class AcpChatModel(
     private val properties: AcpModelProperties,
     private val chatMemoryContext: ChatMemoryContext?
-) : ChatModel {
+) : org.springframework.ai.chat.model.ChatModel, StreamingChatModel {
 
     private val sessionLock = Any()
 
-    private val listeners: List<ChatModelListener>  = mutableListOf();
-
     private val sessionContexts = ConcurrentHashMap<Any, AcpSessionContext>()
 
-    override fun listeners(): List<ChatModelListener?> {
-        return listeners
+    override fun call(prompt: Prompt): org.springframework.ai.chat.model.ChatResponse {
+        val cr = doChat(prompt)
+        return cr
     }
 
-    override fun defaultRequestParameters(): ChatRequestParameters? {
-        return MultiAgentIdeChatRequestParameters.builder().build();
+    override fun stream(prompt: Prompt): Flux<ChatResponse> {
+        return when (val options = prompt.options) {
+            is AcpChatRequestParameters -> {
+                performStream(prompt, options.memoryId())
+            }
+            else -> {
+                performStream(prompt, null)
+            }
+        }
     }
 
-    override fun doChat(chatRequest: ChatRequest?): ChatResponse {
+    fun performStream(messages: Prompt, memoryId: Any?): Flux<ChatResponse> {
+        return flux {
+            val data = streamChat(messages, memoryId).asFlux()
+                .collectList()
+                .map {
+                    ChatResponse.builder().generations(
+                        mutableListOf(
+                            Generation(
+                                AssistantMessage(
+                                    it.mapNotNull {
+                                        when (it) {
+                                            is ContentBlock.Text -> it.text
+                                            else -> null
+                                        }
+                                    }.stream()
+                                        .collect(Collectors.joining())
+                                )
+                            )
+                        )
+                    )
+                        .build()
+                }
+            Flux.just(data)
+
+        }
+    }
+
+    override fun getDefaultOptions(): AcpChatRequestParameters {
+        return AcpChatRequestParameters.builder().build()
+    }
+
+    fun doChat(chatRequest: Prompt?): ChatResponse {
         val request = requireNotNull(chatRequest) { "chatRequest must not be null" }
         val memoryId = resolveMemoryId(request)
         val hasSession = sessionExists(memoryId)
         val messages = if (hasSession) {
-            listOf(request.messages().last())
+            listOf(request.instructions.last())
         } else {
             resolveMessages(request, memoryId)
         }
-        return invokeChat(messages, memoryId)
+
+        return invokeChat(Prompt.builder().messages(messages).build(), memoryId)
     }
 
-    fun invokeChat(messages: List<ChatMessage>, memoryId: Any?): ChatResponse = runBlocking {
+    suspend fun streamChat(messages: Prompt, memoryId: Any?): Flow<ContentBlock>  {
         val session = getOrCreateSession(memoryId)
         val responseText = StringBuilder()
+        val content = listOf(ContentBlock.Text(formatMessages(messages)))
+
+        return session.prompt(content).mapNotNull{ event ->
+            if (event is Event.SessionUpdateEvent) {
+                val update = event.update
+                if (update is SessionUpdate.AgentMessageChunk) {
+                    val block = update.content
+                    block
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+        }
+    }
+
+
+    fun invokeChat(messages: Prompt, memoryId: Any?): ChatResponse = runBlocking {
+        val session = getOrCreateSession(memoryId)
+        val responseText = mutableListOf<String>()
         val content = listOf(ContentBlock.Text(formatMessages(messages)))
 
         session.prompt(content).collect { event ->
@@ -88,14 +148,14 @@ class AcpChatModel(
                 if (update is SessionUpdate.AgentMessageChunk) {
                     val block = update.content
                     if (block is ContentBlock.Text) {
-                        responseText.append(block.text)
+                        responseText.add(block.text)
                     }
                 }
             }
         }
 
         ChatResponse.builder()
-            .aiMessage(AiMessage.from(responseText.toString()))
+            .generations(mutableListOf(Generation(AssistantMessage(responseText.stream().collect(Collectors.joining())))))
             .build()
     }
 
@@ -119,17 +179,17 @@ class AcpChatModel(
         return memoryId != null && sessionContexts.containsKey(memoryId)
     }
 
-    private fun resolveMessages(chatRequest: ChatRequest, memoryId: Any?): List<ChatMessage> {
+    private fun resolveMessages(chatRequest: Prompt, memoryId: Any?): List<Message> {
         if (memoryId == null) {
-            return chatRequest.messages()
+            return chatRequest.instructions
         }
         val history = chatMemoryContext?.getMessages(memoryId).orEmpty()
-        return if (history.isNotEmpty()) history else chatRequest.messages()
+        return if (history.isNotEmpty()) history else chatRequest.instructions
     }
 
-    private fun resolveMemoryId(chatRequest: ChatRequest): Any? {
-        val params = chatRequest.parameters()
-        return if (params is MultiAgentIdeChatRequestParameters) params.memoryId() else null
+    private fun resolveMemoryId(chatRequest: Prompt): Any? {
+        val params = chatRequest.options
+        return if (params is AcpChatRequestParameters) params.memoryId() else null
     }
 
     private fun getOrCreateSession(memoryId: Any?): ClientSession {
@@ -217,48 +277,43 @@ class AcpChatModel(
         return tokens
     }
 
-    private fun formatMessages(messages: List<ChatMessage>): String {
-        if (messages.isEmpty()) {
+    private fun formatMessages(messages: Prompt): String {
+        if (messages.instructions.isEmpty()) {
             return ""
         }
         val builder = StringBuilder()
-        messages.forEach { message ->
+        messages.instructions.forEach { message ->
             val role = resolveRole(message)
             if (builder.isNotEmpty()) {
                 builder.append('\n')
             }
             when(message) {
-                is UserMessage -> builder.append(role + ": " + fromContents(message.contents()))
-                is AiMessage -> builder.append(role + ": " + message.text())
-                is SystemMessage -> builder.append(role + ": " + message.text())
-                is CustomMessage -> {}
-                is ToolExecutionResultMessage -> builder.append(role + ": " + message.text())
+                is UserMessage -> builder.append(role + ": " + message.text)
+                is AssistantMessage -> builder.append(role + ": " + message.text)
+                is SystemMessage -> builder.append(role + ": " + message.text)
+                is ToolResponseMessage -> {}
             }
         }
         return builder.toString()
     }
 
-    private fun fromContents(contents: List<Content>): String {
-        return contents.map { fromContent(it) }
-            .joinToString("\n")
-    }
+//    private fun fromContent(contents: Content): String {
+//        return when(contents) {
+//            is TextContent -> contents.text();
+//            is AudioContent -> "";
+//            is PdfFileContent -> "";
+//            is McpSchema.ImageContent -> "";
+//            is VideoContent -> "";
+//
+//            else -> ""
+//        }
+//    }
 
-    private fun fromContent(contents: Content): String {
-        return when(contents) {
-            is TextContent -> contents.text();
-            is AudioContent -> "";
-            is PdfFileContent -> "";
-            is ImageContent -> "";
-            is VideoContent -> "";
-
-            else -> ""
-        }
-    }
-
-    private fun resolveRole(message: ChatMessage): String = when (message) {
-        is UserMessage -> "user"
-        is SystemMessage -> "system"
-        is AiMessage -> "assistant"
+    private fun resolveRole(message: Message): String = when (message) {
+        is UserMessage -> MessageType.USER.name
+        is SystemMessage -> MessageType.SYSTEM.name
+        is AssistantMessage -> MessageType.ASSISTANT.name
+        is ToolResponseMessage -> MessageType.TOOL.name
         else -> "user"
     }
 
