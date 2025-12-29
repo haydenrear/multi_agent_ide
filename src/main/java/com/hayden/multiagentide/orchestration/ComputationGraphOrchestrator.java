@@ -200,7 +200,7 @@ public class ComputationGraphOrchestrator {
     public void emitReviewRequestedEvent(
             String nodeId,
             String reviewNodeId,
-            String reviewType,
+            ReviewNode.ReviewType reviewType,
             String contentToReview
     ) {
         Events.NodeReviewRequestedEvent event = new Events.NodeReviewRequestedEvent(

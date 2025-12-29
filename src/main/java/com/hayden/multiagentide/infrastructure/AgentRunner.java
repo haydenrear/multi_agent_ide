@@ -91,27 +91,22 @@ public class AgentRunner {
                             addMessageEvent
                     );
             case Events.PauseEvent pauseEvent ->
-                    handleUserInterrupt(
+                    handleInterruptType(
                             d,
                             AgentModels.InterruptType.PAUSE,
                             pauseEvent.toAddMessage()
                     );
             case Events.StopAgentEvent stopAgentEvent ->
-                    handleUserInterrupt(
+                    handleInterruptType(
                             d,
                             AgentModels.InterruptType.STOP,
                             "User stop requested"
                     );
             case Events.NodeReviewRequestedEvent reviewRequestedEvent -> {
-                if (d.self instanceof ReviewNode) {
-                    log.error("Received request to review review node.");
-                } else {
-                    handleUserInterrupt(
-                            d,
-                            AgentModels.InterruptType.HUMAN_REVIEW,
-                            reviewRequestedEvent.contentToReview()
-                    );
-                }
+                handleInterruptType(
+                        d,
+                        reviewRequestedEvent.reviewType().toInterruptType(),
+                        reviewRequestedEvent.contentToReview());
             }
             case Events.NodeBranchedEvent branched -> {
                 //              Implement ability to split what the agent is doing in
@@ -331,7 +326,7 @@ public class AgentRunner {
                 statusChanged.newStatus() == GraphNode.NodeStatus.COMPLETED;
     }
 
-    private void handleUserInterrupt(
+    private void handleInterruptType(
             AgentDispatchArgs dispatchArgs,
             AgentModels.InterruptType interruptType,
             String reason
@@ -1755,7 +1750,7 @@ public class AgentRunner {
                 computationGraphOrchestrator.emitReviewRequestedEvent(
                         waiting.nodeId(),
                         waiting.nodeId(),
-                        "human",
+                        ReviewNode.ReviewType.HUMAN,
                         waiting.reviewContent()
                 );
                 return;
@@ -2221,7 +2216,7 @@ public class AgentRunner {
         computationGraphOrchestrator.emitReviewRequestedEvent(
                 waiting.nodeId(),
                 waiting.nodeId(),
-                "human",
+                ReviewNode.ReviewType.HUMAN,
                 content
         );
     }

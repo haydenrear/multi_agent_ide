@@ -36,6 +36,14 @@ public record ReviewNode(
         InterruptContext interruptContext
 ) implements GraphNode, Viewable<String>, InterruptRecord {
 
+    public enum ReviewType {
+        AGENT, HUMAN;
+
+        public AgentModels.InterruptType toInterruptType() {
+            return this == AGENT ? AgentModels.InterruptType.AGENT_REVIEW : AgentModels.InterruptType.HUMAN_REVIEW;
+        }
+    }
+
     public ReviewNode(String nodeId, String title, String goal, GraphNode.NodeStatus status, String parentNodeId, List<String> childNodeIds, Map<String, String> metadata, Instant createdAt, Instant lastUpdatedAt, String reviewedNodeId, String reviewContent, boolean approved, boolean humanFeedbackRequested, String agentFeedback, String reviewerAgentType, Instant reviewCompletedAt) {
         this(nodeId, title, goal, status, parentNodeId, childNodeIds, metadata, createdAt, lastUpdatedAt,
                 reviewedNodeId, reviewContent, approved, humanFeedbackRequested, agentFeedback, reviewerAgentType, reviewCompletedAt, null, null);

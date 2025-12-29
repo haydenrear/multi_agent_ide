@@ -3,6 +3,7 @@ package com.hayden.multiagentide.model.events;
 import com.agui.core.types.BaseEvent;
 import com.hayden.multiagentide.adapter.AgUiEventMappingRegistry;
 import com.hayden.multiagentide.model.nodes.GraphNode;
+import com.hayden.multiagentide.model.nodes.ReviewNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -183,7 +184,7 @@ public interface Events {
             Instant timestamp,
             String nodeId,
             String reviewNodeId,
-            String reviewType,
+            ReviewNode.ReviewType reviewType,
             // "human", "agent", or specific agent type
             String contentToReview
     ) implements Events.AgentEvent {

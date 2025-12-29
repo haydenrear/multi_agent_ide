@@ -2,6 +2,7 @@ package com.hayden.multiagentide.service;
 
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentide.model.nodes.ReviewNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -35,7 +36,7 @@ public class AgentControlService {
                 Instant.now(),
                 nodeId,
                 nodeId,
-                "human",
+                ReviewNode.ReviewType.HUMAN,
                 note
         ));
         return eventId;
