@@ -17,6 +17,8 @@ import com.hayden.multiagentide.service.WorktreeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
@@ -107,6 +109,7 @@ public class AgentLifecycleHandler {
                             }
 
                         }
+
                         if (event instanceof AgentProcessFinishedEvent c) {
                             Object result = null;
                             if (event instanceof AgentProcessCompletedEvent completedEvent) {
@@ -202,6 +205,8 @@ public class AgentLifecycleHandler {
                         }
                     }
                 });
+
+
         AgentProcess process = agentPlatform.runAgentFrom(
                 agent,
                 processOptions,
