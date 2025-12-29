@@ -1,89 +1,142 @@
 package com.hayden.multiagentide.agent;
 
-import dev.langchain4j.agentic.Agent;
-import dev.langchain4j.service.MemoryId;
-import dev.langchain4j.service.UserMessage;
-import dev.langchain4j.service.V;
+import com.embabel.agent.api.annotation.AchievesGoal;
+import com.embabel.agent.api.annotation.Action;
+import com.embabel.agent.api.annotation.Agent;
+import com.embabel.agent.api.common.OperationContext;
+
+import java.util.Map;
+import java.util.Objects;
 
 /**
- * LangChain4j @Agent interfaces for multi-agent IDE.
- * These interfaces define the contract for LLM-powered agents.
+ * Embabel @Agent definitions for multi-agent IDE.
+ * Each agent currently exposes a single action.
  */
-public class AgentInterfaces {
+public final class AgentInterfaces {
 
-    public interface PlanningOrchestrator {
+    public static final String ORCHESTRATOR_AGENT_NAME = "OrchestratorAgent";
+    public static final String DISCOVERY_ORCHESTRATOR_AGENT_NAME = "DiscoveryOrchestrator";
+    public static final String DISCOVERY_AGENT_NAME = "DiscoveryAgent";
+    public static final String DISCOVERY_COLLECTOR_AGENT_NAME = "DiscoveryCollector";
+    public static final String PLANNING_ORCHESTRATOR_AGENT_NAME = "PlanningOrchestrator";
+    public static final String PLANNING_AGENT_NAME = "PlanningAgent";
+    public static final String PLANNING_COLLECTOR_AGENT_NAME = "PlanningCollector";
+    public static final String TICKET_ORCHESTRATOR_AGENT_NAME = "TicketOrchestrator";
+    public static final String TICKET_AGENT_NAME = "TicketAgent";
+    public static final String TICKET_COLLECTOR_AGENT_NAME = "TicketCollector";
+    public static final String MERGER_AGENT_NAME = "MergerAgent";
+    public static final String REVIEW_AGENT_NAME = "ReviewAgent";
+    public static final String ORCHESTRATOR_COLLECTOR_AGENT_NAME = "OrchestratorCollectorAgent";
+    public static final String CONTEXT_ORCHESTRATOR_AGENT_NAME = "ContextOrchestratorAgent";
+    public static final String CONTEXT_AGENT_NAME = "ContextAgent";
+    public static final String CONTEXT_COLLECTOR_AGENT_NAME = "ContextCollectorAgent";
 
-        String PLANNING_ORCHESTRATOR_MESSAGE = """
-                Decompose the planning for the goal according to the results from discovery.
-                Define tickets and update the spec file in .specify/.../spec.md.
-                
-                Then, for each ticket, return the information to be provided to the planning agent to
-                plan for this ticket.
-                
-                Goal: {{goal}}
-                """;
-
-        @Agent(value = "Split the goal into tickets according to the discovery context.")
-        AgentModels.PlanningOrchestratorResult decomposePlanAndCreateWorkItems(@MemoryId String memId,
-                                                                               @UserMessage String msg,
-                                                                               @V("goal") String goal);
+    private AgentInterfaces() {
     }
 
-    /**
-     * Merger agent that consolidates planning results from multiple agents into tickets.
-     */
-    public interface PlanningCollector {
-
-        String PLANNING_COLLECTOR_MESSAGE = """
-                Merge and consolidate the following planning results from multiple agents:
-
-                Goal: {{goal}}
-                Planning Results: {{planningResults}}
-
-                Create structured tickets with:
-                - Ticket ID and title
-                - Clear implementation tasks
-                - Dependencies between tickets
-                - Acceptance criteria
-                - Estimated effort
-
-                Return merged tickets in structured format, and include a routing decision:
-                - ROUTE_BACK to rerun planning
-                - ADVANCE_PHASE to continue to ticket execution
-                - STOP to halt the workflow
-                """;
-
-        @Agent(value = "Consolidates planning outputs into structured tickets")
-        AgentModels.PlanningCollectorResult consolidatePlansIntoTickets(@MemoryId String memId,
-                                                                        @UserMessage String msg,
-                                                                        @V("goal") String goal,
-                                                                        @V("planningResults") String planningResults);
+    public record OrchestratorInput(String goal, String phase) {
     }
 
-    /**
-     * Planning agent that decomposes goals into work items.
-     */
-    public interface PlanningAgent {
-
-        String PLANNING_AGENT_USER_MESSAGE = """
-                Analyze the following goal and break it down into 3 work items:
-                1. Architecture & Setup - Design foundational structure
-                2. Implementation - Core functionality
-                3. Testing & Validation - Tests and validation
-
-                Goal: {{goal}}
-
-                Provide a structured plan with clear sections for each work item.
-                """;
-
-        @Agent(value = "Decomposes high-level goals into structured work items with clear tasks and dependencies")
-        AgentModels.PlanningAgentResult decomposePlanAndCreateWorkItems(@MemoryId String memId,
-                                                                        @UserMessage String msg,
-                                                                        @V("goal") String goal);
+    public record DiscoveryOrchestratorInput(String goal) {
     }
 
-    public interface DiscoveryOrchestrator {
-        String DISCOVERY_ORCHESTRATOR_START_MESSAGE = """
+    public record DiscoveryAgentInput(String goal, String subdomainFocus) {
+    }
+
+    public record DiscoveryCollectorInput(String goal, String discoveryResults) {
+    }
+
+    public record PlanningOrchestratorInput(String goal) {
+    }
+
+    public record PlanningAgentInput(String goal) {
+    }
+
+    public record PlanningCollectorInput(String goal, String planningResults) {
+    }
+
+    public record TicketOrchestratorInput(
+            String goal,
+            String tickets,
+            String discoveryContext,
+            String planningContext
+    ) {
+    }
+
+    public record TicketAgentInput(
+            String ticketDetails,
+            String ticketDetailsFilePath,
+            String discoveryContext,
+            String planningContext
+    ) {
+    }
+
+    public record TicketCollectorInput(String goal, String ticketResults) {
+    }
+
+    public record MergerAgentInput(String mergeContext, String mergeSummary, String conflictFiles) {
+    }
+
+    public record ReviewAgentInput(String content, String criteria) {
+    }
+
+    public record OrchestratorCollectorInput(String goal, String phase) {
+    }
+
+    public record ContextOrchestratorInput(String goal, String phase) {
+    }
+
+    public record ContextAgentInput(String goal, String phase) {
+    }
+
+    public record ContextCollectorInput(String goal, String phase) {
+    }
+
+    private static String renderTemplate(String template, Map<String, String> values) {
+        String rendered = template;
+        for (var entry : values.entrySet()) {
+            rendered = rendered.replace(
+                    "{{" + entry.getKey() + "}}",
+                    Objects.toString(entry.getValue(), "")
+            );
+        }
+        return rendered;
+    }
+
+    @Agent(name = ORCHESTRATOR_AGENT_NAME, description = "Coordinates multiple agents to accomplish complex goals")
+    public static class OrchestratorAgent {
+
+        public static final String ORCHESTRATOR_AGENT_START_MESSAGE = """
+                Coordinate the following multi-agent workflow:
+
+                Goal: {{goal}}
+                Current phase: {{phase}}
+                Available agents: planning, editor, merger, review
+
+                Determine:
+                1. Next agent to invoke
+                2. Input for that agent
+                3. Success criteria
+                """;
+
+        @Action
+        @AchievesGoal(description = "Coordinate workflow for the current phase")
+        public AgentModels.OrchestratorAgentResult coordinateWorkflow(
+                OrchestratorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    ORCHESTRATOR_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "phase", input.phase())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.OrchestratorAgentResult.class);
+        }
+    }
+
+    @Agent(name = DISCOVERY_ORCHESTRATOR_AGENT_NAME, description = "Coordinates discovery work across agents")
+    public static class DiscoveryOrchestrator {
+
+        public static final String DISCOVERY_ORCHESTRATOR_START_MESSAGE = """
                 Coordinate the following multi-agent workflow:
 
                 Goal: {{goal}}
@@ -97,53 +150,26 @@ public class AgentInterfaces {
 
                 Return how many agents to use to perform the discovery, and how to divide up the work, including an
                 an addition to the goal to send that agent.
-                """ ;
-
-        @Agent(value = "")
-        AgentModels.DiscoveryOrchestratorResult kickOffAnyNumberOfAgentsForCodeSearch(@MemoryId String memId,
-                                                                                      @UserMessage String msg,
-                                                                                      @V("goal") String goal);
-    }
-
-    /**
-     * Merger agent that consolidates discovery findings from multiple agents.
-     */
-    public interface DiscoveryCollector {
-
-        String DISCOVERY_COLLECTOR_START_MESSAGE = """
-                Merge and consolidate the following discovery results from multiple agents:
-
-                Goal: {{goal}}
-                Discovery Results: {{discoveryResults}}
-
-                Create a unified discovery document with:
-                - Architecture overview
-                - Key modules and components
-                - Data flow and dependencies
-                - Integration points
-                - Technology stack summary
-                - Test patterns and conventions
-                - Critical files and entry points
-
-                Return consolidated discovery in structured format suitable for planning phase, and include a routing decision:
-                - ROUTE_BACK to rerun discovery
-                - ADVANCE_PHASE to continue to planning
-                - STOP to halt the workflow
                 """;
 
-        @Agent(value = "Consolidates discovery findings into unified codebase understanding")
-        AgentModels.DiscoveryCollectorResult consolidateDiscoveryFindings(@MemoryId String memId,
-                                                                          @UserMessage String msg,
-                                                                          @V("goal") String goal,
-                                                                          @V("discoveryResults") String discoveryResults);
+        @Action
+        @AchievesGoal(description = "Create a discovery delegation plan")
+        public AgentModels.DiscoveryOrchestratorResult kickOffAnyNumberOfAgentsForCodeSearch(
+                DiscoveryOrchestratorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    DISCOVERY_ORCHESTRATOR_START_MESSAGE,
+                    Map.of("goal", input.goal())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.DiscoveryOrchestratorResult.class);
+        }
     }
 
-    /**
-     * Discovery agent that analyzes specific areas of the codebase.
-     */
-    public interface DiscoveryAgent {
+    @Agent(name = DISCOVERY_AGENT_NAME, description = "Discovers and analyzes codebase structure for specific domains")
+    public static class DiscoveryAgent {
 
-        String DISCOVERY_AGENT_START_MESSAGE = """
+        public static final String DISCOVERY_AGENT_START_MESSAGE = """
                 Discover and analyze the codebase for the following subdomain:
 
                 Overall Goal: {{goal}}
@@ -167,18 +193,153 @@ public class AgentInterfaces {
                 Return findings as structured document suitable for merging.
                 """;
 
-        @Agent(value = "Discovers and analyzes codebase structure for specific domains")
-        AgentModels.DiscoveryAgentResult discoverCodebaseSection(@MemoryId String memId,
-                                                                 @UserMessage String msg,
-                                                                 @V("goal") String goal,
-                                                                 @V("subdomainFocus") String subdomainFocus);
+        @Action
+        @AchievesGoal(description = "Discover codebase section")
+        public AgentModels.DiscoveryAgentResult discoverCodebaseSection(
+                DiscoveryAgentInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    DISCOVERY_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.DiscoveryAgentResult.class);
+        }
     }
 
-    /**
-     * Ticket orchestrator that coordinates ticket-based implementation.
-     */
-    public interface TicketOrchestrator {
-        String TICKET_ORCHESTRATOR_START_MESSAGE = """
+    @Agent(name = DISCOVERY_COLLECTOR_AGENT_NAME, description = "Consolidates discovery findings into unified codebase understanding")
+    public static class DiscoveryCollector {
+
+        public static final String DISCOVERY_COLLECTOR_START_MESSAGE = """
+                Merge and consolidate the following discovery results from multiple agents:
+
+                Goal: {{goal}}
+                Discovery Results: {{discoveryResults}}
+
+                Create a unified discovery document with:
+                - Architecture overview
+                - Key modules and components
+                - Data flow and dependencies
+                - Integration points
+                - Technology stack summary
+                - Test patterns and conventions
+                - Critical files and entry points
+
+                Return consolidated discovery in structured format suitable for planning phase, and include a routing decision:
+                - ROUTE_BACK to rerun discovery
+                - ADVANCE_PHASE to continue to planning
+                - STOP to halt the workflow
+                """;
+
+        @Action
+        @AchievesGoal(description = "Consolidate discovery findings")
+        public AgentModels.DiscoveryCollectorResult consolidateDiscoveryFindings(
+                DiscoveryCollectorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    DISCOVERY_COLLECTOR_START_MESSAGE,
+                    Map.of("goal", input.goal(), "discoveryResults", input.discoveryResults())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.DiscoveryCollectorResult.class);
+        }
+    }
+
+    @Agent(name = PLANNING_ORCHESTRATOR_AGENT_NAME, description = "Split the goal into tickets according to the discovery context")
+    public static class PlanningOrchestrator {
+
+        public static final String PLANNING_ORCHESTRATOR_MESSAGE = """
+                Decompose the planning for the goal according to the results from discovery.
+                Define tickets and update the spec file in .specify/.../spec.md.
+
+                Then, for each ticket, return the information to be provided to the planning agent to
+                plan for this ticket.
+
+                Goal: {{goal}}
+                """;
+
+        @Action
+        @AchievesGoal(description = "Create planning delegation plan")
+        public AgentModels.PlanningOrchestratorResult decomposePlanAndCreateWorkItems(
+                PlanningOrchestratorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    PLANNING_ORCHESTRATOR_MESSAGE,
+                    Map.of("goal", input.goal())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.PlanningOrchestratorResult.class);
+        }
+    }
+
+    @Agent(name = PLANNING_AGENT_NAME, description = "Decomposes high-level goals into structured work items")
+    public static class PlanningAgent {
+
+        public static final String PLANNING_AGENT_USER_MESSAGE = """
+                Analyze the following goal and break it down into 3 work items:
+                1. Architecture & Setup - Design foundational structure
+                2. Implementation - Core functionality
+                3. Testing & Validation - Tests and validation
+
+                Goal: {{goal}}
+
+                Provide a structured plan with clear sections for each work item.
+                """;
+
+        @Action
+        @AchievesGoal(description = "Create structured plan")
+        public AgentModels.PlanningAgentResult decomposePlanAndCreateWorkItems(
+                PlanningAgentInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    PLANNING_AGENT_USER_MESSAGE,
+                    Map.of("goal", input.goal())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.PlanningAgentResult.class);
+        }
+    }
+
+    @Agent(name = PLANNING_COLLECTOR_AGENT_NAME, description = "Consolidates planning outputs into structured tickets")
+    public static class PlanningCollector {
+
+        public static final String PLANNING_COLLECTOR_MESSAGE = """
+                Merge and consolidate the following planning results from multiple agents:
+
+                Goal: {{goal}}
+                Planning Results: {{planningResults}}
+
+                Create structured tickets with:
+                - Ticket ID and title
+                - Clear implementation tasks
+                - Dependencies between tickets
+                - Acceptance criteria
+                - Estimated effort
+
+                Return merged tickets in structured format, and include a routing decision:
+                - ROUTE_BACK to rerun planning
+                - ADVANCE_PHASE to continue to ticket execution
+                - STOP to halt the workflow
+                """;
+
+        @Action
+        @AchievesGoal(description = "Consolidate planning results into tickets")
+        public AgentModels.PlanningCollectorResult consolidatePlansIntoTickets(
+                PlanningCollectorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    PLANNING_COLLECTOR_MESSAGE,
+                    Map.of("goal", input.goal(), "planningResults", input.planningResults())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.PlanningCollectorResult.class);
+        }
+    }
+
+    @Agent(name = TICKET_ORCHESTRATOR_AGENT_NAME, description = "Orchestrates ticket-based implementation workflow")
+    public static class TicketOrchestrator {
+
+        public static final String TICKET_ORCHESTRATOR_START_MESSAGE = """
                 Orchestrate ticket-based implementation for the following tickets:
 
                 Goal: {{goal}}
@@ -195,51 +356,29 @@ public class AgentInterfaces {
                 Return orchestration plan and ticket coordination strategy.
                 """;
 
-        @Agent(value = "Orchestrates ticket-based implementation workflow")
-        @UserMessage()
-        AgentModels.TicketOrchestratorResult orchestrateTicketExecution(@MemoryId String memId,
-                                                                        @UserMessage String msg,
-                                                                        @V("goal") String goal,
-                                                                        @V("tickets") String tickets,
-                                                                        @V("discoveryContext") String discoveryContext,
-                                                                        @V("planningContext") String planningContext);
+        @Action
+        @AchievesGoal(description = "Orchestrate ticket execution")
+        public AgentModels.TicketOrchestratorResult orchestrateTicketExecution(
+                TicketOrchestratorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    TICKET_ORCHESTRATOR_START_MESSAGE,
+                    Map.of(
+                            "goal", input.goal(),
+                            "tickets", input.tickets(),
+                            "discoveryContext", input.discoveryContext(),
+                            "planningContext", input.planningContext()
+                    )
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.TicketOrchestratorResult.class);
+        }
     }
 
-    /**
-     * Collector agent that consolidates ticket execution outputs.
-     */
-    public interface TicketCollector {
-        String TICKET_COLLECTOR_START_MESSAGE = """
-                Merge and consolidate the following ticket execution results:
+    @Agent(name = TICKET_AGENT_NAME, description = "Implements individual tickets with complete code generation")
+    public static class TicketAgent {
 
-                Goal: {{goal}}
-                Ticket Results: {{ticketResults}}
-
-                Produce a summary with:
-                - Completed tickets
-                - Failed tickets (with brief reasons)
-                - Outstanding follow-ups
-
-                Include a routing decision:
-                - ROUTE_BACK to rerun ticket execution
-                - ADVANCE_PHASE to continue to finalization
-                - STOP to halt the workflow
-                """;
-
-        @Agent(value = "Consolidates ticket execution results into a unified summary")
-        AgentModels.TicketCollectorResult consolidateTicketResults(@MemoryId String memId,
-                                                                   @UserMessage String msg,
-                                                                   @V("goal") String goal,
-                                                                   @V("ticketResults") String ticketResults);
-    }
-
-
-    /**
-     * Ticket agent that implements individual tickets.
-     */
-    public interface TicketAgent {
-
-        String TICKET_AGENT_START_MESSAGE = """
+        public static final String TICKET_AGENT_START_MESSAGE = """
                 Implement the following ticket with complete, production-ready code:
 
                 Ticket Details: {{ticketDetails}}
@@ -266,21 +405,63 @@ public class AgentInterfaces {
                 Provide complete, production-ready code with proper structure and error handling.
                 """;
 
-        @Agent(value = "Implements individual tickets with complete code generation")
-        AgentModels.TicketAgentResult implementTicket(@MemoryId String memId,
-                                                      @UserMessage String msg,
-                                                      @V("ticketDetails") String ticketDetails,
-                                                      @V("ticketDetailsFilePath") String ticketDetailsFilePath,
-                                                      @V("discoveryContext") String discoveryContext,
-                                                      @V("planningContext") String planningContext);
+        @Action
+        @AchievesGoal(description = "Implement a ticket")
+        public AgentModels.TicketAgentResult implementTicket(
+                TicketAgentInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    TICKET_AGENT_START_MESSAGE,
+                    Map.of(
+                            "ticketDetails", input.ticketDetails(),
+                            "ticketDetailsFilePath", input.ticketDetailsFilePath(),
+                            "discoveryContext", input.discoveryContext(),
+                            "planningContext", input.planningContext()
+                    )
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.TicketAgentResult.class);
+        }
     }
 
-    /**
-     * Merger agent that determines merge strategies and resolves conflicts.
-     */
-    public interface MergerAgent {
+    @Agent(name = TICKET_COLLECTOR_AGENT_NAME, description = "Consolidates ticket execution results into a unified summary")
+    public static class TicketCollector {
 
-        String MERGER_AGENT_START_MESSAGE = """
+        public static final String TICKET_COLLECTOR_START_MESSAGE = """
+                Merge and consolidate the following ticket execution results:
+
+                Goal: {{goal}}
+                Ticket Results: {{ticketResults}}
+
+                Produce a summary with:
+                - Completed tickets
+                - Failed tickets (with brief reasons)
+                - Outstanding follow-ups
+
+                Include a routing decision:
+                - ROUTE_BACK to rerun ticket execution
+                - ADVANCE_PHASE to continue to finalization
+                - STOP to halt the workflow
+                """;
+
+        @Action
+        @AchievesGoal(description = "Consolidate ticket results")
+        public AgentModels.TicketCollectorResult consolidateTicketResults(
+                TicketCollectorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    TICKET_COLLECTOR_START_MESSAGE,
+                    Map.of("goal", input.goal(), "ticketResults", input.ticketResults())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.TicketCollectorResult.class);
+        }
+    }
+
+    @Agent(name = MERGER_AGENT_NAME, description = "Resolves merge conflicts based on strategy and context")
+    public static class MergerAgent {
+
+        public static final String MERGER_AGENT_START_MESSAGE = """
                 Review the merge outcome and validate it is correct.
 
                 Merge context:
@@ -295,19 +476,28 @@ public class AgentInterfaces {
                 Confirm whether the merge is acceptable. If conflicts exist, outline resolution guidance.
                 """;
 
-        @Agent(value = "Resolves merge conflicts based on strategy and context")
-        AgentModels.MergerAgentResult performMerge(@MemoryId String memId,
-                                                   @UserMessage String msg,
-                                                   @V("mergeContext") String mergeContext,
-                                                   @V("mergeSummary") String mergeSummary,
-                                                   @V("conflictFiles") String conflictFiles);
+        @Action
+        @AchievesGoal(description = "Review merge result")
+        public AgentModels.MergerAgentResult performMerge(
+                MergerAgentInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    MERGER_AGENT_START_MESSAGE,
+                    Map.of(
+                            "mergeContext", input.mergeContext(),
+                            "mergeSummary", input.mergeSummary(),
+                            "conflictFiles", input.conflictFiles()
+                    )
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.MergerAgentResult.class);
+        }
     }
 
-    /**
-     * Review agent that evaluates code quality and completeness.
-     */
-    public interface ReviewAgent {
-        String REVIEW_AGENT_START_MESSAGE = """
+    @Agent(name = REVIEW_AGENT_NAME, description = "Evaluates content quality, completeness, and adherence to requirements")
+    public static class ReviewAgent {
+
+        public static final String REVIEW_AGENT_START_MESSAGE = """
                 Review the following content against these criteria:
 
                 Content:
@@ -319,138 +509,120 @@ public class AgentInterfaces {
                 - Overall assessment (APPROVED/NEEDS_REVISION)
                 - Specific feedback on quality
                 - Suggestions for improvement
-                
+
                 Additionally, if you have further questions, return an indicator for whether a human should review.
                 """;
 
-        @Agent(value = "Evaluates content quality, completeness, and adherence to requirements")
-        AgentModels.ReviewAgentResult evaluateContent(@MemoryId String memId,
-                                                      @UserMessage String msg,
-                                                      @V("content") String content,
-                                                      @V("criteria") String criteria);
+        @Action
+        @AchievesGoal(description = "Evaluate content quality")
+        public AgentModels.ReviewAgentResult evaluateContent(
+                ReviewAgentInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    REVIEW_AGENT_START_MESSAGE,
+                    Map.of("content", input.content(), "criteria", input.criteria())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.ReviewAgentResult.class);
+        }
     }
 
-    /**
-     * Orchestrator agent that coordinates multi-agent workflows.
-     */
-    public interface OrchestratorAgent {
+    @Agent(
+            name = ORCHESTRATOR_COLLECTOR_AGENT_NAME,
+            description = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct."
+    )
+    public static class OrchestratorCollectorAgent {
 
-        String ORCHESTRATOR_AGENT_START_MESSAGE = """
-                Coordinate the following multi-agent workflow:
-
-                Goal: {{goal}}
-                Current phase: {{phase}}
-                Available agents: planning, editor, merger, review
-
-                Determine:
-                1. Next agent to invoke
-                2. Input for that agent
-                3. Success criteria
-                """;
-
-        @Agent(value = "Coordinates multiple agents to accomplish complex goals")
-        AgentModels.OrchestratorAgentResult coordinateWorkflow(@MemoryId String memId,
-                                                               @UserMessage String msg,
-                                                               @V("goal") String goal,
-                                                               @V("phase") String phase);
-    }
-
-//    TODO:
-    public interface OrchestratorCollectorAgent {
-
-        String ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE = """
+        public static final String ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE = """
                 Consolidate the workflow results and provide a routing decision:
                 - ROUTE_BACK to rerun the final collection
                 - ADVANCE_PHASE to finalize and complete the goal
                 - STOP to halt the workflow
                 """;
 
-        /**
-         * Takes the results of the workflow, reviews everything as a final step, decides if it's valid.
-         * It then massages the commits to make them more streamlined and easy to digest, adding any metadata,
-         *  updating the workflow outputs in the repository for cross-cutting concerns or to fill in any cross-
-         *  agent connections across the architecture.
-         * It then runs all tests, integration tests in test_graph making sure everything looks good there,
-         *  merging together all of those changes, massaging that commit.
-         * Then, it searches through the contexts and refines the memory episode for the commits. All
-         *  agents would have registered any context summary with the context agents, and they would have
-         *  their documentations and commits, so at this point, the orchestrator collector needs to
-         *  take all of that, and provide a memory episode that will be searchable and usable for future
-         *  commits. This, along with the code and docs, is the primary "output" of the process, so it's very
-         *  important - it will be searchable and retrievable for future commits.
-         * @param memId
-         * @param msg
-         * @param goal
-         * @param phase
-         * @return
-         */
-        @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
-        AgentModels.OrchestratorCollectorResult coordinateWorkflow(@MemoryId String memId,
-                                                                   @UserMessage String msg,
-                                                                   @V("goal") String goal,
-                                                                   @V("phase") String phase);
+        @Action
+        @AchievesGoal(description = "Consolidate orchestrator workflow outputs")
+        public AgentModels.OrchestratorCollectorResult coordinateWorkflow(
+                OrchestratorCollectorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "phase", input.phase())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.OrchestratorCollectorResult.class);
+        }
     }
 
-    /**
-     * Agent orchestrates as a check-in point for agents.
-     * Provided with the context toolset, which includes pruning,
-     *  saving, retrieving, etc., context items, and leaving an index/summary
-     *  where they were.
-     * This agent then delegates to multiple context agents to handle
-     *  parts of the managing the context.
-     * Agents will also call this agent when they need to expand a part of their context,
-     *  or retrieve a part of the context that was saved, by providing the id
-     *  that was left by these agents previously.
-     */
-    public interface ContextOrchestratorAgent {
+    @Agent(
+            name = CONTEXT_ORCHESTRATOR_AGENT_NAME,
+            description = "Orchestrates context operations for the workflow."
+    )
+    public static class ContextOrchestratorAgent {
 
-        String CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE = """
+        public static final String CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE = """
 //                TODO:
                 """;
 
-        @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
-        AgentModels.OrchestratorAgentResult coordinateWorkflow(@MemoryId String memId,
-                                                               @UserMessage String msg,
-                                                               @V("goal") String goal,
-                                                               @V("phase") String phase);
+        @Action
+        @AchievesGoal(description = "Coordinate context operations")
+        public AgentModels.OrchestratorAgentResult coordinateWorkflow(
+                ContextOrchestratorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "phase", input.phase())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.OrchestratorAgentResult.class);
+        }
     }
 
-    /**
-     * Handles reviewing context, pruning context - makes recommendations for
-     *  operations, such as striking specific things from the tool calls,
-     *  registering results and leaving indexes (to check later),
-     *  summarizing specific pieces of the context, etc. It does this using
-     *  the context toolset in LLM Context Manager.
-     */
-    public interface ContextAgent {
+    @Agent(
+            name = CONTEXT_AGENT_NAME,
+            description = "Handles reviewing and pruning context."
+    )
+    public static class ContextAgent {
 
-        String CONTEXT_AGENT_START_MESSAGE = """
+        public static final String CONTEXT_AGENT_START_MESSAGE = """
 //                TODO:
                 """;
 
-        @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
-        AgentModels.ContextAgentResult applyContextOperations(@MemoryId String memId,
-                                                              @UserMessage String msg,
-                                                              @V("goal") String goal,
-                                                              @V("phase") String phase);
+        @Action
+        @AchievesGoal(description = "Apply context operations")
+        public AgentModels.ContextAgentResult applyContextOperations(
+                ContextAgentInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    CONTEXT_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "phase", input.phase())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.ContextAgentResult.class);
+        }
     }
 
-    /**
-     * Merges together the results from ContextAgents, taking the previous context
-     *  and the actions that the ContextAgent's took and providing the next context
-     *  that operates as the full context used by the agent - meaning then the context
-     *  is reset for the agent calling this workflow to the item returned.
-     */
-    public interface ContextCollectorAgent {
+    @Agent(
+            name = CONTEXT_COLLECTOR_AGENT_NAME,
+            description = "Merges context operations into a consolidated context."
+    )
+    public static class ContextCollectorAgent {
 
-        String CONTEXT_COLLECTOR_START_MESSAGE = """
+        public static final String CONTEXT_COLLECTOR_START_MESSAGE = """
 //                TODO:
                 """;
 
-        @Agent(value = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct.")
-        AgentModels.ContextCollectorResult coordinateWorkflow(@MemoryId String memId,
-                                                              @UserMessage String msg,
-                                                              @V("goal") String goal,
-                                                              @V("phase") String phase);
+        @Action
+        @AchievesGoal(description = "Consolidate context operations")
+        public AgentModels.ContextCollectorResult coordinateWorkflow(
+                ContextCollectorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    CONTEXT_COLLECTOR_START_MESSAGE,
+                    Map.of("goal", input.goal(), "phase", input.phase())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.ContextCollectorResult.class);
+        }
     }
 }
