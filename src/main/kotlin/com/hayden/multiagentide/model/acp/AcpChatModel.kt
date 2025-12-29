@@ -284,6 +284,23 @@ class AcpChatModel(
             return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, _meta)
         }
 
+        override suspend fun fsReadTextFile(
+            path: String,
+            line: UInt?,
+            limit: UInt?,
+            _meta: JsonElement?
+        ): ReadTextFileResponse {
+            return super.fsReadTextFile(path, line, limit, _meta)
+        }
+
+        override suspend fun fsWriteTextFile(
+            path: String,
+            content: String,
+            _meta: JsonElement?
+        ): WriteTextFileResponse {
+            return super.fsWriteTextFile(path, content, _meta)
+        }
+
         override suspend fun notify(notification: SessionUpdate, _meta: JsonElement?) {
         }
     }

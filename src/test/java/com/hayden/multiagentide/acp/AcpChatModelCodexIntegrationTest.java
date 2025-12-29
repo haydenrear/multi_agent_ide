@@ -47,7 +47,7 @@ class AcpChatModelCodexIntegrationTest {
                                                      @UserMessage String msg);
     }
 
-//    @Test
+    @Test
     void chatModelUsesAcpProtocol() {
         assertThat(chatModel).isInstanceOf(AcpChatModel.class);
 
@@ -82,11 +82,9 @@ class AcpChatModelCodexIntegrationTest {
             );
 
             var res = agent
-                    .kickOffAnyNumberOfAgentsForCodeSearch("1", "What capabilities do you have to use? - do you have an emit ui event capability?");
+                    .kickOffAnyNumberOfAgentsForCodeSearch("1", "Can you read one of the files in the root directory, return the result, then write that result to another file named log.log, then update that file and add the words WHATEVER!??");
             log.info("{}", res);
 
-            res = agent.kickOffAnyNumberOfAgentsForCodeSearch("100", "Do you have any tools available to you?");
-            log.info("{}", res);
         } catch (Exception e) {
             log.error("Error - will not fail test for codex-acp - but failed", e);
         }
