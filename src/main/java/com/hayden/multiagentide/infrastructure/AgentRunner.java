@@ -1,13 +1,17 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.embabel.agent.api.event.AgentProcessEvent;
-import com.embabel.agent.api.event.AgenticEventListener;
+import com.embabel.agent.api.event.*;
 import com.embabel.agent.core.Agent;
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.IoBinding;
 import com.embabel.agent.core.ProcessOptions;
+import com.embabel.chat.ChatSession;
+import com.embabel.chat.UserMessage;
+import com.embabel.chat.agent.AgentProcessChatbot;
+import com.embabel.common.ai.model.ModelSelectionCriteria;
 import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.agent.AgentModels;
 import com.hayden.multiagentide.model.MergeResult;
 import com.hayden.multiagentide.model.events.Events;
@@ -45,6 +49,7 @@ public class AgentRunner {
     private final WorktreeRepository worktreeRepository;
 
     private final AgentPlatform agentPlatform;
+    private final AgentLifecycleHandler agentLifecycleHandler;
 
     private static final String META_TICKET_QUEUE = "ticket_queue";
     private static final String META_TICKET_POINTER = "ticket_pointer";
@@ -61,34 +66,17 @@ public class AgentRunner {
     ) {
     }
 
-    private Agent resolveAgent(String agentName) {
-        return agentPlatform.agents().stream()
-                .filter(agent -> agent.getName().equals(agentName))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Agent not found: " + agentName));
-    }
-
-    private <T> T addMessageToAgent(String agentName, Object input, Class<T> outputClass, String nodeId) {
-        AgentProcess process = agentPlatform.getAgentProcess(nodeId);
-
-        if (process != null) {
-            process.addObject(input);
-            return process.run().resultOfType(outputClass);
+    private void addMessageToAgent(String input, String agentProcessId) {
+        AgentProcess process = agentPlatform.getAgentProcess(agentProcessId);
+        var chatbot = AgentProcessChatbot.utilityFromPlatform(agentPlatform);
+        ChatSession chatSession = chatbot.findSession(agentProcessId);
+        if (process != null && chatSession != null) {
+            chatSession.onUserMessage(new UserMessage(input));
+        } else {
+            log.error("Could not add message to agent - {} - {}", process, chatSession);
         }
-
-        return null;
     }
 
-    private <T> T runAgent(String agentName, Object input, Class<T> outputClass, String nodeId) {
-        Agent agent = resolveAgent(agentName);
-        ProcessOptions processOptions = ProcessOptions.DEFAULT.withContextId(nodeId);
-        AgentProcess process = agentPlatform.runAgentFrom(
-                agent,
-                processOptions,
-                Map.of(IoBinding.DEFAULT_BINDING, input)
-        );
-        return process.resultOfType(outputClass);
-    }
 
     public void runOnAgent(AgentDispatchArgs d) {
         var parent = d.parent;
@@ -250,8 +238,8 @@ public class AgentRunner {
         //        TODO: do this for the rest of the node types
         switch (dispatchArgs.self) {
             case DiscoveryNode node -> {
-                runAgent(
-                        AgentInterfaces.DISCOVERY_AGENT_NAME,
+                agentLifecycleHandler.runAgent(
+                        AgentInterfaces.DISCOVERY_AGENT,
                         new AgentInterfaces.DiscoveryAgentInput(node.goal(), node.title()),
                         AgentModels.DiscoveryAgentResult.class,
                         node.nodeId()
@@ -678,20 +666,20 @@ public class AgentRunner {
     ) {
         try {
             return switch (node) {
-                case DiscoveryNode n -> runAgent(
-                        AgentInterfaces.DISCOVERY_AGENT_NAME,
+                case DiscoveryNode n -> agentLifecycleHandler.runAgent(
+                        AgentInterfaces.DISCOVERY_AGENT,
                         new AgentInterfaces.DiscoveryAgentInput(n.goal(), n.title()),
                         AgentModels.DiscoveryAgentResult.class,
                         n.nodeId()
                 ).output();
-                case PlanningNode n -> runAgent(
-                        AgentInterfaces.PLANNING_AGENT_NAME,
+                case PlanningNode n -> agentLifecycleHandler.runAgent(
+                        AgentInterfaces.PLANNING_AGENT,
                         new AgentInterfaces.PlanningAgentInput(n.goal()),
                         AgentModels.PlanningAgentResult.class,
                         n.nodeId()
                 ).output();
-                case TicketNode n -> runAgent(
-                        AgentInterfaces.TICKET_AGENT_NAME,
+                case TicketNode n -> agentLifecycleHandler.runAgent(
+                        AgentInterfaces.TICKET_AGENT,
                         new AgentInterfaces.TicketAgentInput(
                                 n.goal(),
                                 "interrupt",
@@ -701,8 +689,8 @@ public class AgentRunner {
                         AgentModels.TicketAgentResult.class,
                         n.nodeId()
                 ).output();
-                case OrchestratorNode n -> runAgent(
-                        AgentInterfaces.ORCHESTRATOR_AGENT_NAME,
+                case OrchestratorNode n -> agentLifecycleHandler.runAgent(
+                        AgentInterfaces.ORCHESTRATOR_AGENT,
                         new AgentInterfaces.OrchestratorInput(n.goal(), "interrupt"),
                         AgentModels.OrchestratorAgentResult.class,
                         n.nodeId()
@@ -778,8 +766,8 @@ public class AgentRunner {
         );
         OrchestratorNode running = markNodeRunning(orchestratorNode);
         try {
-            AgentModels.OrchestratorAgentResult result = runAgent(
-                    AgentInterfaces.ORCHESTRATOR_AGENT_NAME,
+            AgentModels.OrchestratorAgentResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.ORCHESTRATOR_AGENT,
                     new AgentInterfaces.OrchestratorInput(running.goal(), "DISCOVERY"),
                     AgentModels.OrchestratorAgentResult.class,
                     running.nodeId()
@@ -861,8 +849,8 @@ public class AgentRunner {
         );
         DiscoveryOrchestratorNode running = markNodeRunning(node);
         try {
-            AgentModels.DiscoveryOrchestratorResult result = runAgent(
-                    AgentInterfaces.DISCOVERY_ORCHESTRATOR_AGENT_NAME,
+            AgentModels.DiscoveryOrchestratorResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.DISCOVERY_ORCHESTRATOR_AGENT,
                     new AgentInterfaces.DiscoveryOrchestratorInput(running.goal()),
                     AgentModels.DiscoveryOrchestratorResult.class,
                     running.nodeId()
@@ -955,8 +943,8 @@ public class AgentRunner {
         DiscoveryNode running = markNodeRunning(node);
         try {
             String subdomainFocus = running.title();
-            AgentModels.DiscoveryAgentResult result = runAgent(
-                    AgentInterfaces.DISCOVERY_AGENT_NAME,
+            AgentModels.DiscoveryAgentResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.DISCOVERY_AGENT,
                     new AgentInterfaces.DiscoveryAgentInput(running.goal(), subdomainFocus),
                     AgentModels.DiscoveryAgentResult.class,
                     running.nodeId()
@@ -1008,8 +996,8 @@ public class AgentRunner {
             List<CollectedNodeStatus> collectedNodes =
                     collectSiblingStatusSnapshots(running, DiscoveryNode.class);
 
-            AgentModels.DiscoveryCollectorResult result = runAgent(
-                    AgentInterfaces.DISCOVERY_COLLECTOR_AGENT_NAME,
+            AgentModels.DiscoveryCollectorResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.DISCOVERY_COLLECTOR_AGENT,
                     new AgentInterfaces.DiscoveryCollectorInput(running.goal(), allDiscoveryFindings),
                     AgentModels.DiscoveryCollectorResult.class,
                     running.nodeId()
@@ -1104,8 +1092,8 @@ public class AgentRunner {
             // Get discovery context from parent chain
             String discoveryContext = extractDiscoveryContext(node);
 
-            AgentModels.PlanningOrchestratorResult result = runAgent(
-                    AgentInterfaces.PLANNING_ORCHESTRATOR_AGENT_NAME,
+            AgentModels.PlanningOrchestratorResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.PLANNING_ORCHESTRATOR_AGENT,
                     new AgentInterfaces.PlanningOrchestratorInput(running.goal()),
                     AgentModels.PlanningOrchestratorResult.class,
                     running.nodeId()
@@ -1204,8 +1192,8 @@ public class AgentRunner {
         log.info("Executing PlanningAgent for node: {}", node.nodeId());
         PlanningNode running = markNodeRunning(node);
         try {
-            AgentModels.PlanningAgentResult result = runAgent(
-                    AgentInterfaces.PLANNING_AGENT_NAME,
+            AgentModels.PlanningAgentResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.PLANNING_AGENT,
                     new AgentInterfaces.PlanningAgentInput(running.goal()),
                     AgentModels.PlanningAgentResult.class,
                     running.nodeId()
@@ -1254,8 +1242,8 @@ public class AgentRunner {
             List<CollectedNodeStatus> collectedNodes =
                     collectSiblingStatusSnapshots(running, PlanningNode.class);
 
-            AgentModels.PlanningCollectorResult result = runAgent(
-                    AgentInterfaces.PLANNING_COLLECTOR_AGENT_NAME,
+            AgentModels.PlanningCollectorResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.PLANNING_COLLECTOR_AGENT,
                     new AgentInterfaces.PlanningCollectorInput(running.goal(), allPlanningResults),
                     AgentModels.PlanningCollectorResult.class,
                     running.nodeId()
@@ -1408,8 +1396,8 @@ public class AgentRunner {
             String tickets = extractTicketsFromContext(planningContext);
             List<String> ticketList = parseTickets(tickets);
 
-            AgentModels.TicketOrchestratorResult result = runAgent(
-                    AgentInterfaces.TICKET_ORCHESTRATOR_AGENT_NAME,
+            AgentModels.TicketOrchestratorResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.TICKET_ORCHESTRATOR_AGENT,
                     new AgentInterfaces.TicketOrchestratorInput(
                             running.goal(),
                             tickets,
@@ -1594,8 +1582,8 @@ public class AgentRunner {
             String ticketDetails = running.goal();
             String ticketDetailsFilePath = "/path/to/ticket/details.md"; // In real implementation, resolve from node
 
-            AgentModels.TicketAgentResult result = runAgent(
-                    AgentInterfaces.TICKET_AGENT_NAME,
+            AgentModels.TicketAgentResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.TICKET_AGENT,
                     new AgentInterfaces.TicketAgentInput(
                             ticketDetails,
                             ticketDetailsFilePath,
@@ -1645,8 +1633,8 @@ public class AgentRunner {
             List<CollectedNodeStatus> collectedNodes =
                     collectSiblingStatusSnapshots(running, TicketNode.class);
 
-            AgentModels.TicketCollectorResult result = runAgent(
-                    AgentInterfaces.TICKET_COLLECTOR_AGENT_NAME,
+            AgentModels.TicketCollectorResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.TICKET_COLLECTOR_AGENT,
                     new AgentInterfaces.TicketCollectorInput(running.goal(), allTicketResults),
                     AgentModels.TicketCollectorResult.class,
                     running.nodeId()
@@ -1722,8 +1710,8 @@ public class AgentRunner {
             String content = running.reviewContent();
             String criteria = buildReviewCriteria();
 
-            AgentModels.ReviewAgentResult result = runAgent(
-                    AgentInterfaces.REVIEW_AGENT_NAME,
+            AgentModels.ReviewAgentResult result = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.REVIEW_AGENT,
                     new AgentInterfaces.ReviewAgentInput(content, criteria),
                     AgentModels.ReviewAgentResult.class,
                     running.nodeId()
@@ -1923,8 +1911,8 @@ public class AgentRunner {
                 targetWorktreeId,
                 mergeResult
         );
-        AgentModels.MergerAgentResult agentResult = runAgent(
-                AgentInterfaces.MERGER_AGENT_NAME,
+        AgentModels.MergerAgentResult agentResult = agentLifecycleHandler.runAgent(
+                AgentInterfaces.MERGER_AGENT,
                 new AgentInterfaces.MergerAgentInput(
                         mergeContext,
                         mergeSummary,
@@ -2674,8 +2662,8 @@ public class AgentRunner {
                 targetWorktreeId,
                 null
         );
-        return runAgent(
-                AgentInterfaces.MERGER_AGENT_NAME,
+        return agentLifecycleHandler.runAgent(
+                AgentInterfaces.MERGER_AGENT,
                 new AgentInterfaces.MergerAgentInput(
                         mergeContext,
                         "Merge summary unavailable.",

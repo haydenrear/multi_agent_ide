@@ -12,7 +12,9 @@ import java.util.Objects;
  * Embabel @Agent definitions for multi-agent IDE.
  * Each agent currently exposes a single action.
  */
-public final class AgentInterfaces {
+public sealed interface AgentInterfaces {
+
+    String agentName();
 
     public static final String ORCHESTRATOR_AGENT_NAME = "OrchestratorAgent";
     public static final String DISCOVERY_ORCHESTRATOR_AGENT_NAME = "DiscoveryOrchestrator";
@@ -31,8 +33,22 @@ public final class AgentInterfaces {
     public static final String CONTEXT_AGENT_NAME = "ContextAgent";
     public static final String CONTEXT_COLLECTOR_AGENT_NAME = "ContextCollectorAgent";
 
-    private AgentInterfaces() {
-    }
+    public static final OrchestratorAgent ORCHESTRATOR_AGENT = new OrchestratorAgent();
+    public static final DiscoveryOrchestrator DISCOVERY_ORCHESTRATOR_AGENT = new DiscoveryOrchestrator();
+    public static final DiscoveryAgent DISCOVERY_AGENT = new DiscoveryAgent();
+    public static final DiscoveryCollector DISCOVERY_COLLECTOR_AGENT = new DiscoveryCollector();
+    public static final PlanningOrchestrator PLANNING_ORCHESTRATOR_AGENT = new PlanningOrchestrator();
+    public static final PlanningAgent PLANNING_AGENT = new PlanningAgent();
+    public static final PlanningCollector PLANNING_COLLECTOR_AGENT = new PlanningCollector();
+    public static final TicketOrchestrator TICKET_ORCHESTRATOR_AGENT = new TicketOrchestrator();
+    public static final TicketAgent TICKET_AGENT = new TicketAgent();
+    public static final TicketCollector TICKET_COLLECTOR_AGENT = new TicketCollector();
+    public static final MergerAgent MERGER_AGENT = new MergerAgent();
+    public static final ReviewAgent REVIEW_AGENT = new ReviewAgent ();
+    public static final OrchestratorCollectorAgent ORCHESTRATOR_COLLECTOR_AGENT = new OrchestratorCollectorAgent();
+    public static final ContextOrchestratorAgent CONTEXT_ORCHESTRATOR_AGENT = new ContextOrchestratorAgent();
+    public static final ContextAgent CONTEXT_AGENT = new ContextAgent();
+    public static final ContextCollectorAgent CONTEXT_COLLECTOR_AGENT = new ContextCollectorAgent();
 
     public record OrchestratorInput(String goal, String phase) {
     }
@@ -104,7 +120,11 @@ public final class AgentInterfaces {
     }
 
     @Agent(name = ORCHESTRATOR_AGENT_NAME, description = "Coordinates multiple agents to accomplish complex goals")
-    public static class OrchestratorAgent {
+    record OrchestratorAgent() implements AgentInterfaces {
+
+        public String agentName() {
+            return ORCHESTRATOR_AGENT_NAME;
+        }
 
         public static final String ORCHESTRATOR_AGENT_START_MESSAGE = """
                 Coordinate the following multi-agent workflow:
@@ -134,7 +154,11 @@ public final class AgentInterfaces {
     }
 
     @Agent(name = DISCOVERY_ORCHESTRATOR_AGENT_NAME, description = "Coordinates discovery work across agents")
-    public static class DiscoveryOrchestrator {
+    record DiscoveryOrchestrator() implements AgentInterfaces {
+
+        public String agentName() {
+            return DISCOVERY_ORCHESTRATOR_AGENT_NAME;
+        }
 
         public static final String DISCOVERY_ORCHESTRATOR_START_MESSAGE = """
                 Coordinate the following multi-agent workflow:
@@ -167,7 +191,10 @@ public final class AgentInterfaces {
     }
 
     @Agent(name = DISCOVERY_AGENT_NAME, description = "Discovers and analyzes codebase structure for specific domains")
-    public static class DiscoveryAgent {
+    record DiscoveryAgent() implements AgentInterfaces {
+        public String agentName() {
+            return DISCOVERY_AGENT_NAME;
+        }
 
         public static final String DISCOVERY_AGENT_START_MESSAGE = """
                 Discover and analyze the codebase for the following subdomain:
@@ -208,7 +235,11 @@ public final class AgentInterfaces {
     }
 
     @Agent(name = DISCOVERY_COLLECTOR_AGENT_NAME, description = "Consolidates discovery findings into unified codebase understanding")
-    public static class DiscoveryCollector {
+    record DiscoveryCollector() implements AgentInterfaces {
+
+        public String agentName() {
+            return DISCOVERY_COLLECTOR_AGENT_NAME;
+        }
 
         public static final String DISCOVERY_COLLECTOR_START_MESSAGE = """
                 Merge and consolidate the following discovery results from multiple agents:
@@ -246,7 +277,8 @@ public final class AgentInterfaces {
     }
 
     @Agent(name = PLANNING_ORCHESTRATOR_AGENT_NAME, description = "Split the goal into tickets according to the discovery context")
-    public static class PlanningOrchestrator {
+    record PlanningOrchestrator() implements AgentInterfaces {
+
 
         public static final String PLANNING_ORCHESTRATOR_MESSAGE = """
                 Decompose the planning for the goal according to the results from discovery.
@@ -270,10 +302,19 @@ public final class AgentInterfaces {
             );
             return context.ai().withDefaultLlm().createObject(prompt, AgentModels.PlanningOrchestratorResult.class);
         }
+
+        @Override
+        public String agentName() {
+            return PLANNING_ORCHESTRATOR_AGENT_NAME;
+        }
     }
 
     @Agent(name = PLANNING_AGENT_NAME, description = "Decomposes high-level goals into structured work items")
-    public static class PlanningAgent {
+    record PlanningAgent() implements AgentInterfaces {
+        @Override
+        public String agentName() {
+            return PLANNING_AGENT_NAME;
+        }
 
         public static final String PLANNING_AGENT_USER_MESSAGE = """
                 Analyze the following goal and break it down into 3 work items:
@@ -301,7 +342,11 @@ public final class AgentInterfaces {
     }
 
     @Agent(name = PLANNING_COLLECTOR_AGENT_NAME, description = "Consolidates planning outputs into structured tickets")
-    public static class PlanningCollector {
+    record PlanningCollector() implements AgentInterfaces {
+        @Override
+        public String agentName() {
+            return PLANNING_COLLECTOR_AGENT_NAME;
+        }
 
         public static final String PLANNING_COLLECTOR_MESSAGE = """
                 Merge and consolidate the following planning results from multiple agents:
@@ -337,7 +382,12 @@ public final class AgentInterfaces {
     }
 
     @Agent(name = TICKET_ORCHESTRATOR_AGENT_NAME, description = "Orchestrates ticket-based implementation workflow")
-    public static class TicketOrchestrator {
+    record TicketOrchestrator() implements AgentInterfaces {
+
+        @Override
+        public String agentName() {
+            return TICKET_ORCHESTRATOR_AGENT_NAME;
+        }
 
         public static final String TICKET_ORCHESTRATOR_START_MESSAGE = """
                 Orchestrate ticket-based implementation for the following tickets:
@@ -376,7 +426,7 @@ public final class AgentInterfaces {
     }
 
     @Agent(name = TICKET_AGENT_NAME, description = "Implements individual tickets with complete code generation")
-    public static class TicketAgent {
+    record TicketAgent() implements AgentInterfaces {
 
         public static final String TICKET_AGENT_START_MESSAGE = """
                 Implement the following ticket with complete, production-ready code:
@@ -422,10 +472,20 @@ public final class AgentInterfaces {
             );
             return context.ai().withDefaultLlm().createObject(prompt, AgentModels.TicketAgentResult.class);
         }
+
+        @Override
+        public String agentName() {
+            return TICKET_AGENT_NAME;
+        }
     }
 
     @Agent(name = TICKET_COLLECTOR_AGENT_NAME, description = "Consolidates ticket execution results into a unified summary")
-    public static class TicketCollector {
+    record TicketCollector() implements AgentInterfaces {
+
+        @Override
+        public String agentName() {
+            return TICKET_COLLECTOR_AGENT_NAME;
+        }
 
         public static final String TICKET_COLLECTOR_START_MESSAGE = """
                 Merge and consolidate the following ticket execution results:
@@ -459,7 +519,12 @@ public final class AgentInterfaces {
     }
 
     @Agent(name = MERGER_AGENT_NAME, description = "Resolves merge conflicts based on strategy and context")
-    public static class MergerAgent {
+    record MergerAgent() implements AgentInterfaces {
+
+        @Override
+        public String agentName() {
+            return MERGER_AGENT_NAME;
+        }
 
         public static final String MERGER_AGENT_START_MESSAGE = """
                 Review the merge outcome and validate it is correct.
@@ -495,7 +560,12 @@ public final class AgentInterfaces {
     }
 
     @Agent(name = REVIEW_AGENT_NAME, description = "Evaluates content quality, completeness, and adherence to requirements")
-    public static class ReviewAgent {
+    record ReviewAgent() implements AgentInterfaces {
+
+        @Override
+        public String agentName() {
+            return REVIEW_AGENT_NAME;
+        }
 
         public static final String REVIEW_AGENT_START_MESSAGE = """
                 Review the following content against these criteria:
@@ -531,7 +601,12 @@ public final class AgentInterfaces {
             name = ORCHESTRATOR_COLLECTOR_AGENT_NAME,
             description = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct."
     )
-    public static class OrchestratorCollectorAgent {
+    record OrchestratorCollectorAgent() implements AgentInterfaces {
+
+        @Override
+        public String agentName() {
+            return ORCHESTRATOR_COLLECTOR_AGENT_NAME;
+        }
 
         public static final String ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE = """
                 Consolidate the workflow results and provide a routing decision:
@@ -558,7 +633,12 @@ public final class AgentInterfaces {
             name = CONTEXT_ORCHESTRATOR_AGENT_NAME,
             description = "Orchestrates context operations for the workflow."
     )
-    public static class ContextOrchestratorAgent {
+    record ContextOrchestratorAgent() implements AgentInterfaces {
+
+        @Override
+        public String agentName() {
+            return CONTEXT_ORCHESTRATOR_AGENT_NAME;
+        }
 
         public static final String CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE = """
 //                TODO:
@@ -582,7 +662,12 @@ public final class AgentInterfaces {
             name = CONTEXT_AGENT_NAME,
             description = "Handles reviewing and pruning context."
     )
-    public static class ContextAgent {
+    record ContextAgent() implements AgentInterfaces {
+
+        @Override
+        public String agentName() {
+            return CONTEXT_AGENT_NAME;
+        }
 
         public static final String CONTEXT_AGENT_START_MESSAGE = """
 //                TODO:
@@ -606,7 +691,12 @@ public final class AgentInterfaces {
             name = CONTEXT_COLLECTOR_AGENT_NAME,
             description = "Merges context operations into a consolidated context."
     )
-    public static class ContextCollectorAgent {
+    record ContextCollectorAgent() implements AgentInterfaces {
+
+        @Override
+        public String agentName() {
+            return CONTEXT_COLLECTOR_AGENT_NAME;
+        }
 
         public static final String CONTEXT_COLLECTOR_START_MESSAGE = """
 //                TODO:

@@ -1,5 +1,10 @@
 package com.hayden.multiagentide.agent;
 
+import com.embabel.agent.api.event.AgentProcessCreationEvent;
+import com.embabel.agent.api.event.AgentProcessEvent;
+import com.embabel.agent.api.event.AgentProcessFinishedEvent;
+import com.embabel.agent.api.event.AgenticEventListener;
+import com.embabel.agent.core.*;
 import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentide.model.nodes.SubmoduleNode;
 import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
@@ -10,6 +15,7 @@ import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.WorktreeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
@@ -31,6 +37,108 @@ public class AgentLifecycleHandler {
     private final GraphRepository graphRepository;
     private final WorktreeRepository worktreeRepository;
     private final WorktreeService worktreeService;
+    private final AgentPlatform agentPlatform;
+
+    public Agent resolveAgent(String agentName) {
+        return agentPlatform.agents().stream()
+                .filter(agent -> agent.getName().equals(agentName))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Agent not found: " + agentName));
+    }
+
+
+    public <T> T runAgent(AgentInterfaces agentInterface, Object input, Class<T> outputClass, String nodeId) {
+        Agent agent = resolveAgent(agentInterface.agentName());
+        ProcessOptions processOptions = ProcessOptions.DEFAULT.withContextId(nodeId)
+                .withListener(new AgenticEventListener() {
+                    @Override
+                    public void onProcessEvent(@NotNull AgentProcessEvent event) {
+//                      process ID is the same as Node ID
+                        var processId = event.getProcessId();
+                        if (event instanceof AgentProcessCreationEvent c) {
+                            switch(agentInterface) {
+                                case AgentInterfaces.ContextAgent contextAgent -> {
+                                }
+                                case AgentInterfaces.ContextCollectorAgent contextCollectorAgent -> {
+                                }
+                                case AgentInterfaces.ContextOrchestratorAgent contextOrchestratorAgent -> {
+                                }
+                                case AgentInterfaces.DiscoveryAgent discoveryAgent -> {
+                                }
+                                case AgentInterfaces.DiscoveryCollector discoveryCollector -> {
+                                }
+                                case AgentInterfaces.DiscoveryOrchestrator discoveryOrchestrator -> {
+                                }
+                                case AgentInterfaces.MergerAgent mergerAgent -> {
+                                }
+                                case AgentInterfaces.OrchestratorAgent orchestratorAgent -> {
+                                }
+                                case AgentInterfaces.OrchestratorCollectorAgent orchestratorCollectorAgent -> {
+                                }
+                                case AgentInterfaces.PlanningAgent planningAgent -> {
+                                }
+                                case AgentInterfaces.PlanningCollector planningCollector -> {
+                                }
+                                case AgentInterfaces.PlanningOrchestrator planningOrchestrator -> {
+                                }
+                                case AgentInterfaces.ReviewAgent reviewAgent -> {
+                                }
+                                case AgentInterfaces.TicketAgent ticketAgent -> {
+                                }
+                                case AgentInterfaces.TicketCollector ticketCollector -> {
+                                }
+                                case AgentInterfaces.TicketOrchestrator ticketOrchestrator -> {
+                                }
+                            }
+
+                        }
+                        if (event instanceof AgentProcessFinishedEvent c) {
+//                            process ID is the same as Node ID
+                            switch(agentInterface) {
+                                case AgentInterfaces.ContextAgent contextAgent -> {
+                                }
+                                case AgentInterfaces.ContextCollectorAgent contextCollectorAgent -> {
+                                }
+                                case AgentInterfaces.ContextOrchestratorAgent contextOrchestratorAgent -> {
+                                }
+                                case AgentInterfaces.DiscoveryAgent discoveryAgent -> {
+                                }
+                                case AgentInterfaces.DiscoveryCollector discoveryCollector -> {
+                                }
+                                case AgentInterfaces.DiscoveryOrchestrator discoveryOrchestrator -> {
+                                }
+                                case AgentInterfaces.MergerAgent mergerAgent -> {
+                                }
+                                case AgentInterfaces.OrchestratorAgent orchestratorAgent -> {
+                                }
+                                case AgentInterfaces.OrchestratorCollectorAgent orchestratorCollectorAgent -> {
+                                }
+                                case AgentInterfaces.PlanningAgent planningAgent -> {
+                                }
+                                case AgentInterfaces.PlanningCollector planningCollector -> {
+                                }
+                                case AgentInterfaces.PlanningOrchestrator planningOrchestrator -> {
+                                }
+                                case AgentInterfaces.ReviewAgent reviewAgent -> {
+                                }
+                                case AgentInterfaces.TicketAgent ticketAgent -> {
+                                }
+                                case AgentInterfaces.TicketCollector ticketCollector -> {
+                                }
+                                case AgentInterfaces.TicketOrchestrator ticketOrchestrator -> {
+                                }
+                            }
+                        }
+                    }
+                });
+        AgentProcess process = agentPlatform.runAgentFrom(
+                agent,
+                processOptions,
+                Map.of(IoBinding.DEFAULT_BINDING, input)
+        );
+        return process.run().resultOfType(outputClass);
+    }
+
 
     public void beforeOrchestrator(String nodeId) {
         Optional<OrchestratorNode> nodeOpt =

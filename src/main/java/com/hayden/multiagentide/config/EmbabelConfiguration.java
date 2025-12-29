@@ -1,6 +1,9 @@
 package com.hayden.multiagentide.config;
 
+import com.embabel.agent.core.Agent;
 import com.embabel.agent.core.AgentProcess;
+import com.embabel.agent.core.ProcessOptions;
+import com.embabel.agent.spi.AgentProcessIdGenerator;
 import com.embabel.common.ai.model.Llm;
 import com.embabel.common.ai.model.LlmOptions;
 import com.embabel.common.ai.model.OptionsConverter;
@@ -8,6 +11,7 @@ import com.hayden.multiagentide.model.acp.AcpChatModel;
 import com.hayden.multiagentide.model.acp.AcpChatRequestParameters;
 import com.hayden.multiagentide.model.acp.ChatMemoryContext;
 import com.hayden.multiagentide.model.acp.DefaultChatMemoryContext;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.StreamingChatModel;
@@ -21,6 +25,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.util.StringUtils;
 import reactor.util.annotation.NonNull;
 import reactor.core.publisher.Flux;
+
+import java.util.Optional;
 
 /**
  * Embabel configuration for chat models and LLM integration.
@@ -40,6 +46,12 @@ public class EmbabelConfiguration {
     @Bean
     public ChatMemoryContext chatMemoryContext() {
         return new DefaultChatMemoryContext();
+    }
+
+    @Bean
+    public AgentProcessIdGenerator nodeIdAgentProcessIdGenerator() {
+        return (agent, processOptions) -> Optional.ofNullable(processOptions.getContextIdString())
+                .orElseGet(() -> AgentProcessIdGenerator.Companion.getRANDOM().createProcessId(agent, processOptions));
     }
 
     @Bean
