@@ -42,6 +42,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Flux.defer
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.stream.Collectors
 
 /**
  * ACP-backed ChatModel implementation using the agentclientprotocol SDK.
@@ -60,7 +61,7 @@ class AcpChatModel(
         return cr
     }
 
-    override fun stream(prompt: Prompt): Flux<org.springframework.ai.chat.model.ChatResponse> {
+    override fun stream(prompt: Prompt): Flux<ChatResponse> {
         return when (val options = prompt.options) {
             is AcpChatRequestParameters -> {
                 performStream(prompt, options.memoryId())
@@ -71,9 +72,30 @@ class AcpChatModel(
         }
     }
 
-    fun performStream(messages: Prompt, memoryId: Any?): Flux<org.springframework.ai.chat.model.ChatResponse> {
+    fun performStream(messages: Prompt, memoryId: Any?): Flux<ChatResponse> {
         return flux {
-            streamChat(messages, memoryId).asFlux()
+            val data = streamChat(messages, memoryId).asFlux()
+                .collectList()
+                .map {
+                    ChatResponse.builder().generations(
+                        mutableListOf(
+                            Generation(
+                                AssistantMessage(
+                                    it.mapNotNull {
+                                        when (it) {
+                                            is ContentBlock.Text -> it.text
+                                            else -> null
+                                        }
+                                    }.stream()
+                                        .collect(Collectors.joining())
+                                )
+                            )
+                        )
+                    )
+                        .build()
+                }
+            Flux.just(data)
+
         }
     }
 
@@ -117,7 +139,7 @@ class AcpChatModel(
 
     fun invokeChat(messages: Prompt, memoryId: Any?): ChatResponse = runBlocking {
         val session = getOrCreateSession(memoryId)
-        val responseText = mutableListOf<Generation>()
+        val responseText = mutableListOf<String>()
         val content = listOf(ContentBlock.Text(formatMessages(messages)))
 
         session.prompt(content).collect { event ->
@@ -126,14 +148,14 @@ class AcpChatModel(
                 if (update is SessionUpdate.AgentMessageChunk) {
                     val block = update.content
                     if (block is ContentBlock.Text) {
-                        responseText.add(Generation(AssistantMessage(block.text)))
+                        responseText.add(block.text)
                     }
                 }
             }
         }
 
         ChatResponse.builder()
-            .generations(responseText)
+            .generations(mutableListOf(Generation(AssistantMessage(responseText.stream().collect(Collectors.joining())))))
             .build()
     }
 

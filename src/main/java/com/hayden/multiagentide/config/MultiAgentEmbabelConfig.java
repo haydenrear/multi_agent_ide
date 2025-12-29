@@ -67,10 +67,10 @@ public class MultiAgentEmbabelConfig {
                 .orElseGet(() -> AgentProcessIdGenerator.Companion.getRANDOM().createProcessId(agent, processOptions));
     }
 
-    @Bean
+    @Bean(name = "chatModel")
     @Primary
-    public ChatModel chatModel(AcpModelProperties acpModelProperties,
-                               ChatMemoryContext chatMemoryContext) {
+    public ChatModel acpChatModel(AcpModelProperties acpModelProperties,
+                                  ChatMemoryContext chatMemoryContext) {
         return getAcpChatModel(acpModelProperties, chatMemoryContext);
     }
 
@@ -123,7 +123,8 @@ public class MultiAgentEmbabelConfig {
 
                         return builder.build();
                     }
-                });
+                })
+                ;
     }
 
     /**

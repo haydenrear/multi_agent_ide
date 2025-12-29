@@ -65,3 +65,5 @@ embabel:
       scanning:
         bean: false
         annotation: false
+  models:
+    default-llm: acp-chat-model

@@ -39,6 +39,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -57,6 +59,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest
+@Timeout(30)
 class OrchestratorEndToEndTest extends AgentTestBase {
 
     @TestConfiguration
@@ -507,15 +510,14 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         try {
             when(discoveryAgent.discoverCodebaseSection(any(AgentInterfaces.DiscoveryAgentInput.class), any(OperationContext.class)))
                     .thenAnswer(invocation -> {
-                        var nodeId = invocation.getArgument(0);
-                        if (nodeId instanceof String s) {
-                            executor.submit(() -> agentControlController.stop(s));
-                            return new AgentModels.DiscoveryAgentResult(
-                                    "discovery-results",
-                                    List.of()
-                            );
-                        }
-                        throw new AssertionError("found unknown!");
+                        executor.submit(() -> {
+                            String nodeId = waitForDiscoveryNodeId();
+                            agentControlController.stop(nodeId);
+                        });
+                        return new AgentModels.DiscoveryAgentResult(
+                                "discovery-results",
+                                List.of()
+                        );
                     });
 
             startOrchestration(false);
@@ -535,6 +537,27 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         } finally {
             executor.shutdown();
         }
+    }
+
+    private String waitForDiscoveryNodeId() {
+        long deadline = System.currentTimeMillis() + 5000L;
+        while (System.currentTimeMillis() < deadline) {
+            Optional<String> nodeId = graphRepository.findAll().stream()
+                    .filter(DiscoveryNode.class::isInstance)
+                    .map(DiscoveryNode.class::cast)
+                    .map(DiscoveryNode::nodeId)
+                    .findFirst();
+            if (nodeId.isPresent()) {
+                return nodeId.get();
+            }
+            try {
+                TimeUnit.MILLISECONDS.sleep(50);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        throw new AssertionError("Discovery node not found before timeout");
     }
 
     private void assertExpectedCoreEvents() {
@@ -638,28 +661,27 @@ class OrchestratorEndToEndTest extends AgentTestBase {
 
     private void stubWorktreeService(boolean hasSubmodules) {
         doAnswer(invocation -> {
-            var nodeId = invocation.getArgument(2);
-
-            if (nodeId instanceof String s) {
-                MainWorktreeContext context = new MainWorktreeContext(
-                        UUID.randomUUID().toString(),
-                        Path.of("/tmp/worktrees/" + nodeId),
-                        "main",
-                        WorktreeContext.WorktreeStatus.ACTIVE,
-                        null,
-                        s,
-                        Instant.now(),
-                        "commit-" + nodeId,
-                        invocation.getArgument(0),
-                        hasSubmodules,
-                        new ArrayList<>(),
-                        new java.util.HashMap<>()
-                );
-                worktreeRepository.save(context);
-                return context;
+            String nodeId = Objects.toString(invocation.getArgument(2), "");
+            if (nodeId.isBlank()) {
+                throw new AssertionError("Node id was blank in createMainWorktree stub");
             }
 
-            throw new AssertionError("Node id was not string {}!", s);
+            MainWorktreeContext context = new MainWorktreeContext(
+                    UUID.randomUUID().toString(),
+                    Path.of("/tmp/worktrees/" + nodeId),
+                    "main",
+                    WorktreeContext.WorktreeStatus.ACTIVE,
+                    null,
+                    nodeId,
+                    Instant.now(),
+                    "commit-" + nodeId,
+                    invocation.getArgument(0),
+                    hasSubmodules,
+                    new ArrayList<>(),
+                    new java.util.HashMap<>()
+            );
+            worktreeRepository.save(context);
+            return context;
         }).when(worktreeService).createMainWorktree(anyString(), anyString(), anyString());
 
         when(worktreeService.getSubmoduleNames(any()))
