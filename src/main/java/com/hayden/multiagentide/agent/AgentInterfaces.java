@@ -4,6 +4,7 @@ import com.embabel.agent.api.annotation.AchievesGoal;
 import com.embabel.agent.api.annotation.Action;
 import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.common.OperationContext;
+import com.embabel.agent.core.AgentProcess;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -14,6 +15,10 @@ import java.util.Objects;
  * Each agent currently exposes a single action.
  */
 public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, AgentInterfaces.ContextCollectorAgent, AgentInterfaces.ContextOrchestratorAgent, AgentInterfaces.DiscoveryAgent, AgentInterfaces.DiscoveryCollector, AgentInterfaces.DiscoveryOrchestrator, AgentInterfaces.MergerAgent, AgentInterfaces.OrchestratorAgent, AgentInterfaces.OrchestratorCollectorAgent, AgentInterfaces.PlanningAgent, AgentInterfaces.PlanningCollector, AgentInterfaces.ReviewAgent, AgentInterfaces.TicketAgent, AgentInterfaces.TicketCollector, AgentInterfaces.TicketOrchestrator, AgentInterfaces.PlanningOrchestrator {
+
+    record AgentProcessData(String id) {}
+
+    ThreadLocal<AgentProcessData> agentProcess = new ThreadLocal<>();
 
     String multiAgentAgentName();
 

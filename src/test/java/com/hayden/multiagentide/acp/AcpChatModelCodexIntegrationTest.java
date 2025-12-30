@@ -8,7 +8,7 @@ import com.embabel.agent.api.annotation.Action;
 import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.annotation.support.AgentMetadataReader;
 import com.embabel.agent.api.common.OperationContext;
-import com.embabel.agent.api.event.AgenticEventListener;
+import com.embabel.agent.api.event.*;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.IoBinding;
@@ -18,6 +18,7 @@ import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.model.acp.AcpChatModel;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,7 +69,9 @@ class AcpChatModelCodexIntegrationTest {
                 RequestValue input,
                 OperationContext context
         ) {
-            return context.ai().withDefaultLlm().createObject(input.request, ResultValue.class);
+            return context.ai().withDefaultLlm()
+                    .withId("hello!")
+                    .createObject(input.request, ResultValue.class);
         }
 
     }
@@ -86,7 +89,8 @@ class AcpChatModelCodexIntegrationTest {
 
         try {
             String nodeId = UUID.randomUUID().toString();
-            ProcessOptions processOptions = ProcessOptions.DEFAULT.withContextId(nodeId);
+            ProcessOptions processOptions = ProcessOptions.DEFAULT.withContextId(nodeId)
+                    .withListener(AgentLifecycleHandler.agentProcessIdListener());
             List<com.embabel.agent.core.Agent> agents = agentPlatform.agents();
             var agentName = TEST_AGENT;
             var thisAgent = agents.stream()

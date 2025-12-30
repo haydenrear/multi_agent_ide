@@ -7,8 +7,8 @@ import static org.mockito.Mockito.*;
 
 import com.embabel.agent.api.annotation.support.ActionQosProvider;
 import com.embabel.agent.api.common.OperationContext;
-import com.embabel.agent.api.common.Transformation;
 import com.embabel.agent.core.ActionQos;
+import com.embabel.agent.core.AgentPlatform;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.agent.AgentModels;
@@ -51,19 +51,23 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import org.junit.runner.OrderWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+@Slf4j
 @SpringBootTest
 class OrchestratorEndToEndTest extends AgentTestBase {
+
+    @Autowired
+    private AgentPlatform agentPlatform;
 
     @TestConfiguration
     static class TestConfig {
@@ -113,7 +117,9 @@ class OrchestratorEndToEndTest extends AgentTestBase {
     private Environment e;
 
     @BeforeEach
-    void setUp() {
+    public void performSetupClear() {
+
+        log.info("Performing clear of graph repository");
 
         graphRepository.clear();
         worktreeRepository.clear();
@@ -121,6 +127,9 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         eventBus.clear();
         eventBus.subscribe(agentEventListener);
         eventBus.subscribe(testEventListener);
+
+        reset(orchestratorAgent, discoveryAgent, discoveryOrchestrator, discoveryCollector, planningAgent, planningOrchestrator,
+                planningOrchestrator, ticketOrchestrator, ticketAgent, ticketCollector, mergerAgent, reviewAgent);
 
         when(orchestratorAgent.coordinateWorkflow(any(AgentInterfaces.OrchestratorInput.class), any(OperationContext.class)))
                 .thenReturn(new AgentModels.OrchestratorAgentResult(
@@ -528,6 +537,7 @@ class OrchestratorEndToEndTest extends AgentTestBase {
                         executor.submit(() -> {
                             String nodeId = waitForDiscoveryNodeId();
                             agentControlController.stop(nodeId);
+                            agentPlatform.killAgentProcess(nodeId);
                         });
                         return new AgentModels.DiscoveryAgentResult(
                                 "discovery-results",

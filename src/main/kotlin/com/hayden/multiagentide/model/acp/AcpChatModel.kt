@@ -9,24 +9,23 @@ import com.agentclientprotocol.common.SessionCreationParameters
 import com.agentclientprotocol.model.*
 import com.agentclientprotocol.protocol.Protocol
 import com.agentclientprotocol.transport.Transport
-import com.embabel.agent.api.common.agentTransformer
+import com.hayden.multiagentide.agent.AgentInterfaces
 import com.hayden.multiagentide.config.AcpModelProperties
 import io.modelcontextprotocol.server.IdeMcpAsyncServer.TOOL_ALLOWLIST_HEADER
-import io.modelcontextprotocol.spec.McpSchema
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.reactor.asFlux
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactor.flux
-import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
 import kotlinx.serialization.json.JsonElement
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.messages.AssistantMessage
 import org.springframework.ai.chat.messages.Message
 import org.springframework.ai.chat.messages.MessageType
@@ -36,22 +35,21 @@ import org.springframework.ai.chat.messages.UserMessage
 import org.springframework.ai.chat.model.ChatResponse
 import org.springframework.ai.chat.model.Generation
 import org.springframework.ai.chat.model.StreamingChatModel
-import org.springframework.ai.chat.prompt.ChatOptions
 import org.springframework.ai.chat.prompt.Prompt
-import org.springframework.messaging.support.GenericMessage
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Flux.defer
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.stream.Collectors
 
 /**
  * ACP-backed ChatModel implementation using the agentclientprotocol SDK.
  */
+
 class AcpChatModel(
     private val properties: AcpModelProperties,
     private val chatMemoryContext: ChatMemoryContext?
 ) : org.springframework.ai.chat.model.ChatModel, StreamingChatModel {
+    
+    private val log: Logger = LoggerFactory.getLogger(AcpChatModel::class.java)
 
     private val sessionLock = Any()
 
@@ -75,91 +73,96 @@ class AcpChatModel(
 
     fun performStream(messages: Prompt, memoryId: Any?): Flux<ChatResponse> {
         return flux {
-            val data = streamChat(messages, memoryId).asFlux()
-                .collectList()
-                .map {
-                    ChatResponse.builder().generations(
-                        mutableListOf(
-                            Generation(
-                                AssistantMessage(
-                                    it.mapNotNull {
-                                        when (it) {
-                                            is ContentBlock.Text -> it.text
-                                            else -> null
-                                        }
-                                    }.stream()
-                                        .collect(Collectors.joining())
-                                )
-                            )
-                        )
-                    )
-                        .build()
-                }
-            Flux.just(data)
-
+            Flux.just(
+                toChatResponse(
+                    streamChat(messages, memoryId)
+                        .toList(mutableListOf()),
+                    messages
+                )
+            ) 
         }
     }
 
     override fun getDefaultOptions(): AcpChatRequestParameters {
-        return AcpChatRequestParameters.builder().build()
+        return AcpChatRequestParameters.builder()
+//            .memoryId(AgentInterfaces.agentProcess.get()?.id)
+            .build()
     }
 
     fun doChat(chatRequest: Prompt?): ChatResponse {
         val request = requireNotNull(chatRequest) { "chatRequest must not be null" }
         val memoryId = resolveMemoryId(request)
+        val messages = resolveToSendMessages(chatRequest)
+        return invokeChat(Prompt.builder().messages(messages).chatOptions(chatRequest.options).build(), memoryId)
+    }
+    
+    fun resolveToSendMessages(messages: Prompt): List<Message> {
+        val memoryId = resolveMemoryId(messages)
         val hasSession = sessionExists(memoryId)
-        val messages = if (hasSession) {
-            listOf(request.instructions.last())
+        return if (hasSession) {
+            listOf(messages.instructions.last())
         } else {
-            resolveMessages(request, memoryId)
+            resolveMessages(messages, memoryId)
         }
-
-        return invokeChat(Prompt.builder().messages(messages).build(), memoryId)
     }
 
-    suspend fun streamChat(messages: Prompt, memoryId: Any?): Flow<ContentBlock>  {
+    suspend fun streamChat(prompt: Prompt, memoryId: Any?): Flow<ContentBlock>  {
         val session = getOrCreateSession(memoryId)
-        val responseText = StringBuilder()
-        val content = listOf(ContentBlock.Text(formatMessages(messages)))
 
-        return session.prompt(content).mapNotNull{ event ->
-            if (event is Event.SessionUpdateEvent) {
-                val update = event.update
-                if (update is SessionUpdate.AgentMessageChunk) {
-                    val block = update.content
-                    block
-                } else {
-                    null
-                }
-            } else {
-                null
-            }
-        }
+        val messages = resolveToSendMessages(prompt)
+        
+        val content = listOf(ContentBlock.Text(formatPromptMessages(Prompt.builder().messages(messages).chatOptions(prompt.options).build())))
+
+        return session.prompt(content)
+            .mapNotNull{ event -> parseContentBlockFromAcpEvent(event) }
     }
 
+    private fun parseContentBlockFromAcpEvent(event: Event): ContentBlock? = if (event is Event.SessionUpdateEvent) {
+        val update = event.update
+        if (update is SessionUpdate.AgentMessageChunk) {
+            val block = update.content
+            block
+        } else {
+            null
+        }
+    } else {
+        null
+    }
+
+    fun toGeneration(messages: List<ContentBlock>): Generation {
+        return Generation(
+            AssistantMessage(
+                messages.mapNotNull {
+                        when (it) {
+                            is ContentBlock.Text -> it.text
+                            else -> {
+                                log.error("Unsupported content block type: ${it::class.simpleName}")
+                                null
+                            }
+                        }
+                    }
+                    .joinToString(separator = "")
+            )
+        )
+        
+    }
 
     fun invokeChat(messages: Prompt, memoryId: Any?): ChatResponse = runBlocking {
         val session = getOrCreateSession(memoryId)
-        val responseText = mutableListOf<String>()
-        val content = listOf(ContentBlock.Text(formatMessages(messages)))
+        val contentBlocks = mutableListOf<ContentBlock>()
+        val content = listOf(ContentBlock.Text(formatPromptMessages(messages)))
 
-        session.prompt(content).collect { event ->
-            if (event is Event.SessionUpdateEvent) {
-                val update = event.update
-                if (update is SessionUpdate.AgentMessageChunk) {
-                    val block = update.content
-                    if (block is ContentBlock.Text) {
-                        responseText.add(block.text)
-                    }
-                }
-            }
-        }
+        session.prompt(content)
+            .mapNotNull{ event -> parseContentBlockFromAcpEvent(event) }
+            .collect { contentBlocks.add(it) }
 
-
-        ChatResponse.builder()
-            .generations(mutableListOf(Generation(AssistantMessage(responseText.stream().collect(Collectors.joining())))))
-            .build()
+        toChatResponse(contentBlocks, messages)
     }
+
+    private fun toChatResponse(contentBlocks: List<ContentBlock>,
+                               prompt: Prompt): ChatResponse = ChatResponse.builder()
+        .generations(mutableListOf(toGeneration(contentBlocks)))
+        .build()
 
     fun createProcessStdioTransport(coroutineScope: CoroutineScope, vararg command: String): Transport {
         val process = ProcessBuilder(*command)
@@ -279,23 +282,26 @@ class AcpChatModel(
         return tokens
     }
 
-    private fun formatMessages(messages: Prompt): String {
+    private fun formatPromptMessages(messages: Prompt): String {
         if (messages.instructions.isEmpty()) {
             return ""
         }
         val builder = StringBuilder()
+        fun formatMessageRole(role: String, message: Message): String = "$role ${message.text}"
+
         messages.instructions.forEach { message ->
             val role = resolveRole(message)
             if (builder.isNotEmpty()) {
                 builder.append('\n')
             }
             when(message) {
-                is UserMessage -> builder.append(role + ": " + message.text)
-                is AssistantMessage -> builder.append(role + ": " + message.text)
-                is SystemMessage -> builder.append(role + ": " + message.text)
+                is UserMessage -> builder.append(formatMessageRole(role, message))
+                is AssistantMessage -> builder.append(formatMessageRole(role, message))
+                is SystemMessage -> builder.append(formatMessageRole(role, message))
                 is ToolResponseMessage -> {}
             }
         }
+        
         return builder.toString()
     }
 

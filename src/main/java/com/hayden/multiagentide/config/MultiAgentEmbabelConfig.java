@@ -1,10 +1,7 @@
 package com.hayden.multiagentide.config;
 
-import com.embabel.agent.api.annotation.support.ActionQosProvider;
 import com.embabel.agent.api.annotation.support.AgentMetadataReader;
-import com.embabel.agent.core.ActionQos;
 import com.embabel.agent.core.AgentPlatform;
-import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.spi.AgentProcessIdGenerator;
 import com.embabel.common.ai.model.Llm;
 import com.embabel.common.ai.model.LlmOptions;
@@ -29,7 +26,6 @@ import org.springframework.util.StringUtils;
 import reactor.util.annotation.NonNull;
 import reactor.core.publisher.Flux;
 
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
@@ -118,15 +114,17 @@ public class MultiAgentEmbabelConfig {
                                 .presencePenalty(options.getPresencePenalty())
                                 .maxOutputTokens(options.getMaxTokens());
 
-                        AgentProcess process = AgentProcess.get();
-                        if (process != null && process.getProcessOptions().getContextIdString() != null) {
-                            builder.memoryId(process.getProcessOptions().getContextIdString());
+                        var process = AgentInterfaces.agentProcess.get();
+
+                        if (process != null && process.id() != null) {
+                            builder.memoryId(process.id());
+                        } else {
+                            log.error("Did not have process ID. Session will not be able to be created for ACP. Listener is not being set correctly.");
                         }
 
                         return builder.build();
                     }
-                })
-                ;
+                });
     }
 
     /**
@@ -134,7 +132,7 @@ public class MultiAgentEmbabelConfig {
      */
     private static class MockStreamingChatLanguageModel implements StreamingChatModel {
         @Override
-        public Flux<ChatResponse> stream(Prompt prompt) {
+        public @org.jspecify.annotations.NonNull Flux<ChatResponse> stream(Prompt prompt) {
             return Flux.just(ChatResponse.builder().build());
         }
     }

@@ -345,6 +345,7 @@ public class AgentRunner {
             return;
         }
 
+//        TODO: this isn't locking! Need locking.
         String interruptResult = sendInterruptSequence(node, interruptType, reason);
         GraphNode withInterrupt = applyInterruptContext(node, interruptType, reason, interruptResult);
         graphRepository.save(withInterrupt);
@@ -660,38 +661,8 @@ public class AgentRunner {
             String reason
     ) {
         try {
-            return switch (node) {
-                case DiscoveryNode n -> agentLifecycleHandler.runAgent(
-                        AgentInterfaces.DISCOVERY_AGENT,
-                        new AgentInterfaces.DiscoveryAgentInput(n.goal(), n.title()),
-                        AgentModels.DiscoveryAgentResult.class,
-                        n.nodeId()
-                ).output();
-                case PlanningNode n -> agentLifecycleHandler.runAgent(
-                        AgentInterfaces.PLANNING_AGENT,
-                        new AgentInterfaces.PlanningAgentInput(n.goal()),
-                        AgentModels.PlanningAgentResult.class,
-                        n.nodeId()
-                ).output();
-                case TicketNode n -> agentLifecycleHandler.runAgent(
-                        AgentInterfaces.TICKET_AGENT,
-                        new AgentInterfaces.TicketAgentInput(
-                                n.goal(),
-                                "interrupt",
-                                extractDiscoveryContext(n),
-                                extractPlanningContext(n)
-                        ),
-                        AgentModels.TicketAgentResult.class,
-                        n.nodeId()
-                ).output();
-                case OrchestratorNode n -> agentLifecycleHandler.runAgent(
-                        AgentInterfaces.ORCHESTRATOR_AGENT,
-                        new AgentInterfaces.OrchestratorInput(n.goal(), "interrupt"),
-                        AgentModels.OrchestratorAgentResult.class,
-                        n.nodeId()
-                ).output();
-                default -> "Interrupt acknowledged";
-            };
+            addMessageToAgent("STOP", node.nodeId());
+            return "Sent interrupt sequence.";
         } catch (Exception e) {
             log.error("Interrupt sequence failed for node {}", node.nodeId(), e);
             return "Interrupt sequence failed: " + e.getMessage();
