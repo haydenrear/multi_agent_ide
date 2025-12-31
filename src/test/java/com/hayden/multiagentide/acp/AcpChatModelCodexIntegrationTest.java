@@ -83,7 +83,7 @@ class AcpChatModelCodexIntegrationTest {
                 .ifPresentOrElse(agentPlatform::deploy, () -> log.error("Error deploying {} - could not create agent metadata.", agentInterface));
     }
 
-//    @Test
+    @Test
     void chatModelUsesAcpProtocol() {
         assertThat(chatModel).isInstanceOf(AcpChatModel.class);
 

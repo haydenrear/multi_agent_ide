@@ -88,6 +88,24 @@ public class AgentEventListener implements EventListener {
             case Events.PauseEvent pauseEvent -> {
                 doAgentRunner(pauseEvent);
             }
+            case Events.GuiRenderEvent guiRenderEvent -> {
+            }
+            case Events.NodeBranchRequestedEvent nodeBranchRequestedEvent -> {
+            }
+            case Events.NodeThoughtDeltaEvent nodeThoughtDeltaEvent -> {
+            }
+            case Events.ResumeEvent resumeEvent -> {
+            }
+            case Events.ToolCallEvent toolCallEvent -> {
+            }
+            case Events.UiDiffAppliedEvent uiDiffAppliedEvent -> {
+            }
+            case Events.UiDiffRejectedEvent uiDiffRejectedEvent -> {
+            }
+            case Events.UiDiffRevertedEvent uiDiffRevertedEvent -> {
+            }
+            case Events.UiFeedbackEvent uiFeedbackEvent -> {
+            }
         }
     }
 

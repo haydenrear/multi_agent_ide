@@ -1,4 +1,6 @@
 import type { GraphNode } from "../state/graphStore";
+import { A2uiSurfaceRenderer } from "./A2uiSurfaceRenderer";
+import { buildNodeSummaryMessages } from "../lib/a2uiMessageBuilder";
 
 type GraphNodeCardProps = {
   node: GraphNode;
@@ -6,7 +8,11 @@ type GraphNodeCardProps = {
   onSelect: (nodeId: string) => void;
 };
 
-export const GraphNodeCard = ({ node, isSelected, onSelect }: GraphNodeCardProps) => {
+export const GraphNodeCard = ({
+  node,
+  isSelected,
+  onSelect,
+}: GraphNodeCardProps) => {
   return (
     <div
       className={`node-card${isSelected ? " active" : ""}`}
@@ -19,12 +25,7 @@ export const GraphNodeCard = ({ node, isSelected, onSelect }: GraphNodeCardProps
         }
       }}
     >
-      <div className="badge">{node.status ?? "UNKNOWN"}</div>
-      <h3>{node.title ?? node.id}</h3>
-      <p className="muted">{node.nodeType ?? "Node"}</p>
-      {node.worktrees.length > 0 ? (
-        <p className="muted">Worktrees: {node.worktrees.length}</p>
-      ) : null}
+      <A2uiSurfaceRenderer messages={buildNodeSummaryMessages(node)} />
     </div>
   );
 };

@@ -2,30 +2,30 @@ package com.hayden.multiagentide.model.acp
 
 import com.agentclientprotocol.client.Client
 import com.agentclientprotocol.client.ClientInfo
-import com.agentclientprotocol.client.ClientSession
 import com.agentclientprotocol.common.ClientSessionOperations
 import com.agentclientprotocol.common.Event
 import com.agentclientprotocol.common.SessionCreationParameters
 import com.agentclientprotocol.model.*
 import com.agentclientprotocol.protocol.Protocol
 import com.agentclientprotocol.transport.Transport
-import com.hayden.multiagentide.agent.AgentInterfaces
+import com.hayden.multiagentide.agent.AgentTools
 import com.hayden.multiagentide.config.AcpModelProperties
+import com.hayden.multiagentide.model.acp.AcpStreamWindowBuffer.StreamWindowType
+import com.hayden.multiagentide.model.events.Events
 import io.modelcontextprotocol.server.IdeMcpAsyncServer.TOOL_ALLOWLIST_HEADER
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.reactor.flux
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
 import kotlinx.serialization.json.JsonElement
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.messages.AssistantMessage
 import org.springframework.ai.chat.messages.Message
 import org.springframework.ai.chat.messages.MessageType
@@ -36,26 +36,24 @@ import org.springframework.ai.chat.model.ChatResponse
 import org.springframework.ai.chat.model.Generation
 import org.springframework.ai.chat.model.StreamingChatModel
 import org.springframework.ai.chat.prompt.Prompt
+import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * ACP-backed ChatModel implementation using the agentclientprotocol SDK.
  */
 
+@Component
 class AcpChatModel(
     private val properties: AcpModelProperties,
-    private val chatMemoryContext: ChatMemoryContext?
+    private val chatMemoryContext: ChatMemoryContext?,
+    private val sessionManager: AcpSessionManager,
 ) : org.springframework.ai.chat.model.ChatModel, StreamingChatModel {
-    
-    private val log: Logger = LoggerFactory.getLogger(AcpChatModel::class.java)
 
     private val sessionLock = Any()
 
-    private val sessionContexts = ConcurrentHashMap<Any, AcpSessionContext>()
-
-    override fun call(prompt: Prompt): org.springframework.ai.chat.model.ChatResponse {
+    override fun call(prompt: Prompt): ChatResponse {
         val cr = doChat(prompt)
         return cr
     }
@@ -77,9 +75,8 @@ class AcpChatModel(
                 toChatResponse(
                     streamChat(messages, memoryId)
                         .toList(mutableListOf()),
-                    messages
                 )
-            ) 
+            )
         }
     }
 
@@ -92,10 +89,11 @@ class AcpChatModel(
     fun doChat(chatRequest: Prompt?): ChatResponse {
         val request = requireNotNull(chatRequest) { "chatRequest must not be null" }
         val memoryId = resolveMemoryId(request)
+        val sessionContext = getOrCreateSession(memoryId)
         val messages = resolveToSendMessages(chatRequest)
-        return invokeChat(Prompt.builder().messages(messages).chatOptions(chatRequest.options).build(), memoryId)
+        return invokeChat(Prompt.builder().messages(messages).chatOptions(chatRequest.options).build(), sessionContext, memoryId)
     }
-    
+
     fun resolveToSendMessages(messages: Prompt): List<Message> {
         val memoryId = resolveMemoryId(messages)
         val hasSession = sessionExists(memoryId)
@@ -106,62 +104,210 @@ class AcpChatModel(
         }
     }
 
-    suspend fun streamChat(prompt: Prompt, memoryId: Any?): Flow<ContentBlock>  {
+    suspend fun streamChat(prompt: Prompt, memoryId: Any?): Flow<Generation>  {
         val session = getOrCreateSession(memoryId)
 
         val messages = resolveToSendMessages(prompt)
-        
+
         val content = listOf(ContentBlock.Text(formatPromptMessages(Prompt.builder().messages(messages).chatOptions(prompt.options).build())))
 
         return session.prompt(content)
-            .mapNotNull{ event -> parseContentBlockFromAcpEvent(event) }
+            .transform { event ->
+                parseGenerationsFromAcpEvent(event, session, memoryId).forEach { emit(it) }
+            }
+            .onCompletion {
+                session.flushWindows(memoryId).forEach { emit(it) }
+            }
     }
 
-    private fun parseContentBlockFromAcpEvent(event: Event): ContentBlock? = if (event is Event.SessionUpdateEvent) {
-        val update = event.update
-        if (update is SessionUpdate.AgentMessageChunk) {
-            val block = update.content
-            block
+    private fun parseGenerationsFromAcpEvent(event: Event, sessionContext: AcpSessionManager.AcpSessionContext, memoryId: Any?): List<Generation> =
+        if (event is Event.SessionUpdateEvent) {
+            val update = event.update
+            when (update) {
+                is SessionUpdate.AgentMessageChunk -> {
+                    val flushed = sessionContext.flushOtherWindows(memoryId, StreamWindowType.MESSAGE)
+                    sessionContext.appendStreamWindow(memoryId, StreamWindowType.MESSAGE, update.content)
+                    flushed
+                }
+                is SessionUpdate.UserMessageChunk -> {
+                    val flushed = sessionContext.flushOtherWindows(memoryId, StreamWindowType.USER_MESSAGE)
+                    sessionContext.appendStreamWindow(memoryId, StreamWindowType.USER_MESSAGE, update.content)
+                    flushed
+                }
+                is SessionUpdate.AgentThoughtChunk -> {
+                    val flushed = sessionContext.flushOtherWindows(memoryId, StreamWindowType.THOUGHT)
+                    sessionContext.appendStreamWindow(memoryId, StreamWindowType.THOUGHT, update.content)
+                    flushed
+                }
+                is SessionUpdate.AvailableCommandsUpdate -> {
+                    val flushed = sessionContext.flushOtherWindows(memoryId, StreamWindowType.AVAILABLE_COMMANDS)
+                    sessionContext.appendEventWindow(
+                        memoryId, StreamWindowType.AVAILABLE_COMMANDS,
+                        buildAvailableCommandsUpdateEvent(memoryId, update)
+                    )
+                    flushed
+                }
+                is SessionUpdate.CurrentModeUpdate -> {
+                    val flushed = sessionContext.flushOtherWindows(memoryId, StreamWindowType.CURRENT_MODE)
+                    sessionContext.appendEventWindow(
+                        memoryId,
+                        StreamWindowType.CURRENT_MODE,
+                        buildCurrentModeUpdateEvent(memoryId, update)
+                    )
+                    flushed
+                }
+                is SessionUpdate.PlanUpdate -> {
+                    val flushed = sessionContext.flushOtherWindows(memoryId, StreamWindowType.PLAN)
+                    sessionContext.appendEventWindow(
+                        memoryId,
+                        StreamWindowType.PLAN,
+                        buildPlanUpdateEvent(memoryId, update)
+                    )
+                    flushed
+                }
+                is SessionUpdate.ToolCall -> {
+                    val flushed = sessionContext.flushOtherWindows(memoryId, StreamWindowType.TOOL_CALL)
+                    sessionContext.appendEventWindow(memoryId, StreamWindowType.TOOL_CALL, buildToolCallEvent(memoryId, update, "START"))
+                    flushed
+                }
+                is SessionUpdate.ToolCallUpdate -> {
+                    val flushed = sessionContext.flushOtherWindows(memoryId, StreamWindowType.TOOL_CALL)
+                    sessionContext.appendEventWindow(memoryId, StreamWindowType.TOOL_CALL, buildToolCallUpdateEvent(memoryId, update))
+                    flushed
+                }
+            }
         } else {
-            null
+            emptyList()
         }
-    } else {
-        null
-    }
 
-    fun toGeneration(messages: List<ContentBlock>): Generation {
-        return Generation(
-            AssistantMessage(
-                messages.mapNotNull {
-                        when (it) {
-                            is ContentBlock.Text -> it.text
-                            else -> {
-                                log.error("Unsupported content block type: ${it::class.simpleName}")
-                                null
-                            }
-                        }
-                    }
-                    .joinToString(separator = "")
-            )
+    private fun buildToolCallEvent(memoryId: Any?, update: SessionUpdate.ToolCall, phase: String): Events.ToolCallEvent {
+        val nodeId = memoryId?.toString() ?: "unknown"
+        return Events.ToolCallEvent(
+            UUID.randomUUID().toString(),
+            java.time.Instant.now(),
+            nodeId,
+            update.toolCallId.value,
+            update.title,
+            update.kind?.name,
+            update.status?.name,
+            phase,
+            update.content.map { toolCallContentToMap(it) },
+            update.locations.map { location -> mapOf("path" to location.path, "line" to location.line) },
+            update.rawInput?.toString(),
+            update.rawOutput?.toString()
         )
-        
     }
 
-    fun invokeChat(messages: Prompt, memoryId: Any?): ChatResponse = runBlocking {
+    private fun buildToolCallUpdateEvent(memoryId: Any?, update: SessionUpdate.ToolCallUpdate): Events.ToolCallEvent {
+        val phase = when (update.status) {
+            ToolCallStatus.COMPLETED -> "RESULT"
+            ToolCallStatus.FAILED -> "RESULT"
+            ToolCallStatus.IN_PROGRESS -> "UPDATE"
+            ToolCallStatus.PENDING -> "ARGS"
+            null -> "UPDATE"
+        }
+        val nodeId = memoryId?.toString() ?: "unknown"
+        return Events.ToolCallEvent(
+            UUID.randomUUID().toString(),
+            java.time.Instant.now(),
+            nodeId,
+            update.toolCallId.value,
+            update.title ?: "tool_call",
+            update.kind?.name,
+            update.status?.name,
+            phase,
+            update.content?.map { toolCallContentToMap(it) } ?: emptyList(),
+            update.locations?.map { location -> mapOf("path" to location.path, "line" to location.line) } ?: emptyList(),
+            update.rawInput?.toString(),
+            update.rawOutput?.toString()
+        )
+    }
+
+    private fun buildPlanUpdateEvent(memoryId: Any?, update: SessionUpdate.PlanUpdate): Events.PlanUpdateEvent {
+        val nodeId = memoryId?.toString() ?: "unknown"
+        val entries = update.entries.map { entry ->
+            mapOf(
+                "content" to entry.content,
+                "priority" to entry.priority.name,
+                "status" to entry.status.name
+            )
+        }
+        return Events.PlanUpdateEvent(
+            UUID.randomUUID().toString(),
+            java.time.Instant.now(),
+            nodeId,
+            entries
+        )
+    }
+
+
+    private fun buildCurrentModeUpdateEvent(
+        memoryId: Any?,
+        update: SessionUpdate.CurrentModeUpdate
+    ): Events.CurrentModeUpdateEvent {
+        val nodeId = memoryId?.toString() ?: "unknown"
+        return Events.CurrentModeUpdateEvent(
+            UUID.randomUUID().toString(),
+            java.time.Instant.now(),
+            nodeId,
+            update.currentModeId.value
+        )
+    }
+
+    private fun buildAvailableCommandsUpdateEvent(
+        memoryId: Any?,
+        update: SessionUpdate.AvailableCommandsUpdate
+    ): Events.AvailableCommandsUpdateEvent {
+        val nodeId = memoryId?.toString() ?: "unknown"
+        val commands = update.availableCommands.map { command ->
+            mapOf(
+                "name" to command.name,
+                "description" to command.description,
+                "input" to command.input?.toString()
+            )
+        }
+        return Events.AvailableCommandsUpdateEvent(
+            UUID.randomUUID().toString(),
+            java.time.Instant.now(),
+            nodeId,
+            commands
+        )
+    }
+
+    private fun toolCallContentToMap(content: ToolCallContent): Map<String, Any?> = when (content) {
+        is ToolCallContent.Content -> mapOf(
+            "type" to "content",
+            "content" to (extractText(content.content) ?: content.content.toString())
+        )
+        is ToolCallContent.Diff -> mapOf(
+            "type" to "diff",
+            "path" to content.path,
+            "newText" to content.newText,
+            "oldText" to content.oldText
+        )
+        is ToolCallContent.Terminal -> mapOf(
+            "type" to "terminal",
+            "terminalId" to content.terminalId
+        )
+    }
+
+    fun invokeChat(messages: Prompt, sessionContext: AcpSessionManager.AcpSessionContext, memoryId: Any?): ChatResponse = runBlocking {
         val session = getOrCreateSession(memoryId)
-        val contentBlocks = mutableListOf<ContentBlock>()
+        val generations = mutableListOf<Generation>()
         val content = listOf(ContentBlock.Text(formatPromptMessages(messages)))
 
         session.prompt(content)
-            .mapNotNull{ event -> parseContentBlockFromAcpEvent(event) }
-            .collect { contentBlocks.add(it) }
+            .transform { event ->
+                parseGenerationsFromAcpEvent(event, sessionContext, memoryId).forEach { emit(it) }
+            }
+            .collect { generations.add(it) }
+        generations.addAll(session.flushWindows(memoryId))
 
-        toChatResponse(contentBlocks, messages)
+        toChatResponse(generations)
     }
 
-    private fun toChatResponse(contentBlocks: List<ContentBlock>,
-                               prompt: Prompt): ChatResponse = ChatResponse.builder()
-        .generations(mutableListOf(toGeneration(contentBlocks)))
+    private fun toChatResponse(generations: List<Generation>): ChatResponse = ChatResponse.builder()
+        .generations(generations.toMutableList())
         .build()
 
     fun createProcessStdioTransport(coroutineScope: CoroutineScope, vararg command: String): Transport {
@@ -181,7 +327,7 @@ class AcpChatModel(
     }
 
     private fun sessionExists(memoryId: Any?): Boolean {
-        return memoryId != null && sessionContexts.containsKey(memoryId)
+        return memoryId != null && sessionManager.sessionContexts.containsKey(memoryId)
     }
 
     private fun resolveMessages(chatRequest: Prompt, memoryId: Any?): List<Message> {
@@ -197,20 +343,18 @@ class AcpChatModel(
         return if (params is AcpChatRequestParameters) params.memoryId() else null
     }
 
-    private fun getOrCreateSession(memoryId: Any?): ClientSession {
+    private fun getOrCreateSession(memoryId: Any?): AcpSessionManager.AcpSessionContext {
         if (memoryId == null) {
-            return runBlocking { createSessionContext() }.session
+            return runBlocking { createSessionContext(null) }
         }
-        sessionContexts[memoryId]?.let { return it.session }
         synchronized(sessionLock) {
-            sessionContexts[memoryId]?.let { return it.session }
-            val context = runBlocking { createSessionContext() }
-            sessionContexts[memoryId] = context
-            return context.session
+            val context = runBlocking { createSessionContext(memoryId) }
+            sessionManager.sessionContexts[memoryId] = context
+            return context
         }
     }
 
-    private suspend fun createSessionContext(): AcpSessionContext {
+    private suspend fun createSessionContext(memoryId: Any?): AcpSessionManager.AcpSessionContext {
         if (!properties.transport.equals("stdio", ignoreCase = true)) {
             throw IllegalStateException("Only stdio transport is supported for ACP integration")
         }
@@ -248,11 +392,19 @@ class AcpChatModel(
 
             println()
 
+            val toolAllowlist = listOf("emitGuiEvent", "retrieveGui", "performUiDiff")
+            val toolHeaders = mutableListOf(
+                HttpHeader(TOOL_ALLOWLIST_HEADER, toolAllowlist.joinToString(","))
+            )
+            if (memoryId != null) {
+                toolHeaders.add(HttpHeader(AgentTools.UI_SESSION_HEADER, memoryId.toString()))
+            }
+
             val sessionParams = SessionCreationParameters(
                 if (workingDirectory.isNotBlank()) workingDirectory else System.getProperty("user.dir"),
                 mutableListOf(
                     McpServer.Http("agent-tools", "http://localhost:8080/mcp",
-                        mutableListOf(HttpHeader(TOOL_ALLOWLIST_HEADER, "emitGuiEvent"))),
+                        toolHeaders),
                     McpServer.Http("gateway", "http://localhost:8081/mcp",
                         mutableListOf(
 //                            HttpHeader(TOOL_ALLOWLIST_HEADER, "emitGuiEvent")
@@ -263,7 +415,7 @@ class AcpChatModel(
             val session=  client.newSession(sessionParams)
                 { session, arg -> AcpSessionOperations()}
 
-            AcpSessionContext(scope, transport, protocol, client, session)
+            sessionManager.AcpSessionContext(scope, transport, protocol, client, session)
 
         } catch (ex: Exception) {
             throw IllegalStateException("Failed to initialize ACP session", ex)
@@ -301,7 +453,7 @@ class AcpChatModel(
                 is ToolResponseMessage -> {}
             }
         }
-        
+
         return builder.toString()
     }
 
@@ -325,13 +477,8 @@ class AcpChatModel(
         else -> "user"
     }
 
-    private data class AcpSessionContext(
-        val scope: CoroutineScope,
-        val transport: Transport,
-        val protocol: Protocol,
-        val client: Client,
-        val session: ClientSession
-    )
+    companion object {
+    }
 
     private class AcpSessionOperations : ClientSessionOperations {
 

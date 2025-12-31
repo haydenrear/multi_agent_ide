@@ -67,36 +67,22 @@ public class MultiAgentEmbabelConfig {
 
     @Bean(name = "chatModel")
     @Primary
-    public ChatModel acpChatModel(AcpModelProperties acpModelProperties,
-                                  ChatMemoryContext chatMemoryContext) {
-        return getAcpChatModel(acpModelProperties, chatMemoryContext);
+    public ChatModel acpChatModel(AcpChatModel chatModel) {
+        return chatModel;
     }
 
     /**
      * Create Streaming Chat Language Model for streaming responses.
      */
     @Bean
-    public StreamingChatModel streamingChatLanguageModel(AcpModelProperties acpModelProperties,
-                                                         ChatMemoryContext chatMemoryContext) {
+    public StreamingChatModel streamingChatLanguageModel(AcpChatModel chatModel) {
         if ("acp".equalsIgnoreCase(modelProvider)) {
-            return getAcpChatModel(acpModelProperties, chatMemoryContext);
+            return chatModel;
         }
         if (!StringUtils.hasText(apiKey)) {
             return new MockStreamingChatLanguageModel();
         }
         return new MockStreamingChatLanguageModel();
-    }
-
-    private AcpChatModel getAcpChatModel(AcpModelProperties acpModelProperties,
-                                         ChatMemoryContext chatMemoryContext) {
-        if (acpChatModel == null) {
-            synchronized (this) {
-                if (acpChatModel == null) {
-                    acpChatModel = new AcpChatModel(acpModelProperties, chatMemoryContext);
-                }
-            }
-        }
-        return acpChatModel;
     }
 
     @Bean

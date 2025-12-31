@@ -15,6 +15,15 @@ const post = async (path: string) => {
   return response.json().catch(() => ({}));
 };
 
-export const requestPause = (nodeId: string) => post(`/api/agents/${nodeId}/pause`);
-export const requestInterrupt = (nodeId: string) => post(`/api/agents/${nodeId}/interrupt`);
-export const requestReview = (nodeId: string) => post(`/api/agents/${nodeId}/review-request`);
+export const requestPause = (nodeId: string) =>
+  post(`/api/agents/${nodeId}/pause`);
+export const requestResume = (nodeId: string) =>
+  post(`/api/agents/${nodeId}/resume`);
+export const requestStop = (nodeId: string) =>
+  post(`/api/agents/${nodeId}/stop`);
+export const requestPrune = (nodeId: string) =>
+  post(`/api/agents/${nodeId}/prune`);
+export const requestBranch = (nodeId: string) =>
+  post(`/api/agents/${nodeId}/branch`);
+export const requestReview = (nodeId: string) =>
+  post(`/api/agents/${nodeId}/review-request`);

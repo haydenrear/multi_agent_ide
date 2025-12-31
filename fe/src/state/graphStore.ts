@@ -9,9 +9,11 @@ export type RawGraphEvent = {
 
 export type AgUiEventEnvelope = {
   type?: string | { name?: string };
+  name?: string;
   timestamp?: number;
   rawEvent?: RawGraphEvent;
   payload?: unknown;
+  value?: unknown;
   mapping?: Record<string, unknown>;
 };
 
@@ -23,6 +25,19 @@ export type GraphEventRecord = {
   sortTime?: number;
   payload?: unknown;
   rawEvent?: RawGraphEvent;
+};
+
+export type UiStateSnapshot = {
+  sessionId: string;
+  revision?: string;
+  timestamp?: string;
+  renderTree?: unknown;
+  lastEvents?: GraphEventRecord[];
+};
+
+export type GraphFilter = {
+  nodeId?: string;
+  worktree?: string;
 };
 
 export type WorktreeMeta = {
@@ -48,6 +63,8 @@ export type GraphState = {
   nodes: Record<string, GraphNode>;
   selectedNodeId?: string;
   unknownEvents: GraphEventRecord[];
+  filters: GraphFilter;
+  uiSnapshot?: UiStateSnapshot;
 };
 
 const subscribers = new Set<() => void>();
@@ -55,6 +72,7 @@ let state: GraphState = {
   nodes: {},
   selectedNodeId: undefined,
   unknownEvents: [],
+  filters: {},
 };
 
 const notify = () => {
@@ -86,6 +104,9 @@ const extractEventType = (event: AgUiEventEnvelope): string => {
   }
   if (event.type && typeof event.type === "object") {
     return event.type.name ?? "UNKNOWN";
+  }
+  if (event.name) {
+    return event.name;
   }
   return "UNKNOWN";
 };
@@ -140,9 +161,29 @@ export const graphActions = {
       nodeId,
       timestamp: event.rawEvent?.timestamp,
       sortTime,
-      payload: event.payload,
+      payload: event.payload ?? event.value,
       rawEvent: event.rawEvent,
     };
+
+    const renderTree =
+      (event.payload as { renderTree?: unknown } | undefined)?.renderTree ??
+      (event.value as { renderTree?: unknown } | undefined)?.renderTree;
+    const revision =
+      (event.payload as { revision?: string } | undefined)?.revision ??
+      (event.value as { revision?: string } | undefined)?.revision;
+
+    if (renderTree) {
+      state.uiSnapshot = {
+        sessionId: nodeId ?? "unknown",
+        timestamp: event.rawEvent?.timestamp,
+        renderTree,
+        revision,
+        lastEvents: [record, ...(state.uiSnapshot?.lastEvents ?? [])].slice(
+          0,
+          25,
+        ),
+      };
+    }
 
     if (eventType === "NODE_ADDED" && event.rawEvent) {
       const node = ensureNode(nodeId ?? event.rawEvent.nodeId ?? "unknown");
@@ -203,6 +244,9 @@ export const graphActions = {
   selectNode(nodeId?: string) {
     updateState({ ...state, selectedNodeId: nodeId });
   },
+  setFilters(filters: GraphFilter) {
+    updateState({ ...state, filters: { ...state.filters, ...filters } });
+  },
 };
 
 export const useGraphStore = <T>(selector: (s: GraphState) => T): T => {
@@ -218,6 +262,27 @@ export const useGraphStore = <T>(selector: (s: GraphState) => T): T => {
 
 export const graphSelectors = {
   nodesArray: (s: GraphState) => Object.values(s.nodes),
+  filteredNodes: (s: GraphState) => {
+    const nodes = Object.values(s.nodes);
+    const { nodeId, worktree } = s.filters;
+    return nodes.filter((node) => {
+      if (nodeId && !node.id.includes(nodeId)) {
+        return false;
+      }
+      if (worktree) {
+        const match = node.worktrees.some(
+          (wt) =>
+            wt.id.includes(worktree) || (wt.path ?? "").includes(worktree),
+        );
+        if (!match) {
+          return false;
+        }
+      }
+      return true;
+    });
+  },
   selectedNode: (s: GraphState) =>
     s.selectedNodeId ? s.nodes[s.selectedNodeId] : undefined,
+  filters: (s: GraphState) => s.filters,
+  uiSnapshot: (s: GraphState) => s.uiSnapshot,
 };

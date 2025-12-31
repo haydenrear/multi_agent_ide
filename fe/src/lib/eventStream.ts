@@ -6,10 +6,14 @@ type EventStreamOptions = {
   onError?: (error: Event) => void;
 };
 
-export const connectEventStream = ({ url, onEvent, onError }: EventStreamOptions) => {
+export const connectEventStream = ({
+  url,
+  onEvent,
+  onError,
+}: EventStreamOptions) => {
   const source = new EventSource(url);
 
-  source.onmessage = (message) => {
+  const handleMessage = (message: MessageEvent) => {
     try {
       const parsed = JSON.parse(message.data) as AgUiEventEnvelope;
       onEvent(parsed);
@@ -18,6 +22,9 @@ export const connectEventStream = ({ url, onEvent, onError }: EventStreamOptions
     }
   };
 
+  source.addEventListener("ag-ui", handleMessage);
+  source.onmessage = handleMessage;
+
   source.onerror = (event) => {
     if (onError) {
       onError(event);
@@ -25,6 +32,7 @@ export const connectEventStream = ({ url, onEvent, onError }: EventStreamOptions
   };
 
   return () => {
+    source.removeEventListener("ag-ui", handleMessage);
     source.close();
   };
 };

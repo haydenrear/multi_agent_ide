@@ -1,8 +1,14 @@
 import type { ViewerContext } from "./types";
+import { A2uiSurfaceRenderer } from "../components/A2uiSurfaceRenderer";
+import {
+  buildEventMessages,
+  extractA2uiMessages,
+} from "../lib/a2uiMessageBuilder";
 
 export const StreamViewer = ({ node, events }: ViewerContext) => {
-  const streamEvents = events.filter((event) =>
-    event.type === "NODE_STREAM_DELTA" || event.type.includes("TEXT_MESSAGE")
+  const streamEvents = events.filter(
+    (event) =>
+      event.type === "NODE_STREAM_DELTA" || event.type.includes("TEXT_MESSAGE"),
   );
 
   return (
@@ -14,13 +20,15 @@ export const StreamViewer = ({ node, events }: ViewerContext) => {
           <div className="event-item">No streaming output captured.</div>
         ) : (
           streamEvents.map((event) => (
-            <div className="event-item" key={event.id}>
-              <strong>{event.type}</strong>
-              <div className="muted">{event.timestamp ?? "timestamp pending"}</div>
-              {event.rawEvent && "deltaContent" in event.rawEvent ? (
-                <div>{String((event.rawEvent as { deltaContent?: string }).deltaContent ?? "")}</div>
-              ) : null}
-            </div>
+            <A2uiSurfaceRenderer
+              key={event.id}
+              messages={
+                extractA2uiMessages(event.payload) ??
+                buildEventMessages(event, true)
+              }
+              event={event}
+              node={node}
+            />
           ))
         )}
       </div>

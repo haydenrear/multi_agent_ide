@@ -313,7 +313,23 @@ public class IdeMcpAsyncServer extends McpAsyncServer {
                         .build());
             }
 
-            return toolSpecification.get().callHandler().apply(exchange, callToolRequest);
+            HttpHeaders headers = null;
+            if (exchange != null && exchange.transportContext() != null) {
+                Object headersObj = exchange.transportContext().get(CONTEXT_HEADERS_KEY);
+                if (headersObj instanceof HttpHeaders found) {
+                    headers = found;
+                }
+            }
+
+            HttpHeaders captured = headers;
+            return Mono.using(
+                    () -> {
+                        com.hayden.multiagentide.infrastructure.McpRequestContext.setHeaders(captured);
+                        return Boolean.TRUE;
+                    },
+                    ignored -> toolSpecification.get().callHandler().apply(exchange, callToolRequest),
+                    ignored -> com.hayden.multiagentide.infrastructure.McpRequestContext.clear()
+            );
         };
     }
 

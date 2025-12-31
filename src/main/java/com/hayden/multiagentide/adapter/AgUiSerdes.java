@@ -1,10 +1,9 @@
 package com.hayden.multiagentide.adapter;
 
 import com.agui.core.types.BaseEvent;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import kotlinx.serialization.json.Json;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
@@ -13,15 +12,15 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AgUiSerdes {
 
-    private final ObjectMapper objectMapper;
+    private final Json json = Json.Default;
 
     public String serializeEvent(@Nullable BaseEvent baseEvent) {
         if (baseEvent == null) {
             return "{}";
         }
         try {
-            return objectMapper.writeValueAsString(baseEvent);
-        } catch (JsonProcessingException e) {
+            return json.encodeToString(BaseEvent.Companion.serializer(), baseEvent);
+        } catch (Exception e) {
             log.error("Failed to serialize ag-ui event.", e);
             return "{}";
         }

@@ -1,3 +1,2 @@
 
-Add the MCP tool support for langchain4j-agentic https://docs.langchain4j.dev/tutorials/mcp. 
-
+Add MCP tool support for Embabel (replacing langchain4j-agentic). 

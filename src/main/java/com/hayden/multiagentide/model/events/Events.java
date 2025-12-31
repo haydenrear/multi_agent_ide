@@ -4,11 +4,13 @@ import com.agui.core.types.BaseEvent;
 import com.hayden.multiagentide.adapter.AgUiEventMappingRegistry;
 import com.hayden.multiagentide.model.nodes.GraphNode;
 import com.hayden.multiagentide.model.nodes.ReviewNode;
+import com.hayden.multiagentide.model.ui.UiStateSnapshot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public interface Events {
@@ -93,6 +95,18 @@ public interface Events {
         @Override
         public String eventType() {
             return "PAUSE_EVENT";
+        }
+    }
+
+    record ResumeEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String message
+    ) implements AgentEvent {
+        @Override
+        public String eventType() {
+            return "RESUME_EVENT";
         }
     }
 
@@ -352,6 +366,173 @@ public interface Events {
         @Override
         public String eventType() {
             return "NODE_STREAM_DELTA";
+        }
+    }
+
+    record NodeThoughtDeltaEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String deltaContent,
+            int tokenCount,
+            boolean isFinal
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "NODE_THOUGHT_DELTA";
+        }
+    }
+
+    record ToolCallEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String toolCallId,
+            String title,
+            String kind,
+            String status,
+            String phase,
+            List<Map<String, Object>> content,
+            List<Map<String, Object>> locations,
+            Object rawInput,
+            Object rawOutput
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            String normalized = phase != null ? phase.toUpperCase(Locale.ROOT) : "UPDATE";
+            return "TOOL_CALL_" + normalized;
+        }
+    }
+
+    record GuiRenderEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String sessionId,
+            Object payload
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "GUI_RENDER";
+        }
+    }
+
+    record UiDiffAppliedEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String sessionId,
+            String revision,
+            Object renderTree,
+            String summary
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "UI_DIFF_APPLIED";
+        }
+    }
+
+    record UiDiffRejectedEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String sessionId,
+            String errorCode,
+            String message
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "UI_DIFF_REJECTED";
+        }
+    }
+
+    record UiDiffRevertedEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String sessionId,
+            String revision,
+            Object renderTree,
+            String sourceEventId
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "UI_DIFF_REVERTED";
+        }
+    }
+
+    record UiFeedbackEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String sessionId,
+            String sourceEventId,
+            String message,
+            UiStateSnapshot snapshot
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "UI_FEEDBACK";
+        }
+    }
+
+    record NodeBranchRequestedEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String message
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "NODE_BRANCH_REQUESTED";
+        }
+    }
+
+    record PlanUpdateEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            List<Map<String, Object>> entries
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "PLAN_UPDATE";
+        }
+    }
+
+    record UserMessageChunkEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String content
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "USER_MESSAGE_CHUNK";
+        }
+    }
+
+    record CurrentModeUpdateEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            String currentModeId
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "CURRENT_MODE_UPDATE";
+        }
+    }
+
+    record AvailableCommandsUpdateEvent(
+            String eventId,
+            Instant timestamp,
+            String nodeId,
+            List<Map<String, Object>> commands
+    ) implements GraphEvent {
+        @Override
+        public String eventType() {
+            return "AVAILABLE_COMMANDS_UPDATE";
         }
     }
 }

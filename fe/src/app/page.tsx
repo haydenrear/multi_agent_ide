@@ -4,16 +4,22 @@ import { useEffect } from "react";
 import { connectEventStream } from "../lib/eventStream";
 import { GraphView } from "../components/GraphView";
 import { NodeDetailsPanel } from "../components/NodeDetailsPanel";
-import { graphActions, graphSelectors, useGraphStore } from "../state/graphStore";
+import {
+  graphActions,
+  graphSelectors,
+  useGraphStore,
+} from "../state/graphStore";
 
 export default function Home() {
-  const nodes = useGraphStore(graphSelectors.nodesArray);
+  const nodes = useGraphStore(graphSelectors.filteredNodes);
+  const filters = useGraphStore(graphSelectors.filters);
   const selectedNode = useGraphStore(graphSelectors.selectedNode);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const unknownEvents = useGraphStore((state) => state.unknownEvents);
 
   useEffect(() => {
-    const streamUrl = process.env.NEXT_PUBLIC_EVENT_STREAM_URL ?? "/api/events/stream";
+    const streamUrl =
+      process.env.NEXT_PUBLIC_EVENT_STREAM_URL ?? "/api/events/stream";
     const disconnect = connectEventStream({
       url: streamUrl,
       onEvent: graphActions.applyEvent,
@@ -39,6 +45,8 @@ export default function Home() {
           nodes={nodes}
           selectedNodeId={selectedNodeId}
           unknownEvents={unknownEvents}
+          filters={filters}
+          onFilterChange={graphActions.setFilters}
           onSelectNode={graphActions.selectNode}
         />
         <NodeDetailsPanel node={selectedNode} />
