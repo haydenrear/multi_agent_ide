@@ -106,6 +106,14 @@ public class AgentEventListener implements EventListener {
             }
             case Events.UiFeedbackEvent uiFeedbackEvent -> {
             }
+            case Events.AvailableCommandsUpdateEvent availableCommandsUpdateEvent -> {
+            }
+            case Events.CurrentModeUpdateEvent currentModeUpdateEvent -> {
+            }
+            case Events.PlanUpdateEvent planUpdateEvent -> {
+            }
+            case Events.UserMessageChunkEvent userMessageChunkEvent -> {
+            }
         }
     }
 

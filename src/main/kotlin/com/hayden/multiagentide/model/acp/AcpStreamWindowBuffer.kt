@@ -125,7 +125,7 @@ class AcpStreamWindowBuffer(private val eventBus: EventBus) {
             if (type == StreamWindowType.USER_MESSAGE && buffer.isNotEmpty()) {
                 eventBus.publish(Events.UserMessageChunkEvent(
                     UUID.randomUUID().toString(),
-                    java.time.Instant.now(),
+                    Instant.now(),
                     nodeId,
                     buffer.toString()
                 ))
