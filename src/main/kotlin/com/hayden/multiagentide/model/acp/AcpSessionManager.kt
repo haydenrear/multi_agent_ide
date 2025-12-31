@@ -15,11 +15,7 @@ import org.springframework.stereotype.Component
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
-class AcpSessionManager(
-    private val properties: AcpModelProperties,
-    private val chatMemoryContext: ChatMemoryContext?,
-    private val eventBus: EventBus
-) {
+class AcpSessionManager(private val eventBus: EventBus) {
 
     val sessionContexts = ConcurrentHashMap<Any, AcpSessionContext>()
 

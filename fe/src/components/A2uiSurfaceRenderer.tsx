@@ -1,7 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { GraphEventRecord, GraphNode } from "../state/graphStore";
-import { A2uiCore } from "../lib/a2uiBridge";
-import type { A2uiServerMessage } from "../lib/a2uiMessageBuilder";
+import React, {
+  createElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { GraphEventRecord, GraphNode } from "@/state/graphStore";
+import { A2uiCore } from "@/lib/a2uiBridge";
+import type { A2uiServerMessage } from "@/lib/a2uiMessageBuilder";
+import { snapshotActions, useSnapshotTracking } from "@/state/snapshotStore";
+import { ensureA2uiThemeProvider } from "@/lib/a2uiTheme";
 
 export type A2uiSurfaceRendererProps = {
   messages: A2uiServerMessage[];
@@ -14,6 +22,22 @@ export type A2uiSurfaceRendererProps = {
 };
 
 type SurfaceEntry = [string, A2uiCore.Types.Surface];
+type A2uiProcessor = ReturnType<
+  typeof A2uiCore.Data.createSignalA2uiMessageProcessor
+>;
+
+const extractSurfaceIds = (messages: A2uiServerMessage[]) => {
+  const surfaceIds = new Set<string>();
+  messages.forEach((message) => {
+    if ("surfaceUpdate" in message && message.surfaceUpdate?.surfaceId) {
+      surfaceIds.add(message.surfaceUpdate.surfaceId);
+    }
+    if ("beginRendering" in message && message.beginRendering?.surfaceId) {
+      surfaceIds.add(message.beginRendering.surfaceId);
+    }
+  });
+  return surfaceIds;
+};
 
 const resolveActionContext = (
   context?: { key: string; value: { literalString?: string } }[],
@@ -37,7 +61,7 @@ const A2uiSurface = ({
 }: {
   surfaceId: string;
   surface: A2uiCore.Types.Surface;
-  processor: A2uiCore.Data.A2uiMessageProcessor;
+  processor: A2uiProcessor;
   onAction?: (action: {
     name: string;
     context: Record<string, string>;
@@ -50,7 +74,7 @@ const A2uiSurface = ({
       | (HTMLElement & {
           surfaceId?: string;
           surface?: A2uiCore.Types.Surface;
-          processor?: A2uiCore.Data.A2uiMessageProcessor;
+          processor?: A2uiProcessor;
         })
       | null;
     if (!element) {
@@ -86,24 +110,35 @@ const A2uiSurface = ({
       element.removeEventListener("a2uiaction", handler as EventListener);
   }, [onAction]);
 
-  return <a2ui-surface ref={ref} />;
+  return createElement("a2ui-surface" as any, {
+    ref,
+    surfaceId,
+    surface,
+    processor,
+  });
 };
 
 export const A2uiSurfaceRenderer = ({
   messages,
+  event,
   onAction,
 }: A2uiSurfaceRendererProps) => {
+  ensureA2uiThemeProvider();
   const processor = useMemo(
     () => A2uiCore.Data.createSignalA2uiMessageProcessor(),
     [],
   );
   const [surfaces, setSurfaces] = useState<SurfaceEntry[]>([]);
+  const surfaceCache = useRef(new Map<string, A2uiCore.Types.Surface>());
 
   useEffect(() => {
-    processor.clearSurfaces();
     processor.processMessages(messages);
-    setSurfaces(Array.from(processor.getSurfaces().entries()));
-  }, [messages, processor]);
+    const entries = Array.from(processor.getSurfaces().entries());
+    surfaceCache.current = new Map(entries);
+    setSurfaces(entries);
+  }, [event, messages, processor]);
+
+  useSnapshotTracking({ messages, event, surfaceCache });
 
   if (surfaces.length === 0) {
     return null;
@@ -111,15 +146,30 @@ export const A2uiSurfaceRenderer = ({
 
   return (
     <div className="a2ui-surface">
-      {surfaces.map(([surfaceId, surface]) => (
-        <A2uiSurface
-          key={surfaceId}
-          surfaceId={surfaceId}
-          surface={surface}
-          processor={processor}
-          onAction={onAction}
-        />
-      ))}
+      <a2ui-theme-provider>
+        {surfaces.map(([surfaceId, surface]) => (
+          <A2uiSurface
+            key={surfaceId}
+            surfaceId={surfaceId}
+            surface={surface}
+            processor={processor}
+            onAction={(action) => {
+              if (action.name === "ui.revert") {
+                const targetSurfaceId = action.context.surfaceId ?? surfaceId;
+                const snapshot =
+                  snapshotActions.revertSurfaceSnapshot(targetSurfaceId);
+                if (snapshot?.surface) {
+                  const updated = new Map(surfaceCache.current);
+                  updated.set(targetSurfaceId, snapshot.surface);
+                  surfaceCache.current = updated;
+                  setSurfaces(Array.from(updated.entries()));
+                }
+              }
+              onAction?.(action);
+            }}
+          />
+        ))}
+      </a2ui-theme-provider>
     </div>
   );
 };

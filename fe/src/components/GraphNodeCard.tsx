@@ -1,18 +1,22 @@
-import type { GraphNode } from "../state/graphStore";
-import { A2uiSurfaceRenderer } from "./A2uiSurfaceRenderer";
-import { buildNodeSummaryMessages } from "../lib/a2uiMessageBuilder";
+import React from "react";
+import type { GraphProps } from "../state/graphStore";
+import { useGraphNode } from "../state/graphStore";
+import { renderA2ui } from "../lib/a2uiRegistry";
 
-type GraphNodeCardProps = {
-  node: GraphNode;
+type GraphNodeCardProps = GraphProps & {
   isSelected: boolean;
   onSelect: (nodeId: string) => void;
 };
 
 export const GraphNodeCard = ({
-  node,
+  nodeId,
   isSelected,
   onSelect,
 }: GraphNodeCardProps) => {
+  const node = useGraphNode(nodeId);
+  if (!node) {
+    return null;
+  }
   return (
     <div
       className={`node-card${isSelected ? " active" : ""}`}
@@ -25,7 +29,13 @@ export const GraphNodeCard = ({
         }
       }}
     >
-      <A2uiSurfaceRenderer messages={buildNodeSummaryMessages(node)} />
+      {renderA2ui({
+        payload: {
+          renderer: "node-summary",
+          sessionId: node.id,
+          props: { node },
+        },
+      })}
     </div>
   );
 };

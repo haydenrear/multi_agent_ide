@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useRef, useSyncExternalStore } from "react";
 
 export type RawGraphEvent = {
   eventType?: string;
@@ -25,6 +25,7 @@ export type GraphEventRecord = {
   sortTime?: number;
   payload?: unknown;
   rawEvent?: RawGraphEvent;
+  isGuiEvent?: boolean;
 };
 
 export type UiStateSnapshot = {
@@ -59,6 +60,10 @@ export type GraphNode = {
   latestMessage?: string;
 };
 
+export type GraphProps = {
+  nodeId: string;
+};
+
 export type GraphState = {
   nodes: Record<string, GraphNode>;
   selectedNodeId?: string;
@@ -68,6 +73,11 @@ export type GraphState = {
 };
 
 const subscribers = new Set<() => void>();
+const nodeListSubscribers = new Set<() => void>();
+const nodeSubscribers = new Map<string, Set<() => void>>();
+const EMPTY_EVENTS: GraphEventRecord[] = [];
+let nodesArrayCache: GraphNode[] = [];
+
 let state: GraphState = {
   nodes: {},
   selectedNodeId: undefined,
@@ -77,6 +87,17 @@ let state: GraphState = {
 
 const notify = () => {
   subscribers.forEach((callback) => callback());
+};
+
+const notifyNodeList = () => {
+  nodeListSubscribers.forEach((callback) => callback());
+};
+
+const notifyNode = (nodeId?: string) => {
+  if (!nodeId) {
+    return;
+  }
+  nodeSubscribers.get(nodeId)?.forEach((callback) => callback());
 };
 
 const updateState = (next: GraphState) => {
@@ -91,6 +112,8 @@ const ensureNode = (nodeId: string): GraphNode => {
       worktrees: [],
       events: [],
     };
+    nodesArrayCache = Object.values(state.nodes);
+    notifyNodeList();
   }
   return state.nodes[nodeId];
 };
@@ -129,7 +152,7 @@ const pushEvent = (record: GraphEventRecord) => {
   if (!record.nodeId) {
     if (!state.unknownEvents.some((event) => event.id === record.id)) {
       state.unknownEvents = [record, ...state.unknownEvents]
-        .sort((a, b) => (b.sortTime ?? 0) - (a.sortTime ?? 0))
+        .sort((a, b) => (a.sortTime ?? 0) - (b.sortTime ?? 0))
         .slice(0, 50);
     }
     return;
@@ -139,8 +162,18 @@ const pushEvent = (record: GraphEventRecord) => {
     return;
   }
   node.events = [record, ...node.events]
-    .sort((a, b) => (b.sortTime ?? 0) - (a.sortTime ?? 0))
+    .sort((a, b) => (a.sortTime ?? 0) - (b.sortTime ?? 0))
     .slice(0, 100);
+};
+
+const isGuiEventPayload = (payload?: unknown): boolean => {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+  const record = payload as { renderer?: unknown; a2uiMessages?: unknown };
+  return (
+    typeof record.renderer === "string" || Array.isArray(record.a2uiMessages)
+  );
 };
 
 export const graphActions = {
@@ -163,6 +196,10 @@ export const graphActions = {
       sortTime,
       payload: event.payload ?? event.value,
       rawEvent: event.rawEvent,
+      isGuiEvent:
+        eventType === "GUI_RENDER" ||
+        isGuiEventPayload(event.payload) ||
+        isGuiEventPayload(event.value),
     };
 
     const renderTree =
@@ -240,6 +277,17 @@ export const graphActions = {
 
     pushEvent(record);
     updateState({ ...state, nodes: { ...state.nodes } });
+    notifyNode(record.nodeId);
+  },
+  removeNode(nodeId: string) {
+    if (!state.nodes[nodeId]) {
+      return;
+    }
+    const { [nodeId]: removed, ...rest } = state.nodes;
+    state.nodes = rest;
+    nodesArrayCache = Object.values(rest);
+    updateState({ ...state, nodes: { ...rest } });
+    notifyNodeList();
   },
   selectNode(nodeId?: string) {
     updateState({ ...state, selectedNodeId: nodeId });
@@ -257,6 +305,117 @@ export const useGraphStore = <T>(selector: (s: GraphState) => T): T => {
     },
     () => selector(state),
     () => selector(state),
+  );
+};
+
+export const useGraphNodes = (): GraphNode[] => {
+  return useSyncExternalStore(
+    (callback) => {
+      nodeListSubscribers.add(callback);
+      return () => nodeListSubscribers.delete(callback);
+    },
+    () => nodesArrayCache,
+    () => nodesArrayCache,
+  );
+};
+
+export const useGraphNodeEvents = (
+  nodeId?: string,
+  filter?: (event: GraphEventRecord) => boolean,
+): GraphEventRecord[] => {
+  const cacheRef = useRef<{
+    eventsRef: GraphEventRecord[] | null;
+    filterRef: ((event: GraphEventRecord) => boolean) | null;
+    result: GraphEventRecord[];
+  }>({ eventsRef: null, filterRef: null, result: EMPTY_EVENTS });
+  return useSyncExternalStore(
+    (callback) => {
+      if (!nodeId) {
+        return () => undefined;
+      }
+      const subscribersForNode =
+        nodeSubscribers.get(nodeId) ?? new Set<() => void>();
+      subscribersForNode.add(callback);
+      nodeSubscribers.set(nodeId, subscribersForNode);
+      return () => {
+        subscribersForNode.delete(callback);
+        if (subscribersForNode.size === 0) {
+          nodeSubscribers.delete(nodeId);
+        }
+      };
+    },
+    () => {
+      if (!nodeId) {
+        return EMPTY_EVENTS;
+      }
+      const node = state.nodes[nodeId];
+      if (!node) {
+        return EMPTY_EVENTS;
+      }
+      const events = node.events;
+      if (!filter) {
+        return events;
+      }
+      const cache = cacheRef.current;
+      if (cache.eventsRef === events && cache.filterRef === filter) {
+        return cache.result;
+      }
+      const result = events.filter(filter);
+      cacheRef.current = { eventsRef: events, filterRef: filter, result };
+      return result;
+    },
+    () => {
+      if (!nodeId) {
+        return EMPTY_EVENTS;
+      }
+      const node = state.nodes[nodeId];
+      if (!node) {
+        return EMPTY_EVENTS;
+      }
+      const events = node.events;
+      if (!filter) {
+        return events;
+      }
+      const cache = cacheRef.current;
+      if (cache.eventsRef === events && cache.filterRef === filter) {
+        return cache.result;
+      }
+      const result = events.filter(filter);
+      cacheRef.current = { eventsRef: events, filterRef: filter, result };
+      return result;
+    },
+  );
+};
+
+export const useGraphNode = (nodeId?: string): GraphNode | undefined => {
+  return useSyncExternalStore(
+    (callback) => {
+      if (!nodeId) {
+        return () => undefined;
+      }
+      const subscribersForNode =
+        nodeSubscribers.get(nodeId) ?? new Set<() => void>();
+      subscribersForNode.add(callback);
+      nodeSubscribers.set(nodeId, subscribersForNode);
+      return () => {
+        subscribersForNode.delete(callback);
+        if (subscribersForNode.size === 0) {
+          nodeSubscribers.delete(nodeId);
+        }
+      };
+    },
+    () => {
+      if (!nodeId) {
+        return undefined;
+      }
+      return state.nodes[nodeId];
+    },
+    () => {
+      if (!nodeId) {
+        return undefined;
+      }
+      return state.nodes[nodeId];
+    },
   );
 };
 

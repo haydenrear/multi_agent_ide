@@ -7,13 +7,13 @@ import { NodeDetailsPanel } from "../components/NodeDetailsPanel";
 import {
   graphActions,
   graphSelectors,
+  useGraphNodes,
   useGraphStore,
-} from "../state/graphStore";
+} from "@/state/graphStore";
 
 export default function Home() {
-  const nodes = useGraphStore(graphSelectors.filteredNodes);
+  const nodes = useGraphNodes();
   const filters = useGraphStore(graphSelectors.filters);
-  const selectedNode = useGraphStore(graphSelectors.selectedNode);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const unknownEvents = useGraphStore((state) => state.unknownEvents);
 
@@ -49,7 +49,14 @@ export default function Home() {
           onFilterChange={graphActions.setFilters}
           onSelectNode={graphActions.selectNode}
         />
-        <NodeDetailsPanel node={selectedNode} />
+        <div className="panel">
+          <h2>Node Details</h2>
+          <div className="event-list">
+            {nodes.map((node) => (
+              <NodeDetailsPanel key={node.id} nodeId={node.id} />
+            ))}
+          </div>
+        </div>
       </div>
     </main>
   );

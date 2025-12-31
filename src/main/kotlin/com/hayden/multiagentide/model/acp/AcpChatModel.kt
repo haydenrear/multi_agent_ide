@@ -130,6 +130,7 @@ class AcpChatModel(
                 parseGenerationsFromAcpEvent(event, sessionContext, memoryId).forEach { emit(it) }
             }
             .collect { generations.add(it) }
+
         generations.addAll(session.flushWindows(memoryId))
 
         toChatResponse(generations)
@@ -176,10 +177,9 @@ class AcpChatModel(
         if (memoryId == null) {
             return runBlocking { createSessionContext(null) }
         }
-        synchronized(sessionLock) {
-            val context = runBlocking { createSessionContext(memoryId) }
-            sessionManager.sessionContexts[memoryId] = context
-            return context
+
+        return sessionManager.sessionContexts.computeIfAbsent(memoryId) {
+            runBlocking { createSessionContext(it) }
         }
     }
 
@@ -221,7 +221,12 @@ class AcpChatModel(
 
             println()
 
-            val toolAllowlist = listOf("emitGuiEvent", "retrieveGui", "performUiDiff")
+            val toolAllowlist = listOf(
+                "emitGuiEvent",
+                "retrieveGui",
+                "submitGuiFeedback",
+                "performUiDiff"
+            )
             val toolHeaders = mutableListOf(
                 HttpHeader(TOOL_ALLOWLIST_HEADER, toolAllowlist.joinToString(","))
             )

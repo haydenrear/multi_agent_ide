@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import type { GraphEventRecord, GraphNode } from "../state/graphStore";
 
 export type ViewerContext = {
@@ -10,5 +11,5 @@ export type ViewerPlugin = {
   name: string;
   priority: number;
   matches: (context: ViewerContext) => boolean;
-  render: (context: ViewerContext) => JSX.Element;
+  render: (context: ViewerContext) => ReactElement;
 };

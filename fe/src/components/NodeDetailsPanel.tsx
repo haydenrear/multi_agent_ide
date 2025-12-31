@@ -1,24 +1,19 @@
-import { viewerRegistry } from "../plugins/registry";
-import { A2uiSurfaceRenderer } from "./A2uiSurfaceRenderer";
-import type { GraphNode } from "../state/graphStore";
-import { graphSelectors, useGraphStore } from "../state/graphStore";
-import { submitGuiFeedback, requestUiRevert } from "../lib/guiActions";
+import { viewerRegistry } from "@/plugins/registry";
+import type { GraphProps } from "@/state/graphStore";
 import {
-  requestPause,
-  requestResume,
-  requestReview,
-  requestStop,
-} from "../lib/agentControls";
-import {
-  buildEventMessages,
-  extractA2uiMessages,
-} from "../lib/a2uiMessageBuilder";
+  graphSelectors,
+  useGraphNode,
+  useGraphNodeEvents,
+  useGraphStore,
+} from "@/state/graphStore";
+import { submitGuiFeedback, requestUiRevert } from "@/lib/guiActions";
+import { renderA2ui } from "@/lib/a2uiRegistry";
+import { A2uiEventViewer } from "@/plugins/A2uiEventViewer";
 
-type NodeDetailsPanelProps = {
-  node?: GraphNode;
-};
+type NodeDetailsPanelProps = GraphProps;
 
-export const NodeDetailsPanel = ({ node }: NodeDetailsPanelProps) => {
+export const NodeDetailsPanel = ({ nodeId }: NodeDetailsPanelProps) => {
+  const node = useGraphNode(nodeId);
   const uiSnapshot = useGraphStore(graphSelectors.uiSnapshot);
   if (!node) {
     return (
@@ -30,6 +25,17 @@ export const NodeDetailsPanel = ({ node }: NodeDetailsPanelProps) => {
   }
 
   const viewer = viewerRegistry.select({ node, events: node.events });
+  const nodeEvents = useGraphNodeEvents(node.id);
+  const matchingViewers = viewerRegistry
+    .all()
+    .filter((plugin) => plugin.matches({ node, events: node.events }));
+  const orderedEvents = [...nodeEvents].sort(
+    (a, b) => (a.sortTime ?? 0) - (b.sortTime ?? 0),
+  );
+  const visibleEvents =
+    orderedEvents.length > 50
+      ? orderedEvents.slice(orderedEvents.length - 50)
+      : orderedEvents;
 
   return (
     <div className="panel">
@@ -38,55 +44,50 @@ export const NodeDetailsPanel = ({ node }: NodeDetailsPanelProps) => {
         {node.nodeType ?? "Node"} • {node.id}
       </p>
       <div className="event-list">
-        {node.events.slice(0, 4).map((event) => {
-          const messages =
-            extractA2uiMessages(event.payload) ??
-            buildEventMessages(event, true);
-          return (
-            <A2uiSurfaceRenderer
-              key={event.id}
-              messages={messages}
-              event={event}
-              node={node}
-              onAction={(action) => {
-                if (action.name === "ui.feedback") {
-                  const message = window.prompt("Feedback for this UI event?");
-                  if (message) {
-                    submitGuiFeedback({
-                      eventId: action.context.eventId ?? event.id,
-                      nodeId: action.context.nodeId ?? node.id,
-                      message,
-                      snapshot: uiSnapshot,
-                    });
-                  }
-                }
-                if (action.name === "ui.revert") {
-                  requestUiRevert({
-                    eventId: action.context.eventId ?? event.id,
-                    nodeId: action.context.nodeId ?? node.id,
-                  });
-                }
-              }}
-            />
-          );
-        })}
+        {visibleEvents.map((event) => (
+          <A2uiEventViewer
+            key={event.id}
+            event={event}
+            node={node}
+            onFeedback={(evt, message) => {
+              submitGuiFeedback({
+                eventId: evt.id,
+                nodeId: node.id,
+                message,
+                snapshot: uiSnapshot,
+              });
+            }}
+            onRevert={(evt) => {
+              requestUiRevert({
+                eventId: evt.id,
+                nodeId: node.id,
+              });
+            }}
+          />
+        ))}
       </div>
-      <div className="button-row">
-        <button onClick={() => requestPause(node.id)}>Pause</button>
-        <button className="secondary" onClick={() => requestResume(node.id)}>
-          Resume
-        </button>
-        <button className="secondary" onClick={() => requestStop(node.id)}>
-          Stop
-        </button>
-        <button className="secondary" onClick={() => requestReview(node.id)}>
-          Request Review
-        </button>
-      </div>
-      <div className="viewer">
-        <h3>{viewer.name}</h3>
-        {viewer.render({ node, events: node.events })}
-      </div>
+      {renderA2ui({
+        payload: {
+          renderer: "control-actions",
+          sessionId: node.id,
+          props: { nodeId: node.id },
+        },
+      })}
+      {matchingViewers.length > 0 ? (
+        <div className="viewer">
+          {matchingViewers.map((plugin) => (
+            <div key={plugin.id}>
+              <h3>{plugin.name}</h3>
+              {plugin.render({ node, events: node.events })}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="viewer">
+          <h3>{viewer.name}</h3>
+          {viewer.render({ node, events: node.events })}
+        </div>
+      )}
     </div>
   );
 };

@@ -8,6 +8,7 @@ import com.hayden.multiagentide.model.ui.GuiEmissionResult;
 import com.hayden.multiagentide.model.ui.GuiEventPayload;
 import com.hayden.multiagentide.model.ui.UiDiffRequest;
 import com.hayden.multiagentide.model.ui.UiDiffResult;
+import com.hayden.multiagentide.model.ui.UiEventFeedback;
 import com.hayden.multiagentide.model.ui.UiStateSnapshot;
 import com.hayden.multiagentide.service.UiStateService;
 import lombok.RequiredArgsConstructor;
@@ -83,6 +84,39 @@ public class AgentTools implements ToolCarrier {
             return snapshot;
         }
         return new UiStateSnapshot(safeSessionId, null, Instant.now(), Map.of());
+    }
+
+    @org.springframework.ai.tool.annotation.Tool(description = "Submit feedback for a UI event")
+    public GuiEmissionResult submitGuiFeedback(UiEventFeedback feedback) {
+        if (feedback == null) {
+            return new GuiEmissionResult("rejected", "invalid_payload", "Feedback payload is required.", true);
+        }
+        String sessionId = resolveSessionId(feedback.sessionId());
+        if (!StringUtils.hasText(sessionId)) {
+            return new GuiEmissionResult("rejected", "missing_session", "Session id is required.", true);
+        }
+        if (!StringUtils.hasText(feedback.eventId())) {
+            return new GuiEmissionResult("rejected", "missing_event", "Event id is required.", true);
+        }
+        if (!StringUtils.hasText(feedback.message())) {
+            return new GuiEmissionResult("rejected", "missing_message", "Feedback message is required.", true);
+        }
+
+        UiStateSnapshot snapshot = feedback.snapshot() != null
+                ? feedback.snapshot()
+                : uiStateService.getSnapshot(sessionId);
+
+        eventBus.publish(new Events.UiFeedbackEvent(
+                UUID.randomUUID().toString(),
+                Instant.now(),
+                sessionId,
+                sessionId,
+                feedback.eventId(),
+                feedback.message(),
+                snapshot
+        ));
+
+        return new GuiEmissionResult("accepted", null, "Feedback submitted.", false);
     }
 
     @org.springframework.ai.tool.annotation.Tool(description = "Apply a UI diff to the current GUI state")

@@ -1,6 +1,5 @@
 import type { ViewerContext } from "./types";
-import { A2uiSurfaceRenderer } from "../components/A2uiSurfaceRenderer";
-import { buildEventMessages, extractA2uiMessages } from "../lib/a2uiMessageBuilder";
+import { A2uiEventViewer } from "./A2uiEventViewer";
 
 export const ToolCallViewer = ({ events }: ViewerContext) => {
   const toolEvents = events.filter((event) => event.type.includes("TOOL_CALL"));
@@ -13,11 +12,7 @@ export const ToolCallViewer = ({ events }: ViewerContext) => {
           <div className="event-item">No tool call events recorded.</div>
         ) : (
           toolEvents.map((event) => (
-            <A2uiSurfaceRenderer
-              key={event.id}
-              messages={extractA2uiMessages(event.payload) ?? buildEventMessages(event, true)}
-              event={event}
-            />
+            <A2uiEventViewer key={event.id} event={event} />
           ))
         )}
       </div>

@@ -1,10 +1,7 @@
-import type { GraphEventRecord, GraphNode } from "../state/graphStore";
+import React from "react";
+import type { GraphEventRecord, GraphNode } from "@/state/graphStore";
 import { GraphNodeCard } from "./GraphNodeCard";
-import { A2uiSurfaceRenderer } from "./A2uiSurfaceRenderer";
-import {
-  buildEventMessages,
-  extractA2uiMessages,
-} from "../lib/a2uiMessageBuilder";
+import { A2uiEventViewer } from "@/plugins/A2uiEventViewer";
 
 type GraphViewProps = {
   nodes: GraphNode[];
@@ -23,6 +20,22 @@ export const GraphView = ({
   onFilterChange,
   onSelectNode,
 }: GraphViewProps) => {
+  const filteredNodes = nodes.filter((node) => {
+    if (filters.nodeId && !node.id.includes(filters.nodeId)) {
+      return false;
+    }
+    if (filters.worktree) {
+      const match = node.worktrees.some(
+        (wt) =>
+          wt.id.includes(filters.worktree ?? "") ||
+          (wt.path ?? "").includes(filters.worktree ?? ""),
+      );
+      if (!match) {
+        return false;
+      }
+    }
+    return true;
+  });
   return (
     <div className="panel">
       <h2>Graph Timeline</h2>
@@ -40,13 +53,13 @@ export const GraphView = ({
         />
       </div>
       <div className="node-grid">
-        {nodes.length === 0 ? (
+        {filteredNodes.length === 0 ? (
           <div className="event-item">Waiting for events...</div>
         ) : (
-          nodes.map((node) => (
+          filteredNodes.map((node) => (
             <GraphNodeCard
               key={node.id}
-              node={node}
+              nodeId={node.id}
               isSelected={selectedNodeId === node.id}
               onSelect={onSelectNode}
             />
@@ -58,14 +71,7 @@ export const GraphView = ({
           <h3>Unknown events</h3>
           <div className="event-list">
             {unknownEvents.map((event) => (
-              <A2uiSurfaceRenderer
-                key={event.id}
-                messages={
-                  extractA2uiMessages(event.payload) ??
-                  buildEventMessages(event, true)
-                }
-                event={event}
-              />
+              <A2uiEventViewer key={event.id} event={event} />
             ))}
           </div>
         </div>

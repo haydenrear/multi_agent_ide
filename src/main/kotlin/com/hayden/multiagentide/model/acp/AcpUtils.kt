@@ -20,8 +20,7 @@ fun extractText(content: ContentBlock): String? = when (content) {
 
 fun parseGenerationsFromAcpEvent(event: Event, sessionContext: AcpSessionManager.AcpSessionContext, memoryId: Any?): List<Generation> =
     if (event is Event.SessionUpdateEvent) {
-        val update = event.update
-        when (update) {
+        when (val update = event.update) {
             is SessionUpdate.AgentMessageChunk -> {
                 val flushed = sessionContext.flushOtherWindows(memoryId, StreamWindowType.MESSAGE)
                 sessionContext.appendStreamWindow(memoryId, StreamWindowType.MESSAGE, update.content)

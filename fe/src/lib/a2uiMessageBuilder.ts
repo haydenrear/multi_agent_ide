@@ -56,6 +56,114 @@ const buildButtonComponents = (
   ];
 };
 
+export const buildPayloadMessages = (params: {
+  title: string;
+  payload?: unknown;
+  timestamp?: string;
+  eventId?: string;
+  nodeId?: string;
+  includeActions?: boolean;
+  bodyText?: string;
+}): A2uiServerMessage[] => {
+  const {
+    title,
+    payload,
+    timestamp,
+    eventId,
+    nodeId,
+    includeActions,
+    bodyText,
+  } = params;
+  const shouldIncludeActions = !!(includeActions && eventId && nodeId);
+  const baseId = eventId ?? nodeId ?? title.replace(/\s+/g, "-").toLowerCase();
+  const surfaceId = `payload-${baseId}`;
+  const rootId = `${surfaceId}-root`;
+  const headerId = `${surfaceId}-header`;
+  const timeId = `${surfaceId}-time`;
+  const payloadId = `${surfaceId}-payload`;
+  const actionsId = `${surfaceId}-actions`;
+
+  const payloadText = bodyText ?? JSON.stringify(payload ?? {}, null, 2);
+
+  const components: Array<{ id: string; component: Record<string, unknown> }> =
+    [
+      {
+        id: rootId,
+        component: {
+          Card: {
+            child: `${surfaceId}-card-body`,
+          },
+        },
+      },
+      {
+        id: `${surfaceId}-card-body`,
+        component: {
+          Column: {
+            children: {
+              explicitList: [
+                headerId,
+                ...(timestamp ? [timeId] : []),
+                payloadId,
+                ...(shouldIncludeActions ? [actionsId] : []),
+              ],
+            },
+          },
+        },
+      },
+      textComponent(headerId, title, "h4"),
+      ...(timestamp ? [textComponent(timeId, timestamp, "caption")] : []),
+      textComponent(payloadId, payloadText, "body"),
+    ];
+
+  if (shouldIncludeActions) {
+    const feedbackId = `${surfaceId}-feedback`;
+    const feedbackLabelId = `${feedbackId}-label`;
+    const revertId = `${surfaceId}-revert`;
+    const revertLabelId = `${revertId}-label`;
+
+    const feedbackComponents = buildButtonComponents(
+      feedbackId,
+      feedbackLabelId,
+      "Feedback",
+      "ui.feedback",
+      { eventId, nodeId, surfaceId },
+    );
+    const revertComponents = buildButtonComponents(
+      revertId,
+      revertLabelId,
+      "Revert",
+      "ui.revert",
+      { eventId, nodeId, surfaceId },
+    );
+
+    components.push(...feedbackComponents, ...revertComponents, {
+      id: actionsId,
+      component: {
+        Row: {
+          children: {
+            explicitList: [feedbackId, revertId],
+          },
+        },
+      },
+    });
+  }
+
+  return [
+    {
+      surfaceUpdate: {
+        surfaceId,
+        components,
+      },
+    },
+    {
+      beginRendering: {
+        surfaceId,
+        root: rootId,
+      },
+    },
+  ];
+};
+
 export const buildEventMessages = (
   event: GraphEventRecord,
   includeActions: boolean,
@@ -114,14 +222,14 @@ export const buildEventMessages = (
       feedbackLabelId,
       "Feedback",
       "ui.feedback",
-      { eventId: event.id, nodeId: event.nodeId ?? "" },
+      { eventId: event.id, nodeId: event.nodeId ?? "", surfaceId },
     );
     const revertComponents = buildButtonComponents(
       revertId,
       revertLabelId,
       "Revert",
       "ui.revert",
-      { eventId: event.id, nodeId: event.nodeId ?? "" },
+      { eventId: event.id, nodeId: event.nodeId ?? "", surfaceId },
     );
 
     components.push(...feedbackComponents, ...revertComponents, {

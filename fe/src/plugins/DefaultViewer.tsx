@@ -1,9 +1,5 @@
 import type { ViewerContext } from "./types";
-import { A2uiSurfaceRenderer } from "../components/A2uiSurfaceRenderer";
-import {
-  buildEventMessages,
-  extractA2uiMessages,
-} from "../lib/a2uiMessageBuilder";
+import { A2uiEventViewer } from "./A2uiEventViewer";
 
 export const DefaultViewer = ({ node, events }: ViewerContext) => {
   return (
@@ -15,15 +11,7 @@ export const DefaultViewer = ({ node, events }: ViewerContext) => {
       <p>{node.latestMessage ?? "No messages yet."}</p>
       <p className="muted">Recent events: {events.length}</p>
       {events.slice(0, 2).map((event) => (
-        <A2uiSurfaceRenderer
-          key={event.id}
-          messages={
-            extractA2uiMessages(event.payload) ??
-            buildEventMessages(event, true)
-          }
-          event={event}
-          node={node}
-        />
+        <A2uiEventViewer key={event.id} event={event} node={node} />
       ))}
     </div>
   );

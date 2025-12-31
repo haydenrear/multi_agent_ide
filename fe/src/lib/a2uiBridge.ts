@@ -1,4 +1,3 @@
-import * as A2uiCore from "../../../../libs/A2UI/renderers/lit/src/0.8/core";
-import "../../../../libs/A2UI/renderers/lit/src/0.8/ui/ui";
+import { v0_8 as A2uiCore } from "@a2ui/lit";
 
 export { A2uiCore };
