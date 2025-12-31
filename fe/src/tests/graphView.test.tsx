@@ -130,4 +130,161 @@ describe("GraphView", () => {
 
     expect(agentControls.requestPause).toHaveBeenCalledWith("node-1");
   });
+
+  it("renders multiple viewer types with event data", async () => {
+    const { container, graphActions } = await setupGraphView();
+
+    act(() => {
+      graphActions.applyEvent({
+        type: "NODE_ADDED",
+        rawEvent: {
+          nodeId: "node-merge",
+          nodeTitle: "Merge Node",
+          nodeType: "MERGE",
+          timestamp: "2024-01-01T00:00:00Z",
+        },
+      });
+      graphActions.applyEvent({
+        type: "NODE_ADDED",
+        rawEvent: {
+          nodeId: "node-basic",
+          nodeTitle: "Basic Node",
+          nodeType: "WORK",
+          timestamp: "2024-01-01T00:00:01Z",
+        },
+      });
+      graphActions.applyEvent({
+        type: "MERGE_STARTED",
+        rawEvent: {
+          nodeId: "node-merge",
+          timestamp: "2024-01-01T00:00:02Z",
+        },
+      });
+      graphActions.applyEvent({
+        type: "NODE_STREAM_DELTA",
+        rawEvent: {
+          nodeId: "node-merge",
+          deltaContent: "streaming update",
+          timestamp: "2024-01-01T00:00:03Z",
+        },
+      });
+      graphActions.applyEvent({
+        type: "TEXT_MESSAGE",
+        rawEvent: {
+          nodeId: "node-merge",
+          deltaContent: "hello",
+          timestamp: "2024-01-01T00:00:03Z",
+        },
+      });
+      graphActions.applyEvent({
+        type: "TOOL_CALL_STARTED",
+        rawEvent: {
+          nodeId: "node-merge",
+          title: "read_file",
+          timestamp: "2024-01-01T00:00:04Z",
+        },
+      });
+    });
+
+    await waitFor(() => {
+      const cards = container.querySelectorAll(".node-card");
+      expect(cards.length).toBe(2);
+      const mergeCard = container.querySelector(
+        '.node-card[data-node-id="node-merge"]',
+      );
+      expect(mergeCard).toBeTruthy();
+      const mergeSurfaces =
+        mergeCard?.querySelectorAll(".event-list a2ui-surface") ?? [];
+      expect(mergeSurfaces.length).toBeGreaterThanOrEqual(3);
+      const controlSurface = mergeCard?.querySelector(
+        ".a2ui-surface a2ui-surface",
+      );
+      expect(controlSurface).toBeTruthy();
+    });
+  });
+
+  it("fires control actions for each node and calls endpoints", async () => {
+    const { graphActions } = await setupGraphView();
+    const agentControls = await import("@/lib/agentControls");
+    vi.clearAllMocks();
+    const actions = [
+      { name: "control.pause", fn: agentControls.requestPause },
+      { name: "control.resume", fn: agentControls.requestResume },
+      { name: "control.stop", fn: agentControls.requestStop },
+      { name: "control.review", fn: agentControls.requestReview },
+      { name: "control.prune", fn: agentControls.requestPrune },
+      { name: "control.branch", fn: agentControls.requestBranch },
+    ];
+
+    act(() => {
+      graphActions.applyEvent({
+        type: "NODE_ADDED",
+        rawEvent: {
+          nodeId: "node-merge",
+          nodeTitle: "Merge Node",
+          nodeType: "MERGE",
+          timestamp: "2024-01-01T00:00:00Z",
+        },
+      });
+      graphActions.applyEvent({
+        type: "NODE_ADDED",
+        rawEvent: {
+          nodeId: "node-basic",
+          nodeTitle: "Basic Node",
+          nodeType: "WORK",
+          timestamp: "2024-01-01T00:00:01Z",
+        },
+      });
+    });
+
+    const findControlSurface = (nodeId: string) => {
+      const card = document.querySelector(
+        `.node-card[data-node-id="${nodeId}"]`,
+      );
+      if (!card) {
+        return null;
+      }
+      return card.querySelector(".a2ui-surface a2ui-surface");
+    };
+
+    const fireAction = (
+      surface: Element | null,
+      actionName: string,
+      nodeId: string,
+    ) => {
+      surface?.dispatchEvent(
+        new CustomEvent("a2uiaction", {
+          detail: {
+            action: {
+              name: actionName,
+              context: [
+                {
+                  key: "nodeId",
+                  value: { literalString: nodeId },
+                },
+              ],
+            },
+          },
+        }),
+      );
+    };
+
+    await waitFor(() => {
+      expect(findControlSurface("node-merge")).toBeTruthy();
+      expect(findControlSurface("node-basic")).toBeTruthy();
+    });
+
+    const mergeSurface = findControlSurface("node-merge");
+    const basicSurface = findControlSurface("node-basic");
+
+    actions.forEach(({ name }) => {
+      fireAction(mergeSurface, name, "node-merge");
+      fireAction(basicSurface, name, "node-basic");
+    });
+
+    actions.forEach(({ fn }) => {
+      expect(fn).toHaveBeenCalledWith("node-merge");
+      expect(fn).toHaveBeenCalledWith("node-basic");
+    });
+  });
 });

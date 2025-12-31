@@ -59,4 +59,5 @@ export const registerToolRenderers = (
   register("tool-write", FileWriteRenderer);
   register("tool-read", FileReadRenderer);
   register("tool-generic", GenericToolRenderer);
+  register("tool-call", GenericToolRenderer);
 };

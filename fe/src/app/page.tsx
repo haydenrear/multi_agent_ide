@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { connectEventStream } from "../lib/eventStream";
 import { GraphView } from "../components/GraphView";
-import { NodeDetailsPanel } from "../components/NodeDetailsPanel";
 import {
   graphActions,
   graphSelectors,
@@ -49,14 +48,6 @@ export default function Home() {
           onFilterChange={graphActions.setFilters}
           onSelectNode={graphActions.selectNode}
         />
-        <div className="panel">
-          <h2>Node Details</h2>
-          <div className="event-list">
-            {nodes.map((node) => (
-              <NodeDetailsPanel key={node.id} nodeId={node.id} />
-            ))}
-          </div>
-        </div>
       </div>
     </main>
   );

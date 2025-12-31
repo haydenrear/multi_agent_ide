@@ -7,6 +7,10 @@ declare global {
         React.HTMLAttributes<HTMLElement>,
         HTMLElement
       >;
+      "a2ui-theme-provider": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      >;
     }
   }
 }

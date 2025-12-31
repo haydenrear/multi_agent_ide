@@ -1,16 +1,8 @@
-import type { GraphEventRecord, GraphNode } from "../state/graphStore";
-import React from "react";
-import { A2uiSurfaceRenderer } from "../components/A2uiSurfaceRenderer";
-import { extractA2uiMessages } from "../lib/a2uiMessageBuilder";
-import { renderA2ui, resolveA2uiPayload } from "../lib/a2uiRegistry";
-import {
-  requestBranch,
-  requestPause,
-  requestPrune,
-  requestResume,
-  requestReview,
-  requestStop,
-} from "../lib/agentControls";
+import React, { useMemo } from "react";
+import type { GraphEventRecord, GraphNode } from "@/state/graphStore";
+import { useGraphNodeEvents } from "@/state/graphStore";
+import { renderA2ui } from "@/lib/a2uiRegistry";
+import { resolveA2uiPayloadFactory } from "@/lib/a2uiEventPolicy";
 
 type A2uiEventViewerProps = {
   event: GraphEventRecord;
@@ -25,59 +17,25 @@ export const A2uiEventViewer = ({
   onFeedback,
   onRevert,
 }: A2uiEventViewerProps) => {
-  const messages = extractA2uiMessages(event.payload);
-  if (messages) {
-    return (
-      <A2uiSurfaceRenderer
-        messages={messages}
-        event={event}
-        node={node}
-        onAction={(action) => {
-          if (action.name.startsWith("control.")) {
-            const nodeId = action.context.nodeId ?? event.nodeId;
-            if (!nodeId) {
-              return;
-            }
-            switch (action.name) {
-              case "control.pause":
-                requestPause(nodeId);
-                return;
-              case "control.resume":
-                requestResume(nodeId);
-                return;
-              case "control.stop":
-                requestStop(nodeId);
-                return;
-              case "control.review":
-                requestReview(nodeId);
-                return;
-              case "control.prune":
-                requestPrune(nodeId);
-                return;
-              case "control.branch":
-                requestBranch(nodeId);
-                return;
-              default:
-                return;
-            }
-          }
-          if (action.name === "ui.feedback" && onFeedback) {
-            const message = window.prompt("Feedback for this UI event?");
-            if (message) {
-              onFeedback(event, message);
-            }
-          }
-          if (action.name === "ui.revert" && onRevert) {
-            onRevert(event);
-          }
-        }}
-      />
+  const policy = resolveA2uiPayloadFactory(event);
+  const nodeId = node?.id ?? event.nodeId;
+  const matchingEvents = useGraphNodeEvents(nodeId, policy.followupFilter);
+  // TODO: renderA2ui should accept multip event records - should not skip
+  const activeEvent = useMemo(() => {
+    if (!policy.followupFilter || matchingEvents.length === 0) {
+      return event;
+    }
+    const [first, ...rest] = matchingEvents;
+    return rest.reduce<GraphEventRecord>(
+      (latest, current) =>
+        (current.sortTime ?? 0) >= (latest.sortTime ?? 0) ? current : latest,
+      first ?? event,
     );
-  }
+  }, [matchingEvents]);
 
   return renderA2ui({
-    payload: resolveA2uiPayload(event),
-    event,
+    payload: policy.resolvePayload(activeEvent),
+    event: activeEvent,
     node,
     onFeedback,
     onRevert,

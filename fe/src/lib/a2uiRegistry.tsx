@@ -1,7 +1,6 @@
 import React from "react";
-import type { GraphEventRecord, GraphNode } from "../state/graphStore";
-import React from "react";
-import { A2uiSurfaceRenderer } from "../components/A2uiSurfaceRenderer";
+import type { GraphEventRecord, GraphNode } from "@/state/graphStore";
+import { A2uiSurfaceRenderer } from "@/components/A2uiSurfaceRenderer";
 import type { A2uiPayload, A2uiRenderContext, A2uiRenderer } from "./a2uiTypes";
 import {
   buildNodeSummaryMessages,
@@ -17,8 +16,9 @@ import {
   requestStop,
 } from "./agentControls";
 import { requestUiRevert, submitGuiFeedback } from "./guiActions";
-import { registerToolRenderers } from "../plugins/a2ui/toolRenderers";
-import { registerControlRenderers } from "../plugins/a2ui/controlRenderers";
+import { registerToolRenderers } from "@/plugins/a2ui/toolRenderers";
+import { registerControlRenderers } from "@/plugins/a2ui/controlRenderers";
+import { registerEventRenderers } from "@/plugins/a2ui/eventRenderers";
 
 const registry = new Map<string, A2uiRenderer>();
 let defaultsRegistered = false;
@@ -50,34 +50,6 @@ const registerCoreRenderers = () => {
     return buildNodeSummaryMessages(node);
   });
 
-  registerA2uiRenderer("stream", ({ payload, event }) => {
-    const props = payload.props as Record<string, unknown> | undefined;
-    const content =
-      (typeof props?.content === "string" ? props.content : undefined) ??
-      (event?.rawEvent as { deltaContent?: string } | undefined)?.deltaContent;
-    const isFinal =
-      typeof props?.isFinal === "boolean"
-        ? props.isFinal
-        : (event?.rawEvent as { isFinal?: boolean } | undefined)?.isFinal;
-    const tokenCount =
-      typeof props?.tokenCount === "number"
-        ? props.tokenCount
-        : (event?.rawEvent as { tokenCount?: number } | undefined)?.tokenCount;
-    const status = `Stream output ${isFinal ? "• final" : "• in progress"}`;
-    const summary =
-      tokenCount != null ? `${status}\nTokens: ${tokenCount}` : status;
-
-    return buildPayloadMessages({
-      title: payload.title ?? "Streaming output",
-      payload: props ?? payload.fallback,
-      bodyText: content ? `${summary}\n\n${content}` : summary,
-      timestamp: event?.timestamp,
-      eventId: event?.id,
-      nodeId: event?.nodeId ?? payload.sessionId,
-      includeActions: !!event,
-    });
-  });
-
   registerA2uiRenderer("gui-payload", ({ payload, event }) =>
     buildPayloadMessages({
       title: payload.title ?? "UI payload",
@@ -98,11 +70,15 @@ export const ensureDefaultA2uiRenderers = () => {
   registerCoreRenderers();
   registerToolRenderers(registerA2uiRenderer);
   registerControlRenderers(registerA2uiRenderer);
+  registerEventRenderers(registerA2uiRenderer);
 };
 
 const resolveRendererName = (event: GraphEventRecord): string => {
+  if (event.type.includes("MERGE") || event.type.includes("REVIEW")) {
+    return "merge-event";
+  }
   if (event.type.includes("TOOL_CALL")) {
-    return "tool-generic";
+    return "tool-call";
   }
   if (
     event.type === "NODE_STREAM_DELTA" ||
@@ -164,11 +140,7 @@ const buildToolPayload = (event: GraphEventRecord): A2uiPayload => {
     name.includes("open") ||
     (!!path && (line != null || limit != null));
 
-  const renderer = isWrite
-    ? "tool-write"
-    : isRead
-      ? "tool-read"
-      : "tool-generic";
+  const renderer = isWrite ? "tool-write" : isRead ? "tool-read" : "tool-call";
 
   const props: Record<string, unknown> = {
     toolName: title,

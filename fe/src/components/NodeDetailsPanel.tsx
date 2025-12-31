@@ -1,4 +1,4 @@
-import { viewerRegistry } from "@/plugins/registry";
+import React from "react";
 import type { GraphProps } from "@/state/graphStore";
 import {
   graphSelectors,
@@ -9,6 +9,7 @@ import {
 import { submitGuiFeedback, requestUiRevert } from "@/lib/guiActions";
 import { renderA2ui } from "@/lib/a2uiRegistry";
 import { A2uiEventViewer } from "@/plugins/A2uiEventViewer";
+import { isDeltaEvent } from "@/lib/a2uiEventPolicy";
 
 type NodeDetailsPanelProps = GraphProps;
 
@@ -16,29 +17,21 @@ export const NodeDetailsPanel = ({ nodeId }: NodeDetailsPanelProps) => {
   const node = useGraphNode(nodeId);
   const uiSnapshot = useGraphStore(graphSelectors.uiSnapshot);
   if (!node) {
-    return (
-      <div className="panel">
-        <h2>Node Details</h2>
-        <p className="muted">Select a node to inspect details and controls.</p>
-      </div>
-    );
+    return null;
   }
 
-  const viewer = viewerRegistry.select({ node, events: node.events });
   const nodeEvents = useGraphNodeEvents(node.id);
-  const matchingViewers = viewerRegistry
-    .all()
-    .filter((plugin) => plugin.matches({ node, events: node.events }));
   const orderedEvents = [...nodeEvents].sort(
     (a, b) => (a.sortTime ?? 0) - (b.sortTime ?? 0),
   );
+  const collapsedEvents = orderedEvents.filter((event) => !isDeltaEvent(event));
   const visibleEvents =
-    orderedEvents.length > 50
-      ? orderedEvents.slice(orderedEvents.length - 50)
-      : orderedEvents;
+    collapsedEvents.length > 50
+      ? collapsedEvents.slice(collapsedEvents.length - 50)
+      : collapsedEvents;
 
   return (
-    <div className="panel">
+    <div className="panel" data-node-id={node.id}>
       <h2>Node Details</h2>
       <p className="muted">
         {node.nodeType ?? "Node"} • {node.id}
@@ -73,21 +66,6 @@ export const NodeDetailsPanel = ({ nodeId }: NodeDetailsPanelProps) => {
           props: { nodeId: node.id },
         },
       })}
-      {matchingViewers.length > 0 ? (
-        <div className="viewer">
-          {matchingViewers.map((plugin) => (
-            <div key={plugin.id}>
-              <h3>{plugin.name}</h3>
-              {plugin.render({ node, events: node.events })}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="viewer">
-          <h3>{viewer.name}</h3>
-          {viewer.render({ node, events: node.events })}
-        </div>
-      )}
     </div>
   );
 };

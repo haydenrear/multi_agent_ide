@@ -1,7 +1,8 @@
 import React from "react";
 import type { GraphProps } from "../state/graphStore";
 import { useGraphNode } from "../state/graphStore";
-import { renderA2ui } from "../lib/a2uiRegistry";
+import { GraphNodeSummary } from "./GraphNodeSummary";
+import { NodeDetailsPanel } from "./NodeDetailsPanel";
 
 type GraphNodeCardProps = GraphProps & {
   isSelected: boolean;
@@ -20,6 +21,7 @@ export const GraphNodeCard = ({
   return (
     <div
       className={`node-card${isSelected ? " active" : ""}`}
+      data-node-id={node.id}
       onClick={() => onSelect(node.id)}
       role="button"
       tabIndex={0}
@@ -29,13 +31,8 @@ export const GraphNodeCard = ({
         }
       }}
     >
-      {renderA2ui({
-        payload: {
-          renderer: "node-summary",
-          sessionId: node.id,
-          props: { node },
-        },
-      })}
+      <GraphNodeSummary node={node} />
+      <NodeDetailsPanel nodeId={node.id} />
     </div>
   );
 };

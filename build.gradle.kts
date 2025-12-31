@@ -85,17 +85,17 @@ tasks.register<Copy>("copyFrontendBuild") {
    }
 
    description = "Copy Next.js build output to static resources"
-   dependsOn("installFrontend","buildFrontend")
+   dependsOn("installFrontend","buildFrontend", "testFrontend")
 
    from("${project.projectDir}/fe/out")
    into("${project.layout.projectDirectory}/src/main/resources/static")
 
 }
 
-// tasks.getByPath("processResources").dependsOn("copyFrontendBuild")
+ tasks.getByPath("processResources").dependsOn("copyFrontendBuild")
 
 // Make bootJar depend on frontend build
-//tasks.getByPath("bootJar").dependsOn("copyFrontendBuild")
+tasks.getByPath("bootJar").dependsOn("copyFrontendBuild")
 
 tasks.register<Copy>("copyToolGateway") {
     dependsOn(project(":mcp-tool-gateway").tasks.named("bootJar"))

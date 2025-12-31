@@ -80,6 +80,9 @@ const A2uiSurface = ({
     if (!element) {
       return;
     }
+    if (!(surface as { styles?: unknown }).styles) {
+      (surface as { styles: Record<string, unknown> }).styles = {};
+    }
     element.surfaceId = surfaceId;
     element.surface = surface;
     element.processor = processor;
@@ -146,8 +149,10 @@ export const A2uiSurfaceRenderer = ({
 
   return (
     <div className="a2ui-surface">
-      <a2ui-theme-provider>
-        {surfaces.map(([surfaceId, surface]) => (
+      {createElement(
+        "a2ui-theme-provider" as any,
+        null,
+        surfaces.map(([surfaceId, surface]) => (
           <A2uiSurface
             key={surfaceId}
             surfaceId={surfaceId}
@@ -168,8 +173,8 @@ export const A2uiSurfaceRenderer = ({
               onAction?.(action);
             }}
           />
-        ))}
-      </a2ui-theme-provider>
+        )),
+      )}
     </div>
   );
 };
