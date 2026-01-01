@@ -72,6 +72,11 @@ export type GraphState = {
   uiSnapshot?: UiStateSnapshot;
 };
 
+type AgUiTestProbe = {
+  events: GraphEventRecord[];
+  max?: number;
+};
+
 const subscribers = new Set<() => void>();
 const nodeListSubscribers = new Set<() => void>();
 const nodeSubscribers = new Map<string, Set<() => void>>();
@@ -83,6 +88,31 @@ let state: GraphState = {
   selectedNodeId: undefined,
   unknownEvents: [],
   filters: {},
+};
+
+const pushTestProbeEvent = (record: GraphEventRecord) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const probe = (window as Window & { __agUiTestProbe?: AgUiTestProbe })
+    .__agUiTestProbe;
+  if (!probe || !Array.isArray(probe.events)) {
+    return;
+  }
+  const max = typeof probe.max === "number" ? probe.max : 200;
+  probe.events.push({
+    id: record.id,
+    type: record.type,
+    nodeId: record.nodeId,
+    timestamp: record.timestamp,
+    sortTime: record.sortTime,
+    payload: record.payload,
+    rawEvent: record.rawEvent,
+    isGuiEvent: record.isGuiEvent,
+  });
+  if (probe.events.length > max) {
+    probe.events.splice(0, probe.events.length - max);
+  }
 };
 
 const notify = () => {
@@ -276,6 +306,7 @@ export const graphActions = {
     }
 
     pushEvent(record);
+    pushTestProbeEvent(record);
     updateState({ ...state, nodes: { ...state.nodes } });
     notifyNode(record.nodeId);
   },
