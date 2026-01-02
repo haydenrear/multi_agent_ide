@@ -6,7 +6,6 @@ multi-agent-embabel:
     args: ${ACP_ARGS:}
     working-directory: ${ACP_WORKING_DIR:}
     auth-method: chatgpt
-
 spring:
   lifecycle:
     timeout-per-shutdown-phase: 1s

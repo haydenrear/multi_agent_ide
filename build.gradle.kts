@@ -4,6 +4,7 @@ plugins {
     id("com.hayden.kotlin")
     id("com.github.node-gradle.node")
     id("com.hayden.mcp")
+    id("com.hayden.paths")
 }
 
 group = "com.hayden"
@@ -107,8 +108,8 @@ tasks.register<Copy>("copyToolGateway") {
 }
 
 tasks.compileJava {
-    dependsOn("copyToolGateway")
+    dependsOn("processYmlFiles","copyToolGateway")
 }
 tasks.test {
-    dependsOn("copyToolGateway")
+    dependsOn("processYmlFiles", "copyToolGateway")
 }

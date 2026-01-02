@@ -1,0 +1,14 @@
+{
+  "openai-mock-gpt": {
+    "provider": "openai-mock-gpt",
+    "id": "openai-mock-gpt",
+    "context_token_limit": 200000,
+    "config": {
+      "max_tokens": 10000,
+      "thinking": {
+        "type": "enabled",
+        "budget_tokens": 10000
+      }
+    }
+  }
+}

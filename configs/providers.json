@@ -1,0 +1,10 @@
+{
+  "openai-mock-gpt": {
+    "label": "openai-mock-gpt",
+    "provider": "openai-mock-gpt",
+    "config": {
+      "api_key": "test",
+      "base_url": "http://localhost:4545/v1"
+    }
+  }
+}

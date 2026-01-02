@@ -6,6 +6,8 @@ multi-agent-embabel:
     command: ${ACP_COMMAND:code-assistant}
     args: ${ACP_ARGS:acp --model "openai-mock-gpt"}
     working-directory: ${ACP_WORKING_DIR:}
+    env:
+      HOME: {{PROJ_DIR}}/configs
 spring:
   lifecycle:
     timeout-per-shutdown-phase: 1s

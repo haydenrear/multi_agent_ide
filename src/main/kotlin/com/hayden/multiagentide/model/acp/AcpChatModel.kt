@@ -140,11 +140,17 @@ class AcpChatModel(
         .generations(generations.toMutableList())
         .build()
 
-    fun createProcessStdioTransport(coroutineScope: CoroutineScope, vararg command: String): Transport {
-        val process = ProcessBuilder(*command)
+    fun createProcessStdioTransport(coroutineScope: CoroutineScope,
+                                    vararg command: String): Transport {
+        val pb = ProcessBuilder(*command)
             .redirectInput(ProcessBuilder.Redirect.PIPE)
             .redirectOutput(ProcessBuilder.Redirect.PIPE)
             .redirectError(ProcessBuilder.Redirect.PIPE)
+
+       this.properties.envCopy()
+           ?.forEach { envKey, envValue -> pb.environment()[envKey] = envValue }
+
+        val process = pb
             .start()
         val stdin = process.outputStream.asSink().buffered()
         val stdout = process.inputStream.asSource().buffered()
