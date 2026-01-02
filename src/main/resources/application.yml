@@ -18,9 +18,9 @@ server.port: 8080
 
 
 # LangChain4j configuration
-langchain4j:
+multi-agent-embabel:
   chat-model:
-    provider: http
+    provider: acp
   acp:
     transport: stdio
     command: ${ACP_COMMAND:}
@@ -28,15 +28,6 @@ langchain4j:
     working-directory: ${ACP_WORKING_DIR:}
     endpoint: ${ACP_ENDPOINT:}
     api-key: ${ACP_API_KEY:}
-  openai:
-    chat-model:
-      # Set your OpenAI API key via OPENAI_API_KEY environment variable
-      api-key: ${OPENAI_API_KEY:}
-      model-name: gpt-4
-      temperature: 0.7
-      max-tokens: 2000
-      timeout: 30s
-      max-retries: 3
 
 # Logging
 logging:

@@ -176,13 +176,18 @@ const buildToolPayload = (event: GraphEventRecord): A2uiPayload => {
 
 const buildStreamPayload = (event: GraphEventRecord): A2uiPayload => {
   const raw = event.rawEvent as Record<string, unknown> | undefined;
+  const deltaContent =
+    typeof raw?.deltaContent === "string"
+      ? raw.deltaContent
+      : typeof raw?.content === "string"
+        ? raw.content
+        : undefined;
   return {
     renderer: "stream",
     sessionId: event.nodeId,
     title: event.type,
     props: {
-      content:
-        typeof raw?.deltaContent === "string" ? raw.deltaContent : undefined,
+      content: deltaContent,
       tokenCount: raw?.tokenCount,
       isFinal: raw?.isFinal,
     },

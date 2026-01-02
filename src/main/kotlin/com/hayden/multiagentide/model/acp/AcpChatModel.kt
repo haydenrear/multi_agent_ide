@@ -204,7 +204,11 @@ class AcpChatModel(
             val client = Client(protocol)
 
             val agentInfo = protocol.start()
-            val authenticationResult = client.authenticate(AuthMethodId("chatgpt"))
+
+            properties.authMethod.let {
+                val authenticationResult = client.authenticate(AuthMethodId(it))
+            }
+
             val initialized = client.initialize(
                 ClientInfo(
                     capabilities = ClientCapabilities(

@@ -41,23 +41,8 @@ import java.util.Optional;
 @EnableConfigurationProperties(AcpModelProperties.class)
 public class MultiAgentEmbabelConfig {
 
-    @Value("${langchain4j.openai.chat-model.api-key:}")
-    private String apiKey;
-
-    @Value("${langchain4j.chat-model.provider:http}")
+    @Value("${multi-agent-embabel.chat-model.provider:acp}")
     private String modelProvider;
-
-    @Value("${spring.ai.openai.api-key:}")
-    private String openAiApiKey;
-
-    @Value("${spring.ai.openai.base-url:http://localhost:4545}")
-    private String openAiBaseUrl;
-
-    @Value("${spring.ai.openai.completions-path:/v1/chat/completions}")
-    private String openAiCompletionsPath;
-
-    @Value("${spring.ai.openai.embeddings-path:/v1/embeddings}")
-    private String openAiEmbeddingsPath;
 
     @Bean
     public CommandLineRunner deployAgents(List<AgentInterfaces> agentInterfaces,
@@ -80,32 +65,7 @@ public class MultiAgentEmbabelConfig {
     }
 
     @Bean(name = "chatModel")
-    @Profile("openai")
     @Primary
-    public ChatModel openAiChatModel() {
-        return OpenAiChatModel.builder()
-                .openAiApi(OpenAiApi.builder()
-                        .apiKey(new SimpleApiKey(openAiApiKey))
-                        .baseUrl(openAiBaseUrl)
-                        .restClientBuilder(RestClient.builder())
-                        .completionsPath(openAiCompletionsPath)
-                        .embeddingsPath(openAiEmbeddingsPath)
-                        .build())
-                .build();
-    }
-
-    /**
-     * Create Streaming Chat Language Model for streaming responses.
-     */
-    @Bean
-    @Profile("openai")
-    public StreamingChatModel openAiStreamingChatLanguageModel(OpenAiChatModel chatModel) {
-        return chatModel;
-    }
-
-    @Bean(name = "chatModel")
-    @Primary
-    @Profile("acp")
     public ChatModel acpChatModel(AcpChatModel chatModel) {
         return chatModel;
     }
@@ -114,20 +74,13 @@ public class MultiAgentEmbabelConfig {
      * Create Streaming Chat Language Model for streaming responses.
      */
     @Bean
-    @Profile("acp")
     public StreamingChatModel streamingChatLanguageModel(AcpChatModel chatModel) {
-        if ("acp".equalsIgnoreCase(modelProvider)) {
-            return chatModel;
-        }
-        if (!StringUtils.hasText(apiKey)) {
-            return new MockStreamingChatLanguageModel();
-        }
-        return new MockStreamingChatLanguageModel();
+        return chatModel;
     }
 
     @Bean
     public Llm llm(org.springframework.ai.chat.model.ChatModel chatModel) {
-        return new Llm("acp-chat-model", "acp", chatModel)
+        return new Llm("acp-chat-model", modelProvider, chatModel)
                 .withOptionsConverter(new OptionsConverter<>() {
                     @Override
                     public @NonNull ChatOptions convertOptions(@NonNull LlmOptions options) {

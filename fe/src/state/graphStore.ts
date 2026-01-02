@@ -149,14 +149,17 @@ const ensureNode = (nodeId: string): GraphNode => {
 };
 
 const extractEventType = (event: AgUiEventEnvelope): string => {
-  if (event.rawEvent?.eventType) {
-    return event.rawEvent.eventType;
-  }
   if (typeof event.type === "string") {
+    if (event.type === "CUSTOM" && event.name) {
+      return event.name;
+    }
     return event.type;
   }
   if (event.type && typeof event.type === "object") {
     return event.type.name ?? "UNKNOWN";
+  }
+  if (event.rawEvent?.eventType) {
+    return event.rawEvent.eventType;
   }
   if (event.name) {
     return event.name;

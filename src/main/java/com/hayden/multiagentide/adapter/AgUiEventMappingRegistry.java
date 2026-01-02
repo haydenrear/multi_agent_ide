@@ -2,6 +2,14 @@ package com.hayden.multiagentide.adapter;
 
 import com.agui.core.types.BaseEvent;
 import com.agui.core.types.CustomEvent;
+import com.agui.core.types.Role;
+import com.agui.core.types.TextMessageChunkEvent;
+import com.agui.core.types.ThinkingTextMessageContentEvent;
+import com.agui.core.types.ToolCallArgsEvent;
+import com.agui.core.types.ToolCallChunkEvent;
+import com.agui.core.types.ToolCallEndEvent;
+import com.agui.core.types.ToolCallResultEvent;
+import com.agui.core.types.ToolCallStartEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.multiagentide.model.events.Events;
@@ -54,10 +62,16 @@ public class AgUiEventMappingRegistry {
 
     private BaseEvent mapEvent(Events.GraphEvent event) {
         if (event instanceof Events.ToolCallEvent toolCallEvent) {
-            return mapWithPayload(event, buildToolPayload(toolCallEvent));
+            return mapToolCallEvent(toolCallEvent);
         }
         if (event instanceof Events.NodeStreamDeltaEvent streamDeltaEvent) {
-            return mapWithPayload(event, buildStreamPayload(streamDeltaEvent));
+            return mapStreamDeltaEvent(streamDeltaEvent);
+        }
+        if (event instanceof Events.NodeThoughtDeltaEvent thoughtDeltaEvent) {
+            return mapThoughtDeltaEvent(thoughtDeltaEvent);
+        }
+        if (event instanceof Events.UserMessageChunkEvent userMessageChunkEvent) {
+            return mapUserMessageChunkEvent(userMessageChunkEvent);
         }
         Function<Events.GraphEvent, BaseEvent> mapper = mappings.get(event.eventType());
         BaseEvent mapped = mapper != null ? mapper.apply(event) : mapWithPayload(event, null);
@@ -103,128 +117,98 @@ public class AgUiEventMappingRegistry {
         return payload;
     }
 
-    private Map<String, Object> buildToolPayload(Events.ToolCallEvent event) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("sessionId", event.nodeId());
-        payload.put("title", event.title());
-
-        Map<String, Object> props = new LinkedHashMap<>();
-        props.put("toolName", event.title());
-        props.put("phase", event.phase());
-        props.put("status", event.status());
-        props.put("kind", event.kind());
-        props.put("content", event.content());
-        props.put("locations", event.locations());
-        props.put("rawInput", event.rawInput());
-        props.put("rawOutput", event.rawOutput());
-
-        Map<String, Object> input = parseJsonObject(event.rawInput());
-        Map<String, Object> output = parseJsonObject(event.rawOutput());
-        String path = coerceString(input != null ? input.get("path") : null);
-        if (path == null) {
-            path = coerceString(output != null ? output.get("path") : null);
-        }
-        String content = coerceString(input != null ? input.get("content") : null);
-        if (content == null) {
-            content = coerceString(output != null ? output.get("content") : null);
-        }
-        Integer line = coerceInt(input != null ? input.get("line") : null);
-        Integer limit = coerceInt(input != null ? input.get("limit") : null);
-
-        if (path != null) {
-            props.put("path", path);
-        }
-        if (content != null) {
-            props.put("content", content);
-        }
-        if (line != null) {
-            props.put("line", line);
-        }
-        if (limit != null) {
-            props.put("limit", limit);
-        }
-
-        String renderer = resolveToolRenderer(event.title(), path, content, line, limit);
-        payload.put("renderer", renderer);
-        payload.put("props", props);
-
-        Map<String, Object> fallback = new LinkedHashMap<>();
-        fallback.put("rawInput", event.rawInput());
-        fallback.put("rawOutput", event.rawOutput());
-        payload.put("fallback", fallback);
-        return payload;
+    private BaseEvent mapStreamDeltaEvent(Events.NodeStreamDeltaEvent event) {
+        JsonElement rawEvent = toJsonElement(event);
+        return new TextMessageChunkEvent(
+                buildMessageId(event.nodeId(), "assistant-stream"),
+                Role.ASSISTANT,
+                event.deltaContent(),
+                toEpochMillis(event.timestamp()),
+                rawEvent
+        );
     }
 
-    private Map<String, Object> buildStreamPayload(Events.NodeStreamDeltaEvent event) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("renderer", "stream");
-        payload.put("sessionId", event.nodeId());
-        payload.put("title", "Streaming output");
-
-        Map<String, Object> props = new LinkedHashMap<>();
-        props.put("content", event.deltaContent());
-        props.put("tokenCount", event.tokenCount());
-        props.put("isFinal", event.isFinal());
-        payload.put("props", props);
-        return payload;
+    private BaseEvent mapThoughtDeltaEvent(Events.NodeThoughtDeltaEvent event) {
+        JsonElement rawEvent = toJsonElement(event);
+        return new ThinkingTextMessageContentEvent(
+                event.deltaContent(),
+                toEpochMillis(event.timestamp()),
+                rawEvent
+        );
     }
 
-    private Map<String, Object> parseJsonObject(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Map<?, ?> map) {
-            Map<String, Object> output = new LinkedHashMap<>();
-            map.forEach((key, val) -> {
-                if (key != null) {
-                    output.put(key.toString(), val);
+    private BaseEvent mapUserMessageChunkEvent(Events.UserMessageChunkEvent event) {
+        JsonElement rawEvent = toJsonElement(event);
+        return new TextMessageChunkEvent(
+                buildMessageId(event.nodeId(), "user-stream"),
+                Role.USER,
+                event.content(),
+                toEpochMillis(event.timestamp()),
+                rawEvent
+        );
+    }
+
+    private BaseEvent mapToolCallEvent(Events.ToolCallEvent event) {
+        JsonElement rawEvent = toJsonElement(event);
+        String toolCallId = event.toolCallId() != null ? event.toolCallId() : event.eventId();
+        String title = event.title();
+        String normalized = event.phase() != null ? event.phase().toUpperCase(Locale.ROOT) : "";
+        Long timestampValue = toEpochMillis(event.timestamp());
+        switch (normalized) {
+            case "START":
+                return new ToolCallStartEvent(toolCallId, title, null, timestampValue, rawEvent);
+            case "ARGS":
+                return new ToolCallArgsEvent(toolCallId, stringifyPayload(event.rawInput()), timestampValue, rawEvent);
+            case "END":
+                return new ToolCallEndEvent(toolCallId, timestampValue, rawEvent);
+            case "RESULT":
+                return new ToolCallResultEvent(
+                        event.eventId(),
+                        toolCallId,
+                        stringifyPayload(event.rawOutput()),
+                        "tool",
+                        timestampValue,
+                        rawEvent
+                );
+            default:
+                String delta = stringifyPayload(event.rawInput());
+                if (delta.isEmpty()) {
+                    delta = stringifyPayload(event.rawOutput());
                 }
-            });
-            return output;
+                return new ToolCallChunkEvent(
+                        toolCallId,
+                        title,
+                        delta,
+                        null,
+                        timestampValue,
+                        rawEvent
+                );
+        }
+    }
+
+    private String stringifyPayload(Object value) {
+        if (value == null) {
+            return "";
         }
         if (value instanceof String text) {
-            try {
-                return objectMapper.readValue(text, Map.class);
-            } catch (JsonProcessingException ignored) {
-                return null;
-            }
+            return text;
         }
-        return null;
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            return "";
+        }
     }
 
-    private String coerceString(Object value) {
-        return value instanceof String text ? text : null;
+    private Long toEpochMillis(Instant timestamp) {
+        return timestamp != null ? timestamp.toEpochMilli() : null;
     }
 
-    private Integer coerceInt(Object value) {
-        if (value instanceof Integer integer) {
-            return integer;
+    private String buildMessageId(String nodeId, String suffix) {
+        if (nodeId == null || nodeId.isBlank()) {
+            return null;
         }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        return null;
-    }
-
-    private String resolveToolRenderer(
-            String title,
-            String path,
-            String content,
-            Integer line,
-            Integer limit
-    ) {
-        String normalized = title != null ? title.toLowerCase(Locale.ROOT) : "";
-        boolean isWrite = normalized.contains("write") || normalized.contains("save")
-                || normalized.contains("edit") || (path != null && content != null);
-        boolean isRead = normalized.contains("read") || normalized.contains("open")
-                || (path != null && (line != null || limit != null));
-        if (isWrite) {
-            return "tool-write";
-        }
-        if (isRead) {
-            return "tool-read";
-        }
-        return "tool-generic";
+        return nodeId + "-" + suffix;
     }
 
     private JsonElement toJsonElement(Object value) {
