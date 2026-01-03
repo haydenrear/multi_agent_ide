@@ -66,14 +66,5 @@ public class InMemoryGraphRepository implements GraphRepository {
         nodes.clear();
     }
 
-    @Override
-    public List<Events.GraphEvent> current() {
-        return this.nodes.values()
-                .stream()
-                .<Events.GraphEvent>map(gn -> {
-                    return new Events.NodeAddedEvent(UUID.randomUUID().toString(),
-                            Instant.now(), gn.nodeId(), gn.title(), gn.nodeType(), gn.parentNodeId());
-                })
-                .toList();
-    }
+
 }

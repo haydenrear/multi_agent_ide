@@ -67,5 +67,4 @@ public interface GraphRepository {
      */
     void clear();
 
-    List<Events.GraphEvent> current();
 }

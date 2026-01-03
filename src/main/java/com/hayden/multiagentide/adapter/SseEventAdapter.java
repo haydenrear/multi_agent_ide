@@ -3,6 +3,7 @@ package com.hayden.multiagentide.adapter;
 import com.hayden.multiagentide.infrastructure.EventAdapter;
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentide.repository.EventStreamRepository;
 import com.hayden.multiagentide.repository.GraphRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,7 @@ public class SseEventAdapter extends EventAdapter {
     private AgUiSerdes serdes;
 
     @Autowired
-    private GraphRepository graphRepository;
+    private EventStreamRepository graphRepository;
 
     public SseEventAdapter(EventBus eventBus) {
         super("sse-adapter");
@@ -40,12 +41,14 @@ public class SseEventAdapter extends EventAdapter {
         emitter.onCompletion(() -> emitters.remove(emitter));
         emitter.onTimeout(() -> emitters.remove(emitter));
         emitter.onError((err) -> emitters.remove(emitter));
-        for (Events.GraphEvent event : graphRepository.current()) {
+
+//      catch-up
+        for (Events.GraphEvent event : graphRepository.list()) {
             String payload = serdes.serializeEvent(Events.mapToEvent(event));
             try {
                 emitter.send(SseEmitter.event().name("ag-ui").data(payload));
             } catch (IOException e) {
-                log.info("Found exception. Removing emitter.", e);
+                handleAdapterError(event, e);
                 emitters.remove(emitter);
             }
         }
@@ -58,7 +61,9 @@ public class SseEventAdapter extends EventAdapter {
         for (SseEmitter emitter : emitters) {
             try {
                 emitter.send(SseEmitter.event().name("ag-ui").data(payload));
+                graphRepository.save(event);
             } catch (IOException e) {
+                handleAdapterError(event, e);
                 emitters.remove(emitter);
             }
         }
@@ -66,7 +71,7 @@ public class SseEventAdapter extends EventAdapter {
 
     @Override
     protected void handleAdapterError(Events.GraphEvent event, Exception error) {
-        System.err.println("SSE adapter error for event " + event.eventType() + ": " + error.getMessage());
+        log.error("SSE adapter error for event {}: {}", event.eventType(), error.getMessage());
     }
 
     @Override
