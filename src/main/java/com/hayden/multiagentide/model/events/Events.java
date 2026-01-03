@@ -35,6 +35,8 @@ public interface Events {
          */
         String eventId();
 
+        String nodeId();
+
         /**
          * Timestamp when event was created.
          */
@@ -239,6 +241,11 @@ public interface Events {
             long executionTimeMs
     ) implements Events.GraphEvent {
         @Override
+        public String nodeId() {
+            return orchestratorNodeId;
+        }
+
+        @Override
         public String eventType() {
             return "GOAL_COMPLETED";
         }
@@ -261,6 +268,11 @@ public interface Events {
             // Only if submodule
     ) implements Events.GraphEvent {
         @Override
+        public String nodeId() {
+            return associatedNodeId;
+        }
+
+        @Override
         public String eventType() {
             return "WORKTREE_CREATED";
         }
@@ -275,7 +287,8 @@ public interface Events {
             String originalWorktreeId,
             String branchedWorktreeId,
             String branchName,
-            String worktreeType
+            String worktreeType,
+            String nodeId
             // "main" or "submodule"
     ) implements Events.GraphEvent {
         @Override
@@ -295,7 +308,8 @@ public interface Events {
             String mergeCommitHash,
             boolean conflictDetected,
             List<String> conflictFiles,
-            String worktreeType
+            String worktreeType,
+            String nodeId
     ) implements Events.GraphEvent {
         @Override
         public String eventType() {
@@ -311,7 +325,8 @@ public interface Events {
             Instant timestamp,
             String worktreeId,
             String reason,
-            String worktreeType
+            String worktreeType,
+            String nodeId
             // "main" or "submodule"
     ) implements Events.GraphEvent {
         @Override

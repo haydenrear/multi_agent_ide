@@ -2,11 +2,7 @@ package com.hayden.multiagentide.controller;
 
 import com.hayden.multiagentide.service.AgentControlService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/agents")
@@ -54,6 +50,17 @@ public class AgentControlController {
             @RequestBody(required = false) ControlActionRequest request
     ) {
         String actionId = agentControlService.requestBranch(nodeId, request != null ? request.message() : null);
+        return new ControlActionResponse(actionId, "queued");
+    }
+
+//   should delete all nodes in tree below also. So if you delete orchestrator node,
+//    should delete anything below that node. Also, should delete all events in EventStreamRepository
+    @DeleteMapping("/{nodeId}")
+    public ControlActionResponse delete(
+            @PathVariable String nodeId
+    ) {
+//        TODO:
+        String actionId = agentControlService.delete(nodeId);
         return new ControlActionResponse(actionId, "queued");
     }
 

@@ -64,4 +64,9 @@ public class AgentControlService {
         eventBus.publish(new Events.NodeBranchRequestedEvent(eventId, Instant.now(), nodeId, note));
         return eventId;
     }
+
+    public String delete(String nodeId) {
+//        TODO:
+        throw new RuntimeException("TODO:");
+    }
 }
