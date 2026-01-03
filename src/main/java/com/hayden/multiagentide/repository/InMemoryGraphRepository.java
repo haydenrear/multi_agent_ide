@@ -1,7 +1,10 @@
 package com.hayden.multiagentide.repository;
 
+import com.hayden.multiagentide.model.events.Events;
 import com.hayden.multiagentide.model.nodes.GraphNode;
 import org.springframework.stereotype.Repository;
+
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -61,5 +64,16 @@ public class InMemoryGraphRepository implements GraphRepository {
     @Override
     public void clear() {
         nodes.clear();
+    }
+
+    @Override
+    public List<Events.GraphEvent> current() {
+        return this.nodes.values()
+                .stream()
+                .<Events.GraphEvent>map(gn -> {
+                    return new Events.NodeAddedEvent(UUID.randomUUID().toString(),
+                            Instant.now(), gn.nodeId(), gn.title(), gn.nodeType(), gn.parentNodeId());
+                })
+                .toList();
     }
 }

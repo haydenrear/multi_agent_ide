@@ -35,7 +35,7 @@ import java.util.UUID;
 
 @Slf4j
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
-@ActiveProfiles("acp")
+@ActiveProfiles("openai")
 @TestPropertySource(properties = {"spring.ai.mcp.server.stdio=false"})
 class AcpChatModelCodexIntegrationTest {
 
@@ -83,7 +83,7 @@ class AcpChatModelCodexIntegrationTest {
                 .ifPresentOrElse(agentPlatform::deploy, () -> log.error("Error deploying {} - could not create agent metadata.", agentInterface));
     }
 
-//    @Test
+    @Test
     void chatModelUsesAcpProtocol() {
         assertThat(chatModel).isInstanceOf(AcpChatModel.class);
 

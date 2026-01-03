@@ -77,6 +77,9 @@ const resolveRendererName = (event: GraphEventRecord): string => {
   if (event.type.includes("MERGE") || event.type.includes("REVIEW")) {
     return "merge-event";
   }
+  if (event.type.includes("WORKTREE")) {
+    return "worktree-event";
+  }
   if (event.type.includes("TOOL_CALL")) {
     return "tool-call";
   }
@@ -181,7 +184,9 @@ const buildStreamPayload = (event: GraphEventRecord): A2uiPayload => {
       ? raw.deltaContent
       : typeof raw?.content === "string"
         ? raw.content
-        : undefined;
+        : typeof raw?.toAddMessage === "string"
+          ? raw.toAddMessage
+          : undefined;
   return {
     renderer: "stream",
     sessionId: event.nodeId,
@@ -211,7 +216,9 @@ export const resolveA2uiPayload = (event: GraphEventRecord): A2uiPayload => {
   }
   if (
     event.type === "NODE_STREAM_DELTA" ||
-    event.type.includes("TEXT_MESSAGE")
+    event.type.includes("TEXT_MESSAGE") ||
+    event.type === "ADD_MESSAGE_EVENT" ||
+    event.type === "PAUSE_EVENT"
   ) {
     return buildStreamPayload(event);
   }
@@ -246,8 +253,10 @@ export const renderA2ui = (context: A2uiRenderContext) => {
 
   return (
     <A2uiSurfaceRenderer
+      key={context.instanceId}
       messages={messages}
       event={context.event}
+      instanceId={context.instanceId}
       onAction={(action) => {
         if (action.name.startsWith("control.")) {
           const nodeId =

@@ -1,10 +1,20 @@
 import { renderHook, act } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   graphActions,
   useGraphNodeEvents,
   useGraphNodes,
 } from "@/state/graphStore";
+
+// Mock the ResizeObserver
+const ResizeObserverMock = vi.fn(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}));
+
+// Stub the global ResizeObserver
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 
 describe("graphStore subscriptions", () => {
   it("publishes node additions to subscribers", () => {

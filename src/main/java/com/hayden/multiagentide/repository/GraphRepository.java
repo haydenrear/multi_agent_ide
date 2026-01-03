@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.repository;
 
+import com.hayden.multiagentide.model.events.Events;
 import com.hayden.multiagentide.model.nodes.GraphNode;
 import java.util.List;
 import java.util.Optional;
@@ -65,4 +66,6 @@ public interface GraphRepository {
      * Clear all nodes.
      */
     void clear();
+
+    List<Events.GraphEvent> current();
 }

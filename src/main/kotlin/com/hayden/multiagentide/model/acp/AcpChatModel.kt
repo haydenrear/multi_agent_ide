@@ -12,6 +12,7 @@ import com.hayden.multiagentide.agent.AgentTools
 import com.hayden.multiagentide.config.AcpModelProperties
 import com.hayden.multiagentide.model.acp.AcpStreamWindowBuffer.StreamWindowType
 import com.hayden.multiagentide.model.events.Events
+import com.hayden.utilitymodule.nullable.orElse
 import io.modelcontextprotocol.server.IdeMcpAsyncServer.TOOL_ALLOWLIST_HEADER
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,8 @@ import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
 import kotlinx.serialization.json.JsonElement
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.messages.AssistantMessage
 import org.springframework.ai.chat.messages.Message
 import org.springframework.ai.chat.messages.MessageType
@@ -53,12 +56,16 @@ class AcpChatModel(
 
     private val sessionLock = Any()
 
+    private val log: Logger = LoggerFactory.getLogger(AcpChatModel::class.java)
+
     override fun call(prompt: Prompt): ChatResponse {
+        log.info("Received request - {}.", prompt)
         val cr = doChat(prompt)
         return cr
     }
 
     override fun stream(prompt: Prompt): Flux<ChatResponse> {
+        log.info("Received request - {}.", prompt)
         return when (val options = prompt.options) {
             is AcpChatRequestParameters -> {
                 performStream(prompt, options.memoryId())
@@ -190,6 +197,8 @@ class AcpChatModel(
     }
 
     private suspend fun createSessionContext(memoryId: Any?): AcpSessionManager.AcpSessionContext {
+        log.info("Creating session context for $memoryId")
+
         if (!properties.transport.equals("stdio", ignoreCase = true)) {
             throw IllegalStateException("Only stdio transport is supported for ACP integration")
         }
@@ -211,9 +220,10 @@ class AcpChatModel(
 
             val agentInfo = protocol.start()
 
-            properties.authMethod.let {
-                val authenticationResult = client.authenticate(AuthMethodId(it))
-            }
+//            properties.authMethod?.let {
+//                val authenticationResult = client.authenticate(AuthMethodId(it.orElse("")))
+//                log.info("Authenticated with ACP {}", authenticationResult)
+//            }
 
             val initialized = client.initialize(
                 ClientInfo(

@@ -3,11 +3,14 @@ multi-agent-embabel:
     provider: acp
   acp:
     transport: stdio
-    command: ${ACP_COMMAND:code-assistant}
-    args: ${ACP_ARGS:acp --model "openai-mock-gpt"}
+    command: {{PARENT_DIR}}/test-acp-client/build/install/kotlin-acp-openai-agent/bin/kotlin-acp-openai-agent
+    args: ${ACP_ARGS:}
     working-directory: ${ACP_WORKING_DIR:}
     env:
       HOME: {{PROJ_DIR}}/configs
+      OPENAI_BASE_URL: http://localhost:4562/v1
+      OPENAI_MODEL: llama3.2:3b
+      OPENAI_API_KEY: test
 spring:
   lifecycle:
     timeout-per-shutdown-phase: 1s

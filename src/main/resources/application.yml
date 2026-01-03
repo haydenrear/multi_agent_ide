@@ -1,5 +1,15 @@
 
 spring:
+  web:
+    resources:
+      static-locations: "file:{{PROJ_DIR}}/fe/out"
+      chain:
+        cache: false
+      cache:
+        period: 0
+        cachecontrol:
+          no-store: true
+          must-revalidate: true
   ai.vectorstore.type: none
   dgs.graphql.enabled: false
   application:
@@ -33,11 +43,24 @@ multi-agent-embabel:
 logging:
   level:
     root: INFO
-    org.springframework.web: DEBUG
+#    org.springframework.web: DEBUG
     com.hayden.multiagentide: DEBUG
-    com.embabel.agent: DEBUG
-    dev.langchain4j: DEBUG
+#    com.embabel.agent: DEBUG
+#    dev.langchain4j: DEBUG
 otel:
+  instrumentation:
+    spring-web:
+      enabled: false
+    spring-webmvc:
+      enabled: false
+    spring-webflux:
+      enabled: false
+    jdbc:
+      enabled: false
+    kafka:
+      enabled: false
+    mongo:
+      enabled: false
   sdk:
     disabled: true
 management:
@@ -47,6 +70,9 @@ management:
     export:
       enabled: false
   otlp:
+    metrics:
+      export:
+        enabled: false
     logging:
       export:
         enabled: false
@@ -58,3 +84,5 @@ embabel:
         annotation: false
   models:
     default-llm: acp-chat-model
+
+

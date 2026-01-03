@@ -15,6 +15,7 @@ export type A2uiSurfaceRendererProps = {
   messages: A2uiServerMessage[];
   event?: GraphEventRecord;
   node?: GraphNode;
+  instanceId?: string;
   onAction?: (action: {
     name: string;
     context: Record<string, string>;
@@ -124,21 +125,32 @@ const A2uiSurface = ({
 export const A2uiSurfaceRenderer = ({
   messages,
   event,
+  instanceId,
   onAction,
 }: A2uiSurfaceRendererProps) => {
   ensureA2uiThemeProvider();
   const processor = useMemo(
     () => A2uiCore.Data.createSignalA2uiMessageProcessor(),
-    [],
+    [instanceId],
   );
   const [surfaces, setSurfaces] = useState<SurfaceEntry[]>([]);
   const surfaceCache = useRef(new Map<string, A2uiCore.Types.Surface>());
 
   useEffect(() => {
+    surfaceCache.current = new Map();
+    setSurfaces([]);
+  }, [instanceId]);
+
+  useEffect(() => {
     processor.processMessages(messages);
     const entries = Array.from(processor.getSurfaces().entries());
-    surfaceCache.current = new Map(entries);
-    setSurfaces(entries);
+    const activeSurfaceIds = extractSurfaceIds(messages);
+    const filteredEntries =
+      activeSurfaceIds.size > 0
+        ? entries.filter(([surfaceId]) => activeSurfaceIds.has(surfaceId))
+        : entries;
+    surfaceCache.current = new Map(filteredEntries);
+    setSurfaces(filteredEntries);
   }, [event, messages, processor]);
 
   useSnapshotTracking({ messages, event, surfaceCache });

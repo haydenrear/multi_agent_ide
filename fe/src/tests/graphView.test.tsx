@@ -3,6 +3,16 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildControlMessages } from "@/lib/a2uiMessageBuilder";
 
+// Mock the ResizeObserver
+const ResizeObserverMock = vi.fn(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}));
+
+// Stub the global ResizeObserver
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+
 vi.mock("@/lib/agentControls", () => ({
   requestPause: vi.fn(),
   requestResume: vi.fn(),
@@ -45,10 +55,10 @@ describe("GraphView", () => {
   it("renders structure and updates when nodes arrive", async () => {
     const { container, graphActions } = await setupGraphView();
 
-    expect(screen.getByText("Graph Timeline")).toBeInTheDocument();
-    expect(container.querySelector(".panel")).toBeTruthy();
+    expect(screen.getByText("Nodes")).toBeInTheDocument();
+    expect(container.querySelector(".node-menu")).toBeTruthy();
     expect(container.querySelector(".filter-row")).toBeTruthy();
-    expect(container.querySelector(".node-grid")).toBeTruthy();
+    expect(container.querySelector(".node-menu-list")).toBeTruthy();
     expect(screen.getByText("Waiting for events...")).toBeInTheDocument();
 
     act(() => {
@@ -73,7 +83,7 @@ describe("GraphView", () => {
     });
 
     await waitFor(() => {
-      expect(container.querySelectorAll(".node-card").length).toBe(2);
+      expect(container.querySelectorAll(".node-menu-item").length).toBe(2);
     });
   });
 
@@ -187,16 +197,16 @@ describe("GraphView", () => {
     });
 
     await waitFor(() => {
-      const cards = container.querySelectorAll(".node-card");
-      expect(cards.length).toBe(2);
-      const mergeCard = container.querySelector(
-        '.node-card[data-node-id="node-merge"]',
+      const items = container.querySelectorAll(".node-menu-item");
+      expect(items.length).toBe(2);
+      const chatSurface = container.querySelector(
+        '.chat-panel [data-node-id="node-merge"]',
       );
-      expect(mergeCard).toBeTruthy();
+      expect(chatSurface).toBeTruthy();
       const mergeSurfaces =
-        mergeCard?.querySelectorAll(".event-list a2ui-surface") ?? [];
+        chatSurface?.querySelectorAll(".event-list a2ui-surface") ?? [];
       expect(mergeSurfaces.length).toBeGreaterThanOrEqual(3);
-      const controlSurface = mergeCard?.querySelector(
+      const controlSurface = chatSurface?.querySelector(
         ".a2ui-surface a2ui-surface",
       );
       expect(controlSurface).toBeTruthy();
@@ -238,13 +248,13 @@ describe("GraphView", () => {
     });
 
     const findControlSurface = (nodeId: string) => {
-      const card = document.querySelector(
-        `.node-card[data-node-id="${nodeId}"]`,
+      const chat = document.querySelector(
+        `.chat-panel [data-node-id="${nodeId}"]`,
       );
-      if (!card) {
+      if (!chat) {
         return null;
       }
-      return card.querySelector(".a2ui-surface a2ui-surface");
+      return chat.querySelector(".a2ui-surface a2ui-surface");
     };
 
     const fireAction = (
@@ -271,14 +281,23 @@ describe("GraphView", () => {
 
     await waitFor(() => {
       expect(findControlSurface("node-merge")).toBeTruthy();
-      expect(findControlSurface("node-basic")).toBeTruthy();
     });
 
     const mergeSurface = findControlSurface("node-merge");
-    const basicSurface = findControlSurface("node-basic");
-
     actions.forEach(({ name }) => {
       fireAction(mergeSurface, name, "node-merge");
+    });
+
+    act(() => {
+      graphActions.selectNode("node-basic");
+    });
+
+    await waitFor(() => {
+      expect(findControlSurface("node-basic")).toBeTruthy();
+    });
+
+    const basicSurface = findControlSurface("node-basic");
+    actions.forEach(({ name }) => {
       fireAction(basicSurface, name, "node-basic");
     });
 

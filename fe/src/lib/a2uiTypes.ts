@@ -26,6 +26,7 @@ export type A2uiRenderContext = {
   payload: A2uiPayload;
   event?: GraphEventRecord;
   node?: GraphNode;
+  instanceId?: string;
   onFeedback?: (event: GraphEventRecord, message: string) => void;
   onRevert?: (event: GraphEventRecord) => void;
 };

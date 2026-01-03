@@ -52,10 +52,52 @@ const MergeRenderer: A2uiRenderer = ({ payload, event }) => {
   });
 };
 
+const WorktreeRenderer: A2uiRenderer = ({ payload, event }) => {
+  const rawEvent = event?.rawEvent as
+    | {
+        worktreeId?: string;
+        worktreePath?: string;
+        worktreeType?: string;
+        submoduleName?: string;
+        reason?: string;
+        mergeCommitHash?: string;
+        conflictDetected?: boolean;
+        conflictFiles?: string[];
+      }
+    | undefined;
+  const lines = [
+    rawEvent?.worktreeId ? `Worktree: ${rawEvent.worktreeId}` : null,
+    rawEvent?.worktreePath ? `Path: ${rawEvent.worktreePath}` : null,
+    rawEvent?.worktreeType ? `Type: ${rawEvent.worktreeType}` : null,
+    rawEvent?.submoduleName ? `Submodule: ${rawEvent.submoduleName}` : null,
+    rawEvent?.mergeCommitHash
+      ? `Merge commit: ${rawEvent.mergeCommitHash}`
+      : null,
+    typeof rawEvent?.conflictDetected === "boolean"
+      ? `Conflicts: ${rawEvent.conflictDetected ? "yes" : "no"}`
+      : null,
+    rawEvent?.conflictFiles?.length
+      ? `Conflict files: ${rawEvent.conflictFiles.join(", ")}`
+      : null,
+    rawEvent?.reason ? `Reason: ${rawEvent.reason}` : null,
+  ].filter((entry): entry is string => Boolean(entry));
+
+  return buildPayloadMessages({
+    title: payload.title ?? "Worktree update",
+    payload: rawEvent ?? payload.props ?? payload.fallback,
+    bodyText: lines.length > 0 ? lines.join("\n") : undefined,
+    timestamp: event?.timestamp,
+    eventId: event?.id,
+    nodeId: event?.nodeId ?? payload.sessionId,
+    includeActions: !!event,
+  });
+};
+
 export const registerEventRenderers = (
   register: (name: string, renderer: A2uiRenderer) => void,
 ) => {
   register("stream", StreamRenderer);
   register("tool-call", ToolCallRenderer);
   register("merge-event", MergeRenderer);
+  register("worktree-event", WorktreeRenderer);
 };

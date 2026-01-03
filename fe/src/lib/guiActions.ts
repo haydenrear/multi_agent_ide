@@ -33,3 +33,10 @@ export const requestUiRevert = async (payload: {
 }) => {
   return postJson("/api/ui/diff/revert", payload);
 };
+
+export const submitUiMessage = async (payload: {
+  nodeId: string;
+  message: string;
+}) => {
+  return postJson("/api/ui/message", payload);
+};

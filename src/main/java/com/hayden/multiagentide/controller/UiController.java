@@ -91,6 +91,22 @@ public class UiController {
         return result;
     }
 
+    @PostMapping("/message")
+    public UiFeedbackResponse submitMessage(@RequestBody UiMessageRequest request) {
+        String nodeId = request.nodeId() != null ? request.nodeId() : "unknown";
+        String message = request.message() != null ? request.message() : "";
+        if (message.isBlank()) {
+            return new UiFeedbackResponse("ignored");
+        }
+        eventBus.publish(new Events.AddMessageEvent(
+                UUID.randomUUID().toString(),
+                Instant.now(),
+                nodeId,
+                message
+        ));
+        return new UiFeedbackResponse("received");
+    }
+
     public record UiFeedbackRequest(
             String eventId,
             String nodeId,
@@ -103,5 +119,8 @@ public class UiController {
     }
 
     public record UiRevertRequest(String eventId, String nodeId) {
+    }
+
+    public record UiMessageRequest(String nodeId, String message) {
     }
 }

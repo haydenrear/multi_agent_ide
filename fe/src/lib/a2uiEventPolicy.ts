@@ -12,7 +12,10 @@ export const isDeltaEvent = (event: GraphEventRecord) =>
   event.type.includes("DELTA");
 
 const streamFilter = (event: GraphEventRecord) =>
-  event.type === "NODE_STREAM_DELTA" || event.type.includes("TEXT_MESSAGE");
+  event.type === "NODE_STREAM_DELTA" ||
+  event.type.includes("TEXT_MESSAGE") ||
+  event.type === "ADD_MESSAGE_EVENT" ||
+  event.type === "PAUSE_EVENT";
 
 export const resolveA2uiPayloadFactory = (
   event: GraphEventRecord,

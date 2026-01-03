@@ -3,6 +3,8 @@ package com.hayden.multiagentide.adapter;
 import com.hayden.multiagentide.infrastructure.EventAdapter;
 import com.hayden.multiagentide.infrastructure.EventBus;
 import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentide.repository.GraphRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -11,12 +13,16 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+@Slf4j
 @Component
 public class SseEventAdapter extends EventAdapter {
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     private AgUiSerdes serdes;
+
+    @Autowired
+    private GraphRepository graphRepository;
 
     public SseEventAdapter(EventBus eventBus) {
         super("sse-adapter");
@@ -34,6 +40,15 @@ public class SseEventAdapter extends EventAdapter {
         emitter.onCompletion(() -> emitters.remove(emitter));
         emitter.onTimeout(() -> emitters.remove(emitter));
         emitter.onError((err) -> emitters.remove(emitter));
+        for (Events.GraphEvent event : graphRepository.current()) {
+            String payload = serdes.serializeEvent(Events.mapToEvent(event));
+            try {
+                emitter.send(SseEmitter.event().name("ag-ui").data(payload));
+            } catch (IOException e) {
+                log.info("Found exception. Removing emitter.", e);
+                emitters.remove(emitter);
+            }
+        }
         return emitter;
     }
 
