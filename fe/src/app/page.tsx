@@ -24,6 +24,7 @@ export default function Home() {
   }>({ state: "idle" });
 
   useEffect(() => {
+    console.log("Loading event stream ...")
     const streamUrl =
       process.env.NEXT_PUBLIC_EVENT_STREAM_URL ?? "/api/events/stream";
     const disconnect = connectEventStream({

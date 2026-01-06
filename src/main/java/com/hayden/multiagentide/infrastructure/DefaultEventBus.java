@@ -1,6 +1,10 @@
 package com.hayden.multiagentide.infrastructure;
 
 import com.hayden.multiagentide.model.events.Events;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -12,9 +16,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * concurrent iteration while allowing concurrent modifications.
  */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class DefaultEventBus implements EventBus {
 
-    private final CopyOnWriteArrayList<EventListener> subscribers = new CopyOnWriteArrayList<>();
+    private List<EventListener> subscribers;
+
+    @Autowired
+    @Lazy
+    public void setSubscribers(List<EventListener> subscribers) {
+        this.subscribers = subscribers;
+    }
 
     @Override
     public void subscribe(EventListener listener) {
@@ -42,7 +54,7 @@ public class DefaultEventBus implements EventBus {
                     listener.onEvent(event);
                 } catch (Exception e) {
                     // Log error but continue publishing to other listeners
-                    System.err.println("Error handling event in listener " + listener.listenerId() + ": " + e.getMessage());
+                    log.error("Error handling event in listener " + listener.listenerId() + ": " + e.getMessage());
                     e.printStackTrace();
                 }
             }

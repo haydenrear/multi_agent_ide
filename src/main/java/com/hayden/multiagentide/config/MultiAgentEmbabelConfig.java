@@ -19,6 +19,7 @@ import org.springframework.ai.model.SimpleApiKey;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -45,7 +46,7 @@ public class MultiAgentEmbabelConfig {
     private String modelProvider;
 
     @Bean
-    public CommandLineRunner deployAgents(List<AgentInterfaces> agentInterfaces,
+    public ApplicationRunner deployAgents(List<AgentInterfaces> agentInterfaces,
                                           AgentPlatform agentPlatform,
                                           AgentMetadataReader agentMetadataReader) {
         for (AgentInterfaces agentInterface : agentInterfaces) {
@@ -54,6 +55,14 @@ public class MultiAgentEmbabelConfig {
 
         }
         return args -> {
+        };
+    }
+
+    @Bean
+    @Profile("openai")
+    public ApplicationRunner agenticApplicationRunner() {
+        return args -> {
+
         };
     }
 

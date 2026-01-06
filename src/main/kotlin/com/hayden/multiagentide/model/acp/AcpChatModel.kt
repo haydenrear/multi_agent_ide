@@ -187,11 +187,8 @@ class AcpChatModel(
     }
 
     private fun getOrCreateSession(memoryId: Any?): AcpSessionManager.AcpSessionContext {
-        if (memoryId == null) {
-            return runBlocking { createSessionContext(null) }
-        }
-
-        return sessionManager.sessionContexts.computeIfAbsent(memoryId) {
+        val m = memoryId ?: "unknown"
+        return sessionManager.sessionContexts.computeIfAbsent(m) {
             runBlocking { createSessionContext(it) }
         }
     }
@@ -335,6 +332,8 @@ class AcpChatModel(
     }
 
     private class AcpSessionOperations : ClientSessionOperations {
+
+
 
         override suspend fun requestPermissions(
             toolCall: SessionUpdate.ToolCallUpdate,

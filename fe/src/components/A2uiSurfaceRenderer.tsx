@@ -23,9 +23,7 @@ export type A2uiSurfaceRendererProps = {
 };
 
 type SurfaceEntry = [string, A2uiCore.Types.Surface];
-type A2uiProcessor = ReturnType<
-  typeof A2uiCore.Data.createSignalA2uiMessageProcessor
->;
+type A2uiProcessor = ReturnType<typeof A2uiCore.Data.createSignalA2uiMessageProcessor>;
 
 const extractSurfaceIds = (messages: A2uiServerMessage[]) => {
   const surfaceIds = new Set<string>();

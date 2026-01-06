@@ -22,9 +22,8 @@ public class WebSocketEventAdapter extends EventAdapter {
 
     private AgUiSerdes serdes;
 
-    public WebSocketEventAdapter(EventBus eventBus) {
+    public WebSocketEventAdapter() {
         super("websocket-adapter");
-        subscribe(eventBus);
     }
 
     @Autowired

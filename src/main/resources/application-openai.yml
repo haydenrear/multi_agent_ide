@@ -8,9 +8,20 @@ multi-agent-embabel:
     working-directory: ${ACP_WORKING_DIR:}
     env:
       HOME: {{PROJ_DIR}}/configs
-      OPENAI_BASE_URL: http://localhost:4562/v1
-      OPENAI_MODEL: llama3.2:3b
+      OPENAI_BASE_URL: http://localhost:4545
+      OPENAI_MODEL: qwen3-coder:30b
       OPENAI_API_KEY: test
+      OPENAI_SYSTEM_PROMPT: >
+        You are a helpful ACP agent.
+        When asked to perform file or terminal operations, respond only with ACP directives.
+        Use these formats:
+        - /fs.write <path> then content lines, end with /fs.end
+        - /fs.read <path>
+        - /term.create <command> [args...]
+        - /term.wait <terminalId>
+        - /term.output <terminalId>
+        - /term.release <terminalId>
+        Do not include extra commentary.
 spring:
   lifecycle:
     timeout-per-shutdown-phase: 1s

@@ -64,6 +64,7 @@ public class AgentLifecycleHandler {
     }
 
     public <T> T runAgent(AgentInterfaces agentInterface, Object input, Class<T> outputClass, String nodeId) {
+        log.info("Starting agent {}: {}, {}", agentInterface.getClass().getSimpleName(), nodeId, input);
         Agent agent = resolveAgent(agentInterface.multiAgentAgentName());
         ProcessOptions processOptions = ProcessOptions.DEFAULT.withContextId(nodeId)
                 .withListener(agentProcessIdListener());

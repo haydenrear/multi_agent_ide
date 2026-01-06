@@ -16,6 +16,7 @@ import com.embabel.agent.core.ProcessOptions;
 import com.hayden.multiagentide.agent.AgentModels;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
+import com.hayden.multiagentide.controller.OrchestrationController;
 import com.hayden.multiagentide.model.acp.AcpChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
@@ -51,6 +52,9 @@ class AcpChatModelCodexIntegrationTest {
     @Autowired
     private AgentMetadataReader agentMetadataReader;
 
+    @Autowired
+    private OrchestrationController orchestrationController;
+
     public record ResultValue(String result) {}
 
     public record RequestValue(String request) {}
@@ -84,8 +88,18 @@ class AcpChatModelCodexIntegrationTest {
     }
 
     @Test
+    void testCreateGoal() {
+        orchestrationController.startGoal(new OrchestrationController.StartGoalRequest(
+                "hello!", "/Users/hayde/IdeaProjects/multi_agent_ide_parent/libs-resolver",
+                "main", "hello", UUID.randomUUID().toString()));
+    }
+
+    @Test
     void chatModelUsesAcpProtocol() {
         assertThat(chatModel).isInstanceOf(AcpChatModel.class);
+
+        var c = chatModel.call("Do you have the capability to read or write to the file");
+        log.info("{}", "");
 
         try {
             String nodeId = UUID.randomUUID().toString();

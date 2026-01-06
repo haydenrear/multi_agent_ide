@@ -25,9 +25,8 @@ public class SseEventAdapter extends EventAdapter {
     @Autowired
     private EventStreamRepository graphRepository;
 
-    public SseEventAdapter(EventBus eventBus) {
+    public SseEventAdapter() {
         super("sse-adapter");
-        subscribe(eventBus);
     }
 
     @Autowired
@@ -60,9 +59,11 @@ public class SseEventAdapter extends EventAdapter {
         String payload = serdes.serializeEvent(Events.mapToEvent(event));
         for (SseEmitter emitter : emitters) {
             try {
+                log.info("Writing next event - {}", event);
                 emitter.send(SseEmitter.event().name("ag-ui").data(payload));
                 graphRepository.save(event);
             } catch (IOException e) {
+                log.error("Failed writing next event - {}", event);
                 handleAdapterError(event, e);
                 emitters.remove(emitter);
             }
