@@ -119,6 +119,8 @@ class AcpChatModelCodexIntegrationTest {
                                                                         "then update that file and add the words WHATEVER!??")));
 
             var res = process.run().resultOfType(ResultValue.class);
+
+            var resAgain = process.run().resultOfType(ResultValue.class);
             log.info("{}", res);
 
             assertThat(new File("log.log").exists() || new File("multi_agent_ide/log.log").exists()).isTrue();

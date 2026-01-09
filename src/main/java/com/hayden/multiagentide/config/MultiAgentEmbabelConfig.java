@@ -2,6 +2,7 @@ package com.hayden.multiagentide.config;
 
 import com.embabel.agent.api.annotation.support.AgentMetadataReader;
 import com.embabel.agent.core.AgentPlatform;
+import com.embabel.agent.core.ProcessOptions;
 import com.embabel.agent.spi.AgentProcessIdGenerator;
 import com.embabel.common.ai.model.Llm;
 import com.embabel.common.ai.model.LlmOptions;
@@ -89,30 +90,7 @@ public class MultiAgentEmbabelConfig {
 
     @Bean
     public Llm llm(org.springframework.ai.chat.model.ChatModel chatModel) {
-        return new Llm("acp-chat-model", modelProvider, chatModel)
-                .withOptionsConverter(new OptionsConverter<>() {
-                    @Override
-                    public @NonNull ChatOptions convertOptions(@NonNull LlmOptions options) {
-                        AcpChatRequestParameters.Builder<?> builder = AcpChatRequestParameters.builder()
-                                .modelName(options.getModel())
-                                .temperature(options.getTemperature())
-                                .topP(options.getTopP())
-                                .topK(options.getTopK())
-                                .frequencyPenalty(options.getFrequencyPenalty())
-                                .presencePenalty(options.getPresencePenalty())
-                                .maxOutputTokens(options.getMaxTokens());
-
-                        var process = AgentInterfaces.agentProcess.get();
-
-                        if (process != null && process.id() != null) {
-                            builder.memoryId(process.id());
-                        } else {
-                            log.error("Did not have process ID. Session will not be able to be created for ACP. Listener is not being set correctly.");
-                        }
-
-                        return builder.build();
-                    }
-                });
+        return new Llm("acp-chat-model", modelProvider, chatModel);
     }
 
     /**

@@ -3,16 +3,14 @@ package com.hayden.multiagentide.model.acp
 import com.agentclientprotocol.client.Client
 import com.agentclientprotocol.client.ClientInfo
 import com.agentclientprotocol.common.ClientSessionOperations
-import com.agentclientprotocol.common.Event
 import com.agentclientprotocol.common.SessionCreationParameters
 import com.agentclientprotocol.model.*
 import com.agentclientprotocol.protocol.Protocol
 import com.agentclientprotocol.transport.Transport
+import com.hayden.multiagentide.agent.AgentInterfaces
 import com.hayden.multiagentide.agent.AgentTools
 import com.hayden.multiagentide.config.AcpModelProperties
-import com.hayden.multiagentide.model.acp.AcpStreamWindowBuffer.StreamWindowType
-import com.hayden.multiagentide.model.events.Events
-import com.hayden.utilitymodule.nullable.orElse
+import com.hayden.multiagentide.config.McpProperties
 import io.modelcontextprotocol.server.IdeMcpAsyncServer.TOOL_ALLOWLIST_HEADER
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +37,9 @@ import org.springframework.ai.chat.model.ChatResponse
 import org.springframework.ai.chat.model.Generation
 import org.springframework.ai.chat.model.StreamingChatModel
 import org.springframework.ai.chat.prompt.Prompt
+import org.springframework.ai.mcp.AsyncMcpToolCallback
+import org.springframework.ai.mcp.SyncMcpToolCallback
+import org.springframework.ai.model.tool.ToolCallingChatOptions
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
 import java.util.*
@@ -52,6 +53,7 @@ class AcpChatModel(
     private val properties: AcpModelProperties,
     private val chatMemoryContext: ChatMemoryContext?,
     private val sessionManager: AcpSessionManager,
+    private val mcpProperties: McpProperties
 ) : org.springframework.ai.chat.model.ChatModel, StreamingChatModel {
 
     private val sessionLock = Any()
@@ -66,14 +68,7 @@ class AcpChatModel(
 
     override fun stream(prompt: Prompt): Flux<ChatResponse> {
         log.info("Received request - {}.", prompt)
-        return when (val options = prompt.options) {
-            is AcpChatRequestParameters -> {
-                performStream(prompt, options.memoryId())
-            }
-            else -> {
-                performStream(prompt, null)
-            }
-        }
+        return performStream(prompt, resolveMemoryId())
     }
 
     fun performStream(messages: Prompt, memoryId: Any?): Flux<ChatResponse> {
@@ -87,22 +82,16 @@ class AcpChatModel(
         }
     }
 
-    override fun getDefaultOptions(): AcpChatRequestParameters {
-        return AcpChatRequestParameters.builder()
-//            .memoryId(AgentInterfaces.agentProcess.get()?.id)
-            .build()
-    }
-
     fun doChat(chatRequest: Prompt?): ChatResponse {
         val request = requireNotNull(chatRequest) { "chatRequest must not be null" }
-        val memoryId = resolveMemoryId(request)
-        val sessionContext = getOrCreateSession(memoryId)
+        val memoryId = resolveMemoryId()
+        val sessionContext = getOrCreateSession(memoryId, chatRequest)
         val messages = resolveToSendMessages(chatRequest)
         return invokeChat(Prompt.builder().messages(messages).chatOptions(chatRequest.options).build(), sessionContext, memoryId)
     }
 
     fun resolveToSendMessages(messages: Prompt): List<Message> {
-        val memoryId = resolveMemoryId(messages)
+        val memoryId = resolveMemoryId()
         val hasSession = sessionExists(memoryId)
         return if (hasSession) {
             listOf(messages.instructions.last())
@@ -112,7 +101,7 @@ class AcpChatModel(
     }
 
     suspend fun streamChat(prompt: Prompt, memoryId: Any?): Flow<Generation>  {
-        val session = getOrCreateSession(memoryId)
+        val session = getOrCreateSession(memoryId, prompt)
 
         val messages = resolveToSendMessages(prompt)
 
@@ -128,7 +117,7 @@ class AcpChatModel(
     }
 
     fun invokeChat(messages: Prompt, sessionContext: AcpSessionManager.AcpSessionContext, memoryId: Any?): ChatResponse = runBlocking {
-        val session = getOrCreateSession(memoryId)
+        val session = getOrCreateSession(memoryId, messages)
         val generations = mutableListOf<Generation>()
         val content = listOf(ContentBlock.Text(formatPromptMessages(messages)))
 
@@ -181,19 +170,18 @@ class AcpChatModel(
         return if (history.isNotEmpty()) history else chatRequest.instructions
     }
 
-    private fun resolveMemoryId(chatRequest: Prompt): Any? {
-        val params = chatRequest.options
-        return if (params is AcpChatRequestParameters) params.memoryId() else null
+    private fun resolveMemoryId(): Any? {
+        return AgentInterfaces.agentProcess.get()?.id
     }
 
-    private fun getOrCreateSession(memoryId: Any?): AcpSessionManager.AcpSessionContext {
+    private fun getOrCreateSession(memoryId: Any?, chatRequest: Prompt?): AcpSessionManager.AcpSessionContext {
         val m = memoryId ?: "unknown"
         return sessionManager.sessionContexts.computeIfAbsent(m) {
-            runBlocking { createSessionContext(it) }
+            runBlocking { createSessionContext(it, chatRequest) }
         }
     }
 
-    private suspend fun createSessionContext(memoryId: Any?): AcpSessionManager.AcpSessionContext {
+    private suspend fun createSessionContext(memoryId: Any?, chatRequest: Prompt?): AcpSessionManager.AcpSessionContext {
         log.info("Creating session context for $memoryId")
 
         if (!properties.transport.equals("stdio", ignoreCase = true)) {
@@ -217,10 +205,10 @@ class AcpChatModel(
 
             val agentInfo = protocol.start()
 
-//            properties.authMethod?.let {
-//                val authenticationResult = client.authenticate(AuthMethodId(it.orElse("")))
-//                log.info("Authenticated with ACP {}", authenticationResult)
-//            }
+            properties.authMethod?.let {
+                val authenticationResult = client.authenticate(AuthMethodId(it))
+                log.info("Authenticated with ACP {}", authenticationResult)
+            }
 
             val initialized = client.initialize(
                 ClientInfo(
@@ -234,16 +222,15 @@ class AcpChatModel(
                 )
             )
 
-            println("Agent info: $initialized")
+            log.info("Agent info: ${initialized.implementation.toString()}")
 
-            println()
-
-            val toolAllowlist = listOf(
+            val toolAllowlist = mutableSetOf(
                 "emitGuiEvent",
                 "retrieveGui",
                 "submitGuiFeedback",
                 "performUiDiff"
             )
+
             val toolHeaders = mutableListOf(
                 HttpHeader(TOOL_ALLOWLIST_HEADER, toolAllowlist.joinToString(","))
             )
@@ -251,20 +238,33 @@ class AcpChatModel(
                 toolHeaders.add(HttpHeader(AgentTools.UI_SESSION_HEADER, memoryId.toString()))
             }
 
-            val sessionParams = SessionCreationParameters(
-                if (workingDirectory.isNotBlank()) workingDirectory else System.getProperty("user.dir"),
-                mutableListOf(
-                    McpServer.Http("agent-tools", "http://localhost:8080/mcp",
-                        toolHeaders),
-                    McpServer.Http("gateway", "http://localhost:8081/mcp",
-                        mutableListOf(
-//                            HttpHeader(TOOL_ALLOWLIST_HEADER, "emitGuiEvent")
-                        )),
-                )
-            )
+            val mcpSyncServers: MutableList<McpServer> = mutableListOf(
+                McpServer.Http("agent-tools", "http://localhost:8080/mcp", toolHeaders),
+                McpServer.Http("gateway", "http://localhost:8081/mcp", toolHeaders))
+
+            if (chatRequest?.options is ToolCallingChatOptions) {
+                val options = chatRequest.options as ToolCallingChatOptions
+                toolAllowlist.addAll(options.toolNames)
+                options.toolCallbacks
+                    .mapNotNull {
+                        when (it) {
+                            is SyncMcpToolCallback -> Pair(it.toolDefinition, it.toolMetadata)
+                            is AsyncMcpToolCallback -> Pair(it.toolDefinition, it.toolMetadata)
+                            else -> null
+                        }
+                    }
+                    .mapNotNull {
+                        this.mcpProperties.retrieve(it.first, it.second)
+                            .orElse(null)
+                    }
+                    .forEach { mcpSyncServers.add(it) }
+            }
+
+            val cwd = workingDirectory.ifBlank { System.getProperty("user.dir") }
+            val sessionParams = SessionCreationParameters(cwd, mcpSyncServers)
 
             val session=  client.newSession(sessionParams)
-                { session, arg -> AcpSessionOperations()}
+                { _, _ -> AcpSessionOperations()}
 
             sessionManager.AcpSessionContext(scope, transport, protocol, client, session)
 
@@ -308,18 +308,6 @@ class AcpChatModel(
         return builder.toString()
     }
 
-//    private fun fromContent(contents: Content): String {
-//        return when(contents) {
-//            is TextContent -> contents.text();
-//            is AudioContent -> "";
-//            is PdfFileContent -> "";
-//            is McpSchema.ImageContent -> "";
-//            is VideoContent -> "";
-//
-//            else -> ""
-//        }
-//    }
-
     private fun resolveRole(message: Message): String = when (message) {
         is UserMessage -> MessageType.USER.name
         is SystemMessage -> MessageType.SYSTEM.name
@@ -333,13 +321,12 @@ class AcpChatModel(
 
     private class AcpSessionOperations : ClientSessionOperations {
 
-
-
         override suspend fun requestPermissions(
             toolCall: SessionUpdate.ToolCallUpdate,
             permissions: List<PermissionOption>,
             _meta: JsonElement?
         ): RequestPermissionResponse {
+//            TODO: embabel wait for permission hook.
 //            val selection = permissions.firstOrNull()
 //                ?: return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, _meta)
 //            return RequestPermissionResponse(RequestPermissionOutcome.Selected(selection.optionId), _meta)

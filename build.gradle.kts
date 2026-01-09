@@ -38,65 +38,70 @@ node {
    npmWorkDir.set(file("${project.layout.buildDirectory.get()}/npm"))
 }
 
-tasks.register<com.github.gradle.node.npm.task.NpmTask>("installFrontend") {
-   description = "Build Next.js frontend application"
-   workingDir.set(file("${project.projectDir}/fe"))
+val buildReact = project.property("build-react")?.toString()?.toBoolean()?.or(false) ?: false
 
-   args.set(listOf("install"))
+if (buildReact) {
 
-   finalizedBy("buildFrontend")
-}
+    tasks.register<com.github.gradle.node.npm.task.NpmTask>("installFrontend") {
+        description = "Build Next.js frontend application"
+        workingDir.set(file("${project.projectDir}/fe"))
 
-//Build the Next.js frontend
-tasks.register<com.github.gradle.node.npm.task.NpmTask>("buildFrontend") {
-   description = "Build Next.js frontend application"
-   workingDir.set(file("${project.projectDir}/fe"))
+        args.set(listOf("install"))
 
-   args.set(listOf("run", "build"))
-
-   inputs.files("${project.projectDir}/fe/src")
-   inputs.file("${project.projectDir}/fe/package.json")
-   inputs.file("${project.projectDir}/fe/next.config.ts")
-
-   outputs.dir("${project.projectDir}/fe/.next")
-
-   dependsOn("installFrontend")
-   finalizedBy("copyFrontendBuild")
-}
+        finalizedBy("buildFrontend")
+    }
 
 //Build the Next.js frontend
-tasks.register<com.github.gradle.node.npm.task.NpmTask>("testFrontend") {
-    description = "Test the frontend application"
-    workingDir.set(file("${project.projectDir}/fe"))
+    tasks.register<com.github.gradle.node.npm.task.NpmTask>("buildFrontend") {
+        description = "Build Next.js frontend application"
+        workingDir.set(file("${project.projectDir}/fe"))
 
-    args.set(listOf("run", "test"))
+        args.set(listOf("run", "build"))
 
-    inputs.files("${project.projectDir}/fe")
+        inputs.files("${project.projectDir}/fe/src")
+        inputs.file("${project.projectDir}/fe/package.json")
+        inputs.file("${project.projectDir}/fe/next.config.ts")
 
-    outputs.dir("${project.projectDir}/fe/.next")
+        outputs.dir("${project.projectDir}/fe/.next")
 
-    dependsOn("buildFrontend")
-}
+        dependsOn("installFrontend")
+        finalizedBy("copyFrontendBuild")
+    }
+
+//Build the Next.js frontend
+    tasks.register<com.github.gradle.node.npm.task.NpmTask>("testFrontend") {
+        description = "Test the frontend application"
+        workingDir.set(file("${project.projectDir}/fe"))
+
+        args.set(listOf("run", "test"))
+
+        inputs.files("${project.projectDir}/fe")
+
+        outputs.dir("${project.projectDir}/fe/.next")
+
+        dependsOn("buildFrontend")
+    }
 
 // Copy built frontend to static resources
-tasks.register<Copy>("copyFrontendBuild") {
+    tasks.register<Copy>("copyFrontendBuild") {
 
-   doFirst {
-       delete(file("${project.projectDir}/src/main/resources/static"))
-   }
+        doFirst {
+            delete(file("${project.projectDir}/src/main/resources/static"))
+        }
 
-   description = "Copy Next.js build output to static resources"
-   dependsOn("installFrontend","buildFrontend", "testFrontend")
+        description = "Copy Next.js build output to static resources"
+        dependsOn("installFrontend", "buildFrontend", "testFrontend")
 
-   from("${project.projectDir}/fe/out")
-   into("${project.layout.projectDirectory}/src/main/resources/static")
+        from("${project.projectDir}/fe/out")
+        into("${project.layout.projectDirectory}/src/main/resources/static")
 
-}
+    }
 
- tasks.getByPath("processResources").dependsOn("copyFrontendBuild")
+    tasks.getByPath("processResources").dependsOn("copyFrontendBuild")
 
 // Make bootJar depend on frontend build
-tasks.getByPath("bootJar").dependsOn("copyFrontendBuild")
+    tasks.getByPath("bootJar").dependsOn("copyFrontendBuild")
+}
 
 tasks.register<Copy>("copyToolGateway") {
     dependsOn(project(":mcp-tool-gateway").tasks.named("bootJar"))
