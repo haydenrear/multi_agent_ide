@@ -9,7 +9,9 @@ import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.model.MergeResult;
 import com.hayden.multiagentidelib.model.events.Events;
-import com.hayden.multiagentidelib.model.nodes.GraphNode;
+import com.hayden.multiagentidelib.model.nodes.*;
+import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
+import com.hayden.multiagentidelib.model.worktree.SubmoduleWorktreeContext;
 import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
@@ -24,6 +26,8 @@ import javax.annotation.Nullable;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -41,7 +45,6 @@ public class AgentRunner {
     private final WorktreeService worktreeService;
     private final WorktreeRepository worktreeRepository;
 
-    private final AgentPlatform agentPlatform;
     private final AgentLifecycleHandler agentLifecycleHandler;
     private final OutputChannel llmOutputChannel;
 
@@ -200,6 +203,56 @@ public class AgentRunner {
         return mergeNode.isFinalMerge();
     }
 
+    public void resolveAgentInterrupt(
+            AgentDispatchArgs dispatchArgs,
+            Events.AddMessageEvent addMessageEvent
+    ) {
+        if (resumeInterruptedNode(dispatchArgs.self, addMessageEvent)) {
+            return;
+        }
+        //        TODO: do this for the rest of the node types
+        switch (dispatchArgs.self) {
+            case DiscoveryNode node -> {
+                agentLifecycleHandler.runAgent(
+                        AgentInterfaces.DISCOVERY_AGENT,
+                        new AgentInterfaces.DiscoveryAgentInput(node.goal(), node.title()),
+                        AgentModels.DiscoveryAgentResult.class,
+                        node.nodeId()
+                );
+            }
+            case CollectorNode node -> {
+
+            }
+            case DiscoveryCollectorNode node -> {
+            }
+            case DiscoveryOrchestratorNode node -> {
+            }
+            case TicketNode node -> {
+            }
+            case MergeNode node -> {
+            }
+            case OrchestratorNode node -> {
+            }
+            case PlanningCollectorNode node -> {
+            }
+            case PlanningNode node -> {
+            }
+            case PlanningOrchestratorNode node -> {
+            }
+            case ReviewNode node -> {
+            }
+            case SummaryNode node -> {
+            }
+            case TicketCollectorNode node -> {
+            }
+            case TicketOrchestratorNode ticketOrchestratorNode -> {
+            }
+            case InterruptNode interruptNode -> {
+            }
+            case AskPermissionNode askPermissionNode -> {
+            }
+        }
+    }
 
     private static boolean isNodeReady(GraphNode planningNode) {
         return planningNode.status() == GraphNode.NodeStatus.READY;
@@ -2232,10 +2285,10 @@ public class AgentRunner {
         AgentModels.CollectorDecision decision =
                 overrideDecision != null
                         ? new AgentModels.CollectorDecision(
-                        overrideDecision,
+                            overrideDecision,
                         "human review",
                         null
-                )
+                        )
                         : node.discoveryCollectorResult() != null
                         ? node.discoveryCollectorResult().collectorDecision()
                         : null;
@@ -2781,10 +2834,9 @@ public class AgentRunner {
                 .findById(worktreeId)
                 .ifPresent(wt -> {
                     WorktreeContext updated =
-                            wt instanceof com.hayden.multiagentide.model.worktree.MainWorktreeContext main
+                            wt instanceof MainWorktreeContext main
                                     ? main.withStatus(status)
-                                    : ((com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext) wt)
-                                    .withStatus(status);
+                                    : ((SubmoduleWorktreeContext) wt).withStatus(status);
                     worktreeRepository.save(updated);
                 });
     }

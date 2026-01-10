@@ -9,6 +9,7 @@ import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentide.infrastructure.AgentRunner;
 import com.hayden.multiagentidelib.model.MergeResult;
+import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.GraphRepository;

@@ -202,29 +202,6 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
             return PLANNING_AGENT_NAME;
         }
 
-        public static final String PLANNING_AGENT_USER_MESSAGE = """
-                Analyze the following goal and break it down into 3 work items:
-                1. Architecture & Setup - Design foundational structure
-                2. Implementation - Core functionality
-                3. Testing & Validation - Tests and validation
-
-                Goal: {{goal}}
-
-                Provide a structured plan with clear sections for each work item.
-                """;
-
-        @Action
-        @AchievesGoal(description = "Create structured plan")
-        public com.hayden.multiagentidelib.agent.AgentModels.PlanningAgentResult decomposePlanAndCreateWorkItems(
-                PlanningAgentInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    PLANNING_AGENT_USER_MESSAGE,
-                    Map.of("goal", input.goal())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningAgentResult.class);
-        }
     }
 
     @Agent(name = PLANNING_COLLECTOR_AGENT_NAME, description = "Consolidates planning outputs into structured tickets")
@@ -234,37 +211,6 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
             return PLANNING_COLLECTOR_AGENT_NAME;
         }
 
-        public static final String PLANNING_COLLECTOR_MESSAGE = """
-                Merge and consolidate the following planning results from multiple agents:
-
-                Goal: {{goal}}
-                Planning Results: {{planningResults}}
-
-                Create structured tickets with:
-                - Ticket ID and title
-                - Clear implementation tasks
-                - Dependencies between tickets
-                - Acceptance criteria
-                - Estimated effort
-
-                Return merged tickets in structured format, and include a routing decision:
-                - ROUTE_BACK to rerun planning
-                - ADVANCE_PHASE to continue to ticket execution
-                - STOP to halt the workflow
-                """;
-
-        @Action
-        @AchievesGoal(description = "Consolidate planning results into tickets")
-        public com.hayden.multiagentidelib.agent.AgentModels.PlanningCollectorResult consolidatePlansIntoTickets(
-                PlanningCollectorInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    PLANNING_COLLECTOR_MESSAGE,
-                    Map.of("goal", input.goal(), "planningResults", input.planningResults())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningCollectorResult.class);
-        }
     }
 
     @Agent(name = TICKET_ORCHESTRATOR_AGENT_NAME, description = "Orchestrates ticket-based implementation workflow")
@@ -699,6 +645,50 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                 Goal: {{goal}}
                 """;
 
+        public static final String PLANNING_AGENT_USER_MESSAGE = """
+                Analyze the following goal and break it down into 3 work items:
+                1. Architecture & Setup - Design foundational structure
+                2. Implementation - Core functionality
+                3. Testing & Validation - Tests and validation
+
+                Goal: {{goal}}
+
+                Provide a structured plan with clear sections for each work item.
+                """;
+
+        public static final String PLANNING_COLLECTOR_MESSAGE = """
+                Merge and consolidate the following planning results from multiple agents:
+
+                Goal: {{goal}}
+                Planning Results: {{planningResults}}
+
+                Create structured tickets with:
+                - Ticket ID and title
+                - Clear implementation tasks
+                - Dependencies between tickets
+                - Acceptance criteria
+                - Estimated effort
+
+                Return merged tickets in structured format, and include a routing decision:
+                - ROUTE_BACK to rerun planning
+                - ADVANCE_PHASE to continue to ticket execution
+                - STOP to halt the workflow
+                """;
+
+
+        @Action
+        @AchievesGoal(description = "Create structured plan")
+        public com.hayden.multiagentidelib.agent.AgentModels.PlanningAgentResult decomposePlanAndCreateWorkItems(
+                PlanningAgentInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    PLANNING_AGENT_USER_MESSAGE,
+                    Map.of("goal", input.goal())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningAgentResult.class);
+        }
+
         @Action
         @AchievesGoal(description = "Create planning delegation plan")
         public com.hayden.multiagentidelib.agent.AgentModels.PlanningOrchestratorResult decomposePlanAndCreateWorkItems(
@@ -712,9 +702,23 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
             return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningOrchestratorResult.class);
         }
 
+        @Action
+        @AchievesGoal(description = "Consolidate planning results into tickets")
+        public com.hayden.multiagentidelib.agent.AgentModels.PlanningCollectorResult consolidatePlansIntoTickets(
+                PlanningCollectorInput input,
+                OperationContext context
+        ) {
+            String prompt = renderTemplate(
+                    PLANNING_COLLECTOR_MESSAGE,
+                    Map.of("goal", input.goal(), "planningResults", input.planningResults())
+            );
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningCollectorResult.class);
+        }
+
         @Override
         public String multiAgentAgentName() {
             return PLANNING_ORCHESTRATOR_AGENT_NAME;
         }
     }
+
 }

@@ -2,7 +2,7 @@ package com.hayden.multiagentide.orchestration;
 
 import com.hayden.multiagentidelib.infrastructure.EventBus;
 import com.hayden.multiagentidelib.model.events.Events;
-import com.hayden.multiagentidelib.model.nodes.GraphNode;
+import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
@@ -11,6 +11,8 @@ import java.time.Instant;
 import java.util.*;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
@@ -23,7 +25,15 @@ public class ComputationGraphOrchestrator {
 
     private final GraphRepository graphRepository;
     private final WorktreeRepository worktreeRepository;
-    private final EventBus eventBus;
+
+    private EventBus eventBus;
+
+    @Lazy
+    @Autowired
+    public void setEventBus(EventBus eventBus) {
+        this.eventBus = eventBus;
+    }
+
 
     /**
      * Get a node from the graph.

@@ -17,7 +17,7 @@ import com.embabel.agent.core.ProcessOptions;
 import com.embabel.chat.support.InMemoryConversation;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.controller.OrchestrationController;
-import com.hayden.multiagentidelib.model.acp.AcpChatModel;
+import com.hayden.multiagentidelib.acp.AcpChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

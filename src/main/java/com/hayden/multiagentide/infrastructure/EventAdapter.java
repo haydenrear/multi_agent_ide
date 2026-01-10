@@ -1,5 +1,7 @@
 package com.hayden.multiagentide.infrastructure;
 
+import com.hayden.multiagentidelib.infrastructure.EventBus;
+import com.hayden.multiagentidelib.infrastructure.EventListener;
 import com.hayden.multiagentidelib.model.events.Events;
 
 /**

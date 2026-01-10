@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.service;
 
-import com.hayden.multiagentide.infrastructure.EventBus;
+import com.hayden.multiagentidelib.infrastructure.EventBus;
 import com.hayden.multiagentidelib.model.events.Events;
 import com.hayden.multiagentidelib.model.nodes.ReviewNode;
 import lombok.RequiredArgsConstructor;

@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.controller;
 
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentide.infrastructure.EventBus;
+import com.hayden.multiagentidelib.infrastructure.EventBus;
 import com.hayden.multiagentidelib.model.events.Events;
 import com.hayden.multiagentide.service.AgentControlService;
 import java.time.Instant;
@@ -54,7 +54,7 @@ public class InterruptController {
             @RequestBody InterruptResolution request
     ) {
         String message = request.resolutionNotes() != null ? request.resolutionNotes() : "Interrupt resolved";
-        eventBus.publish(new Events.AddMessageEvent(
+        eventBus.publish(new Events.ResolveInterruptEvent(
                 UUID.randomUUID().toString(),
                 Instant.now(),
                 request.originNodeId(),

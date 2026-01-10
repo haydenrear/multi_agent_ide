@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.adapter;
 
 import com.hayden.multiagentide.infrastructure.EventAdapter;
-import com.hayden.multiagentide.infrastructure.EventBus;
+import com.hayden.multiagentidelib.infrastructure.EventBus;
 import com.hayden.multiagentidelib.model.events.Events;
 import com.hayden.multiagentide.repository.EventStreamRepository;
 import lombok.extern.slf4j.Slf4j;

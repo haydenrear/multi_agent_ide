@@ -29,6 +29,9 @@ dependencies {
 tasks.bootJar {
     mainClass = "com.hayden.multiagentide.MultiAgentIdeApplication"
 }
+tasks.bootRun {
+    mainClass.set("com.hayden.multiagentide.MultiAgentIdeApplication")
+}
 
 // Node.js and npm configuration
 node {

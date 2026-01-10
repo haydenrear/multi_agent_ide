@@ -14,7 +14,7 @@ import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentide.controller.AgentControlController;
 import com.hayden.multiagentide.infrastructure.AgentEventListener;
-import com.hayden.multiagentide.infrastructure.EventBus;
+import com.hayden.multiagentidelib.infrastructure.EventBus;
 import com.hayden.multiagentidelib.model.MergeResult;
 import com.hayden.multiagentidelib.model.events.Events;
 import com.hayden.multiagentidelib.model.nodes.DiscoveryCollectorNode;
@@ -405,8 +405,7 @@ class OrchestratorEndToEndTest extends AgentTestBase {
         verify(planningAgent, times(0))
                 .decomposePlanAndCreateWorkItems(
                         any(AgentInterfaces.PlanningAgentInput.class),
-                        any(OperationContext.class)
-                );
+                        any(OperationContext.class));
 
         DiscoveryNode discovery = graphRepository.findAll().stream()
                 .filter(DiscoveryNode.class::isInstance)
@@ -414,7 +413,7 @@ class OrchestratorEndToEndTest extends AgentTestBase {
                 .findFirst()
                 .orElseThrow();
 
-        eventBus.publish(new Events.AddMessageEvent(
+        eventBus.publish(new Events.ResolveInterruptEvent(
                 UUID.randomUUID().toString(),
                 Instant.now(),
                 discovery.nodeId(),

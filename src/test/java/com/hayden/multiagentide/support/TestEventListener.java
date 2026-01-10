@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.support;
 
-import com.hayden.multiagentide.infrastructure.EventListener;
+import com.hayden.multiagentidelib.infrastructure.EventListener;
 import com.hayden.multiagentidelib.model.events.Events;
 import java.util.ArrayList;
 import java.util.List;

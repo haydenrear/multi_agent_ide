@@ -2,7 +2,7 @@ package com.hayden.multiagentide.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hayden.multiagentide.infrastructure.EventBus;
+import com.hayden.multiagentidelib.infrastructure.EventBus;
 import com.hayden.multiagentidelib.model.events.Events;
 import com.hayden.multiagentidelib.model.ui.UiDiffResult;
 import com.hayden.multiagentidelib.model.ui.UiStateSnapshot;

@@ -1,10 +1,14 @@
 package com.hayden.multiagentide.infrastructure;
 
+import com.hayden.multiagentidelib.infrastructure.EventListener;
 import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,7 +26,10 @@ import org.springframework.stereotype.Component;
 public class AgentEventListener implements EventListener {
 
     private final ComputationGraphOrchestrator orchestrator;
-    private final AgentRunner agentRunner;
+
+    @Lazy
+    @Autowired
+    private AgentRunner agentRunner;
 
     @Override
     public String listenerId() {

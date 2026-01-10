@@ -1,5 +1,7 @@
 package com.hayden.multiagentide.infrastructure;
 
+import com.hayden.multiagentidelib.infrastructure.EventBus;
+import com.hayden.multiagentidelib.infrastructure.EventListener;
 import com.hayden.multiagentidelib.model.events.Events;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +26,7 @@ public class DefaultEventBus implements EventBus {
     @Autowired
     @Lazy
     public void setSubscribers(List<EventListener> subscribers) {
-        this.subscribers = subscribers;
+        this.subscribers = new ArrayList<>(subscribers);
     }
 
     @Override
@@ -70,7 +72,6 @@ public class DefaultEventBus implements EventBus {
         for (EventListener listener : subscribers) {
             listener.onUnsubscribed();
         }
-        subscribers.clear();
     }
 
     @Override

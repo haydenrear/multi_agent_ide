@@ -15,8 +15,11 @@ import com.agentclientprotocol.model.ToolKind
 import com.agentclientprotocol.model.AvailableCommand
 import com.agentclientprotocol.protocol.Protocol
 import com.agentclientprotocol.transport.Transport
-import com.hayden.multiagentide.infrastructure.EventBus
-import com.hayden.multiagentide.infrastructure.EventListener
+import com.hayden.multiagentidelib.acp.AcpSessionManager
+import com.hayden.multiagentidelib.acp.AcpStreamWindowBuffer
+import com.hayden.multiagentidelib.acp.parseGenerationsFromAcpEvent
+import com.hayden.multiagentidelib.infrastructure.EventBus
+import com.hayden.multiagentidelib.infrastructure.EventListener
 import com.hayden.multiagentidelib.model.events.Events
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue

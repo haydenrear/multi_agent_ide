@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.adapter;
 
 import com.hayden.multiagentide.infrastructure.EventAdapter;
-import com.hayden.multiagentide.infrastructure.EventBus;
+import com.hayden.multiagentidelib.infrastructure.EventBus;
 import com.hayden.multiagentidelib.model.events.Events;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
