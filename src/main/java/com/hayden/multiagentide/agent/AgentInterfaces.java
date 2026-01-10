@@ -24,6 +24,11 @@ import java.util.UUID;
  */
 public interface AgentInterfaces {
 
+    String WORKFLOW_DISCOVERY_DISPATCH_SUBAGENT = "WorkflowDiscoveryDispatchSubagent";
+    String WORKFLOW_PLANNING_DISPATCH_SUBAGENT = "WorkflowPlanningDispatchSubagent";
+    String WORKFLOW_TICKET_DISPATCH_SUBAGENT = "WorkflowTicketDispatchSubagent";
+    String WORKFLOW_CONTEXT_DISPATCH_SUBAGENT = "WorkflowContextDispatchSubagent";
+
     String multiAgentAgentName();
 
     String WORKFLOW_AGENT_NAME = "WorkflowAgent";
@@ -90,27 +95,11 @@ public interface AgentInterfaces {
         return contextId != null ? contextId : "unknown";
     }
 
-    static void addRequestsToBlackboard(OperationContext context, List<?> requests) {
-        if (context == null || requests == null || requests.isEmpty()) {
-            return;
-        }
-        List<Object> toAdd = new ArrayList<>(requests.size());
-        for (Object request : requests) {
-            if (request != null) {
-                toAdd.add(request);
-            }
-        }
-        if (!toAdd.isEmpty()) {
-            context.addAll(toAdd);
-        }
-    }
-
     static String renderReturnRoute(
             AgentModels.OrchestratorCollectorRequest orchestratorCollector,
             AgentModels.DiscoveryCollectorRequest discoveryCollector,
             AgentModels.PlanningCollectorRequest planningCollector,
-            AgentModels.TicketCollectorRequest ticketCollector,
-            AgentModels.ContextCollectorRequest contextCollector
+            AgentModels.TicketCollectorRequest ticketCollector
     ) {
         if (orchestratorCollector != null) {
             return "orchestratorCollectorRequest(goal=" + orchestratorCollector.goal() + ", phase=" + orchestratorCollector.phase() + ")";
@@ -123,9 +112,6 @@ public interface AgentInterfaces {
         }
         if (ticketCollector != null) {
             return "ticketCollectorRequest(goal=" + ticketCollector.goal() + ")";
-        }
-        if (contextCollector != null) {
-            return "contextCollectorRequest(goal=" + contextCollector.goal() + ", phase=" + contextCollector.phase() + ")";
         }
         return "none";
     }
@@ -451,91 +437,13 @@ public interface AgentInterfaces {
                 """;
 
         @Action
-        public AgentModels.OrchestratorState transitionToOrchestratorState(
-                AgentModels.OrchestratorRequest input,
+        @AchievesGoal(description = "Finished orchestrator collector")
+        public AgentModels.OrchestratorCollectorResult consolidateWorkflowOutputs(
+                AgentModels.OrchestratorCollectorResult input,
                 OperationContext context
         ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "transition-orchestrator", context);
-            AgentModels.OrchestratorState state = new AgentModels.OrchestratorState(input);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-orchestrator", context, state);
-            return state;
-        }
-
-        @Action
-        public AgentModels.DiscoveryState transitionToDiscoveryState(
-                AgentModels.DiscoveryOrchestratorRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "transition-discovery", context);
-            AgentModels.DiscoveryState state = new AgentModels.DiscoveryState(input);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-discovery", context, state);
-            return state;
-        }
-
-        @Action
-        public AgentModels.PlanningState transitionToPlanningState(
-                AgentModels.PlanningOrchestratorRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "transition-planning", context);
-            AgentModels.PlanningState state = new AgentModels.PlanningState(input);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-planning", context, state);
-            return state;
-        }
-
-        @Action
-        public AgentModels.TicketState transitionToTicketState(
-                AgentModels.TicketOrchestratorRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "transition-ticket", context);
-            AgentModels.TicketState state = new AgentModels.TicketState(input);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-ticket", context, state);
-            return state;
-        }
-
-        @Action
-        public AgentModels.ReviewState transitionToReviewState(
-                AgentModels.ReviewRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "transition-review", context);
-            AgentModels.ReviewState state = new AgentModels.ReviewState(input);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-review", context, state);
-            return state;
-        }
-
-        @Action
-        public AgentModels.MergerState transitionToMergerState(
-                AgentModels.MergerRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "transition-merger", context);
-            AgentModels.MergerState state = new AgentModels.MergerState(input);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-merger", context, state);
-            return state;
-        }
-
-        @Action
-        public AgentModels.ContextState transitionToContextState(
-                AgentModels.ContextOrchestratorRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "transition-context", context);
-            AgentModels.ContextState state = new AgentModels.ContextState(input);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-context", context, state);
-            return state;
-        }
-
-        @Action
-        public AgentModels.InterruptState transitionToInterruptState(
-                AgentModels.InterruptRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "transition-interrupt", context);
-            AgentModels.InterruptState state = new AgentModels.InterruptState(input);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-interrupt", context, state);
-            return state;
+            emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator-collector", context, "finished");
+            return input;
         }
 
         @Action
@@ -553,16 +461,6 @@ public interface AgentInterfaces {
                     .createObject(prompt, AgentModels.OrchestratorRouting.class);
             emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator", context, routing);
             return routing;
-        }
-
-        @Action
-        @AchievesGoal(description = "Finished orchestrator collector")
-        public AgentModels.OrchestratorCollectorResult consolidateWorkflowOutputs(
-                AgentModels.OrchestratorCollectorResult input,
-                OperationContext context
-        ) {
-            emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator-collector", context, "finished");
-            return input;
         }
 
         @Action
@@ -627,57 +525,33 @@ public interface AgentInterfaces {
             String goal = resolveDiscoveryGoal(context, requests);
             StringBuilder results = new StringBuilder();
             var discoveryDispatchAgent = context.agentPlatform().agents()
-                    .stream().filter(a -> a.getName().equals(""))
+                    .stream().filter(a -> Objects.equals(a.getName(), AgentInterfaces.WORKFLOW_DISCOVERY_DISPATCH_SUBAGENT))
                     .findAny().orElse(null);
             for (AgentModels.DiscoveryAgentRequest request : requests) {
                 if (request == null) {
                     continue;
                 }
-                AgentModels.DiscoveryAgentRouting response = runSubProcess(
+                AgentModels.DiscoveryAgentResult response = runSubProcess(
                         context,
                         request,
                         discoveryDispatchAgent,
-                        AgentModels.DiscoveryAgentRouting.class
+                        AgentModels.DiscoveryAgentResult.class
                 );
-                AgentModels.DiscoveryAgentDispatchInterruptRequest interrupt =
-                        toDiscoveryDispatchInterrupt(response);
-                if (interrupt != null) {
-                    AgentModels.DiscoveryAgentDispatchRouting routing =
-                            new AgentModels.DiscoveryAgentDispatchRouting(interrupt);
-                    emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-dispatch", context, routing);
-                    return routing;
-                }
-                if (response != null && response.agentResult() != null) {
+                if (response != null) {
                     appendSection(
                             results,
                             request.subdomainFocus(),
-                            response.agentResult().output()
+                            response.output()
                     );
                 }
             }
             AgentModels.DiscoveryCollectorRequest collectorRequest =
                     new AgentModels.DiscoveryCollectorRequest(goal, results.toString().trim());
             context.addObject(collectorRequest);
+//            TODO; add an agent call to map to DiscoveryAgentDispatchRouting
             AgentModels.DiscoveryAgentDispatchRouting routing =
                     new AgentModels.DiscoveryAgentDispatchRouting(null);
             emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-dispatch", context, routing);
-            return routing;
-        }
-
-        @Action
-        public AgentModels.DiscoveryAgentRouting discoverCodebaseSection(
-                AgentModels.DiscoveryAgentRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "discovery-agent", context);
-            String prompt = renderTemplate(
-                    DISCOVERY_AGENT_START_MESSAGE,
-                    Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
-            );
-            AgentModels.DiscoveryAgentRouting routing = context.ai()
-                    .withDefaultLlm()
-                    .createObject(prompt, AgentModels.DiscoveryAgentRouting.class);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-agent", context, routing);
             return routing;
         }
 
@@ -745,38 +619,32 @@ public interface AgentInterfaces {
             StringBuilder results = new StringBuilder();
             int index = 0;
             var planningDispatchAgent = context.agentPlatform().agents()
-                    .stream().filter(a -> a.getName().equals(""))
+                    .stream().filter(a -> Objects.equals(a.getName(), AgentInterfaces.WORKFLOW_PLANNING_DISPATCH_SUBAGENT))
                     .findAny().orElse(null);
+
             for (AgentModels.PlanningAgentRequest request : requests) {
                 if (request == null) {
                     continue;
                 }
-                AgentModels.PlanningAgentRouting response = runSubProcess(
+                AgentModels.PlanningAgentResult response = runSubProcess(
                         context,
                         request,
                         planningDispatchAgent,
-                        AgentModels.PlanningAgentRouting.class
+                        AgentModels.PlanningAgentResult.class
                 );
-                AgentModels.PlanningAgentDispatchInterruptRequest interrupt =
-                        toPlanningDispatchInterrupt(response);
-                if (interrupt != null) {
-                    AgentModels.PlanningAgentDispatchRouting routing =
-                            new AgentModels.PlanningAgentDispatchRouting(interrupt);
-                    emitActionCompleted(eventBus, multiAgentAgentName(), "planning-dispatch", context, routing);
-                    return routing;
-                }
-                if (response != null && response.agentResult() != null) {
+                if (response != null) {
                     index++;
                     appendSection(
                             results,
                             "Plan segment " + index,
-                            response.agentResult().output()
+                            response.output()
                     );
                 }
             }
             AgentModels.PlanningCollectorRequest collectorRequest =
                     new AgentModels.PlanningCollectorRequest(goal, results.toString().trim());
             context.addObject(collectorRequest);
+//            TODO; add an agent call to map to PlanningAgentDispatchRouting
             AgentModels.PlanningAgentDispatchRouting routing =
                     new AgentModels.PlanningAgentDispatchRouting(null);
             emitActionCompleted(eventBus, multiAgentAgentName(), "planning-dispatch", context, routing);
@@ -852,35 +720,28 @@ public interface AgentInterfaces {
             StringBuilder results = new StringBuilder();
             int index = 0;
             var ticketDispatchAgent = context.agentPlatform().agents()
-                    .stream().filter(a -> a.getName().equals(""))
+                    .stream().filter(a -> Objects.equals(a.getName(), AgentInterfaces.WORKFLOW_TICKET_DISPATCH_SUBAGENT))
                     .findAny().orElse(null);
             for (AgentModels.TicketAgentRequest request : requests) {
                 if (request == null) {
                     continue;
                 }
-                AgentModels.TicketAgentRouting response = runSubProcess(
+                AgentModels.TicketAgentResult response = runSubProcess(
                         context,
                         request,
                         ticketDispatchAgent,
-                        AgentModels.TicketAgentRouting.class
+                        AgentModels.TicketAgentResult.class
                 );
-                AgentModels.TicketAgentDispatchInterruptRequest interrupt =
-                        toTicketDispatchInterrupt(response);
-                if (interrupt != null) {
-                    AgentModels.TicketAgentDispatchRouting routing =
-                            new AgentModels.TicketAgentDispatchRouting(interrupt);
-                    emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-dispatch", context, routing);
-                    return routing;
-                }
-                if (response != null && response.agentResult() != null) {
+                if (response != null) {
                     index++;
                     String heading = firstNonBlank(request.ticketDetailsFilePath(), "Ticket " + index);
-                    appendSection(results, heading, response.agentResult().output());
+                    appendSection(results, heading, response.output());
                 }
             }
             AgentModels.TicketCollectorRequest collectorRequest =
                     new AgentModels.TicketCollectorRequest(goal, results.toString().trim());
             context.addObject(collectorRequest);
+//            TODO; add an agent call to map to TicketAgentDispatchRouting
             AgentModels.TicketAgentDispatchRouting routing =
                     new AgentModels.TicketAgentDispatchRouting(null);
             emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-dispatch", context, routing);
@@ -901,6 +762,7 @@ public interface AgentInterfaces {
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.TicketCollectorRouting.class);
             emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-collector", context, routing);
+
             return routing;
         }
 
@@ -930,8 +792,7 @@ public interface AgentInterfaces {
                     input.returnToOrchestratorCollector(),
                     input.returnToDiscoveryCollector(),
                     input.returnToPlanningCollector(),
-                    input.returnToTicketCollector(),
-                    input.returnToContextCollector()
+                    input.returnToTicketCollector()
             );
             String prompt = renderTemplate(
                     REVIEW_AGENT_START_MESSAGE,
@@ -951,8 +812,7 @@ public interface AgentInterfaces {
                     interrupted ? null : input.returnToOrchestratorCollector(),
                     interrupted ? null : input.returnToDiscoveryCollector(),
                     interrupted ? null : input.returnToPlanningCollector(),
-                    interrupted ? null : input.returnToTicketCollector(),
-                    interrupted ? null : input.returnToContextCollector()
+                    interrupted ? null : input.returnToTicketCollector()
             );
             emitActionCompleted(eventBus, multiAgentAgentName(), "review-agent", context, routing);
             return routing;
@@ -967,7 +827,6 @@ public interface AgentInterfaces {
             AgentModels.ReviewRouting routing =
                     new AgentModels.ReviewRouting(
                             request,
-                            null,
                             null,
                             null,
                             null,
@@ -988,8 +847,7 @@ public interface AgentInterfaces {
                     input.returnToOrchestratorCollector(),
                     input.returnToDiscoveryCollector(),
                     input.returnToPlanningCollector(),
-                    input.returnToTicketCollector(),
-                    input.returnToContextCollector()
+                    input.returnToTicketCollector()
             );
             String prompt = renderTemplate(
                     MERGER_AGENT_START_MESSAGE,
@@ -1010,8 +868,7 @@ public interface AgentInterfaces {
                     interrupted ? null : input.returnToOrchestratorCollector(),
                     interrupted ? null : input.returnToDiscoveryCollector(),
                     interrupted ? null : input.returnToPlanningCollector(),
-                    interrupted ? null : input.returnToTicketCollector(),
-                    interrupted ? null : input.returnToContextCollector()
+                    interrupted ? null : input.returnToTicketCollector()
             );
             emitActionCompleted(eventBus, multiAgentAgentName(), "merger-agent", context, routing);
             return routing;
@@ -1030,118 +887,96 @@ public interface AgentInterfaces {
                             null,
                             null,
                             null,
-                            null,
                             null
                     );
             emitActionCompleted(eventBus, multiAgentAgentName(), "merger-interrupt", context, routing);
             return routing;
         }
 
-        @Action
-        public AgentModels.ContextOrchestratorRouting coordinateWorkflow(
-                AgentModels.ContextOrchestratorRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "context-orchestrator", context);
-            String prompt = renderTemplate(
-                    CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE,
-                    Map.of("goal", input.goal(), "phase", input.phase())
-            );
-            AgentModels.ContextOrchestratorRouting routing = context.ai()
-                    .withDefaultLlm()
-                    .createObject(prompt, AgentModels.ContextOrchestratorRouting.class);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "context-orchestrator", context, routing);
-            return routing;
-        }
-
-        @Action
-        public AgentModels.ContextAgentDispatchRouting dispatchContextAgentRequests(
-                AgentModels.ContextAgentRequests input,
-                ActionContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "context-dispatch", context);
-            List<AgentModels.ContextAgentRequest> requests = input != null ? input.requests() : List.of();
-            if (requests == null) {
-                requests = List.of();
-            }
-            String goal = resolveContextGoal(context, requests);
-            String phase = resolveContextPhase(context, requests);
-            var contextDispatchAgent = context.agentPlatform().agents()
-                    .stream().filter(a -> a.getName().equals(""))
-                    .findAny().orElse(null);
-            for (AgentModels.ContextAgentRequest request : requests) {
-                if (request == null) {
-                    continue;
-                }
-                AgentModels.ContextAgentRouting response = runSubProcess(
-                        context,
-                        request,
-                        contextDispatchAgent,
-                        AgentModels.ContextAgentRouting.class
-                );
-                AgentModels.ContextAgentDispatchInterruptRequest interrupt =
-                        toContextDispatchInterrupt(response);
-                if (interrupt != null) {
-                    AgentModels.ContextAgentDispatchRouting routing =
-                            new AgentModels.ContextAgentDispatchRouting(interrupt);
-                    emitActionCompleted(eventBus, multiAgentAgentName(), "context-dispatch", context, routing);
-                    return routing;
-                }
-            }
-            AgentModels.ContextCollectorRequest collectorRequest =
-                    new AgentModels.ContextCollectorRequest(goal, phase);
-            context.addObject(collectorRequest);
-            AgentModels.ContextAgentDispatchRouting routing =
-                    new AgentModels.ContextAgentDispatchRouting(null);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "context-dispatch", context, routing);
-            return routing;
-        }
-
-        @Action
-        public AgentModels.ContextCollectorRouting consolidateContextOperations(
-                AgentModels.ContextCollectorRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "context-collector", context);
-            String prompt = renderTemplate(
-                    CONTEXT_COLLECTOR_START_MESSAGE,
-                    Map.of("goal", input.goal(), "phase", input.phase())
-            );
-            AgentModels.ContextCollectorRouting routing = context.ai()
-                    .withDefaultLlm()
-                    .createObject(prompt, AgentModels.ContextCollectorRouting.class);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "context-collector", context, routing);
-            return routing;
-        }
-
-        @Action
-        public AgentModels.ContextOrchestratorRouting handleContextInterrupt(
-                AgentModels.ContextOrchestratorInterruptRequest request,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "context-interrupt", context);
-            AgentModels.ContextOrchestratorRouting routing =
-                    new AgentModels.ContextOrchestratorRouting(
-                            request,
-                            null,
-                            null
-                    );
-            emitActionCompleted(eventBus, multiAgentAgentName(), "context-interrupt", context, routing);
-            return routing;
-        }
-
-        private static com.embabel.agent.core.Agent buildSubagent(
-                AgentMetadataReader metadataReader,
-                Object instance
-        ) {
-            var scope = metadataReader.createAgentMetadata(instance);
-            if (scope instanceof com.embabel.agent.core.Agent agent) {
-                return agent;
-            }
-            throw new IllegalStateException(
-                    "Unable to create subagent for " + instance.getClass().getSimpleName()
-            );
-        }
+//        @Action
+//        public AgentModels.ContextOrchestratorRouting coordinateWorkflow(
+//                AgentModels.ContextOrchestratorRequest input,
+//                OperationContext context
+//        ) {
+//            emitActionStarted(eventBus, multiAgentAgentName(), "context-orchestrator", context);
+//            String prompt = renderTemplate(
+//                    CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE,
+//                    Map.of("goal", input.goal(), "phase", input.phase())
+//            );
+//            AgentModels.ContextOrchestratorRouting routing = context.ai()
+//                    .withDefaultLlm()
+//                    .createObject(prompt, AgentModels.ContextOrchestratorRouting.class);
+//            emitActionCompleted(eventBus, multiAgentAgentName(), "context-orchestrator", context, routing);
+//            return routing;
+//        }
+//
+//        @Action
+//        public AgentModels.ContextAgentDispatchRouting dispatchContextAgentRequests(
+//                AgentModels.ContextAgentRequests input,
+//                ActionContext context
+//        ) {
+//            emitActionStarted(eventBus, multiAgentAgentName(), "context-dispatch", context);
+//            List<AgentModels.ContextAgentRequest> requests = input != null ? input.requests() : List.of();
+//            if (requests == null) {
+//                requests = List.of();
+//            }
+//            String goal = resolveContextGoal(context, requests);
+//            String phase = resolveContextPhase(context, requests);
+//            var contextDispatchAgent = context.agentPlatform().agents()
+//                    .stream().filter(a -> Objects.equals(a.getName(), AgentInterfaces.WORKFLOW_CONTEXT_DISPATCH_SUBAGENT))
+//                    .findAny().orElse(null);
+//            for (AgentModels.ContextAgentRequest request : requests) {
+//                if (request == null) {
+//                    continue;
+//                }
+//                AgentModels.ContextAgentResult response = runSubProcess(
+//                        context,
+//                        request,
+//                        contextDispatchAgent,
+//                        AgentModels.ContextAgentResult.class
+//                );
+//            }
+//            AgentModels.ContextCollectorRequest collectorRequest =
+//                    new AgentModels.ContextCollectorRequest(goal, phase);
+//            context.addObject(collectorRequest);
+//            AgentModels.ContextAgentDispatchRouting routing =
+//                    new AgentModels.ContextAgentDispatchRouting(null);
+//            emitActionCompleted(eventBus, multiAgentAgentName(), "context-dispatch", context, routing);
+//            return routing;
+//        }
+//
+//        @Action
+//        public AgentModels.ContextCollectorRouting consolidateContextOperations(
+//                AgentModels.ContextCollectorRequest input,
+//                OperationContext context
+//        ) {
+//            emitActionStarted(eventBus, multiAgentAgentName(), "context-collector", context);
+//            String prompt = renderTemplate(
+//                    CONTEXT_COLLECTOR_START_MESSAGE,
+//                    Map.of("goal", input.goal(), "phase", input.phase())
+//            );
+//            AgentModels.ContextCollectorRouting routing = context.ai()
+//                    .withDefaultLlm()
+//                    .createObject(prompt, AgentModels.ContextCollectorRouting.class);
+//            emitActionCompleted(eventBus, multiAgentAgentName(), "context-collector", context, routing);
+//            return routing;
+//        }
+//
+//        @Action
+//        public AgentModels.ContextOrchestratorRouting handleContextInterrupt(
+//                AgentModels.ContextOrchestratorInterruptRequest request,
+//                OperationContext context
+//        ) {
+//            emitActionStarted(eventBus, multiAgentAgentName(), "context-interrupt", context);
+//            AgentModels.ContextOrchestratorRouting routing =
+//                    new AgentModels.ContextOrchestratorRouting(
+//                            request,
+//                            null,
+//                            null
+//                    );
+//            emitActionCompleted(eventBus, multiAgentAgentName(), "context-interrupt", context, routing);
+//            return routing;
+//        }
 
         private <T> T runSubProcess(
                 ActionContext context,
@@ -1156,95 +991,6 @@ public interface AgentInterfaces {
             T result = context.asSubProcess(outputClass, agent);
             context.hide(request);
             return result;
-        }
-
-        private static AgentModels.InterruptDescriptor resolveInterruptDescriptor(
-                AgentModels.InterruptDescriptor directInterrupt,
-                AgentModels.InterruptState interruptState
-        ) {
-            if (directInterrupt != null) {
-                return directInterrupt;
-            }
-            if (interruptState != null && interruptState.request() != null) {
-                return interruptState.request();
-            }
-            return null;
-        }
-
-        private static AgentModels.DiscoveryAgentDispatchInterruptRequest toDiscoveryDispatchInterrupt(
-                AgentModels.DiscoveryAgentRouting routing
-        ) {
-            if (routing == null) {
-                return null;
-            }
-            AgentModels.InterruptDescriptor interrupt = resolveInterruptDescriptor(
-                    routing.interruptRequest(),
-                    routing.interruptState()
-            );
-            if (interrupt == null) {
-                return null;
-            }
-            return new AgentModels.DiscoveryAgentDispatchInterruptRequest(
-                    interrupt.type(),
-                    interrupt.reason()
-            );
-        }
-
-        private static AgentModels.PlanningAgentDispatchInterruptRequest toPlanningDispatchInterrupt(
-                AgentModels.PlanningAgentRouting routing
-        ) {
-            if (routing == null) {
-                return null;
-            }
-            AgentModels.InterruptDescriptor interrupt = resolveInterruptDescriptor(
-                    routing.interruptRequest(),
-                    routing.interruptState()
-            );
-            if (interrupt == null) {
-                return null;
-            }
-            return new AgentModels.PlanningAgentDispatchInterruptRequest(
-                    interrupt.type(),
-                    interrupt.reason()
-            );
-        }
-
-        private static AgentModels.TicketAgentDispatchInterruptRequest toTicketDispatchInterrupt(
-                AgentModels.TicketAgentRouting routing
-        ) {
-            if (routing == null) {
-                return null;
-            }
-            AgentModels.InterruptDescriptor interrupt = resolveInterruptDescriptor(
-                    routing.interruptRequest(),
-                    routing.interruptState()
-            );
-            if (interrupt == null) {
-                return null;
-            }
-            return new AgentModels.TicketAgentDispatchInterruptRequest(
-                    interrupt.type(),
-                    interrupt.reason()
-            );
-        }
-
-        private static AgentModels.ContextAgentDispatchInterruptRequest toContextDispatchInterrupt(
-                AgentModels.ContextAgentRouting routing
-        ) {
-            if (routing == null) {
-                return null;
-            }
-            AgentModels.InterruptDescriptor interrupt = resolveInterruptDescriptor(
-                    routing.interruptRequest(),
-                    null
-            );
-            if (interrupt == null) {
-                return null;
-            }
-            return new AgentModels.ContextAgentDispatchInterruptRequest(
-                    interrupt.type(),
-                    interrupt.reason()
-            );
         }
 
         private static String resolveDiscoveryGoal(
@@ -1285,37 +1031,37 @@ public interface AgentInterfaces {
             return firstNonBlank(orchestratorRequest != null ? orchestratorRequest.goal() : null);
         }
 
-        private static String resolveContextGoal(
-                ActionContext context,
-                List<AgentModels.ContextAgentRequest> requests
-        ) {
-            if (requests != null) {
-                for (AgentModels.ContextAgentRequest request : requests) {
-                    if (request != null && request.goal() != null && !request.goal().isBlank()) {
-                        return request.goal();
-                    }
-                }
-            }
-            AgentModels.ContextOrchestratorRequest orchestratorRequest =
-                    context.last(AgentModels.ContextOrchestratorRequest.class);
-            return firstNonBlank(orchestratorRequest != null ? orchestratorRequest.goal() : null);
-        }
-
-        private static String resolveContextPhase(
-                ActionContext context,
-                List<AgentModels.ContextAgentRequest> requests
-        ) {
-            if (requests != null) {
-                for (AgentModels.ContextAgentRequest request : requests) {
-                    if (request != null && request.phase() != null && !request.phase().isBlank()) {
-                        return request.phase();
-                    }
-                }
-            }
-            AgentModels.ContextOrchestratorRequest orchestratorRequest =
-                    context.last(AgentModels.ContextOrchestratorRequest.class);
-            return firstNonBlank(orchestratorRequest != null ? orchestratorRequest.phase() : null);
-        }
+//        private static String resolveContextGoal(
+//                ActionContext context,
+//                List<AgentModels.ContextAgentRequest> requests
+//        ) {
+//            if (requests != null) {
+//                for (AgentModels.ContextAgentRequest request : requests) {
+//                    if (request != null && request.goal() != null && !request.goal().isBlank()) {
+//                        return request.goal();
+//                    }
+//                }
+//            }
+//            AgentModels.ContextOrchestratorRequest orchestratorRequest =
+//                    context.last(AgentModels.ContextOrchestratorRequest.class);
+//            return firstNonBlank(orchestratorRequest != null ? orchestratorRequest.goal() : null);
+//        }
+//
+//        private static String resolveContextPhase(
+//                ActionContext context,
+//                List<AgentModels.ContextAgentRequest> requests
+//        ) {
+//            if (requests != null) {
+//                for (AgentModels.ContextAgentRequest request : requests) {
+//                    if (request != null && request.phase() != null && !request.phase().isBlank()) {
+//                        return request.phase();
+//                    }
+//                }
+//            }
+//            AgentModels.ContextOrchestratorRequest orchestratorRequest =
+//                    context.last(AgentModels.ContextOrchestratorRequest.class);
+//            return firstNonBlank(orchestratorRequest != null ? orchestratorRequest.phase() : null);
+//        }
 
         private static String firstNonBlank(String... values) {
             if (values == null) {
@@ -1333,7 +1079,7 @@ public interface AgentInterfaces {
             if (body == null || body.isBlank()) {
                 return;
             }
-            if (builder.length() > 0) {
+            if (!builder.isEmpty()) {
                 builder.append("\n");
             }
             if (heading != null && !heading.isBlank()) {
@@ -1343,15 +1089,30 @@ public interface AgentInterfaces {
         }
 
         @Agent(
-                name = "WorkflowDiscoveryDispatchSubagent",
-                description = "Runs discovery agent request in a subprocess",
-                scan = false
+                name = WORKFLOW_DISCOVERY_DISPATCH_SUBAGENT,
+                description = "Runs discovery agent request in a subprocess"
         )
-        static final class DiscoveryDispatchSubagent {
-            private final WorkflowAgent workflowAgent;
+        @RequiredArgsConstructor
+        public static final class DiscoveryDispatchSubagent {
 
-            DiscoveryDispatchSubagent(WorkflowAgent workflowAgent) {
-                this.workflowAgent = workflowAgent;
+            private final EventBus eventBus;
+
+            @Action
+            @AchievesGoal(description = "Handle context agent request")
+            public AgentModels.DiscoveryAgentResult run(
+                    AgentModels.DiscoveryAgentResult input,
+                    OperationContext context
+            ) {
+                return input;
+            }
+
+            @Action
+            public AgentModels.DiscoveryAgentRouting transitionToInterruptState(
+                    AgentModels.DiscoveryAgentInterruptRequest interruptRequest,
+                    OperationContext context
+            ) {
+//                TODO: handles review, agent and human, waiting for human, agent
+                throw new RuntimeException();
             }
 
             @Action
@@ -1360,22 +1121,47 @@ public interface AgentInterfaces {
                     AgentModels.DiscoveryAgentRequest input,
                     OperationContext context
             ) {
-                return workflowAgent.discoverCodebaseSection(input, context);
+                emitActionStarted(eventBus, "", "discovery-agent", context);
+                String prompt = renderTemplate(
+                        DISCOVERY_AGENT_START_MESSAGE,
+                        Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
+                );
+                AgentModels.DiscoveryAgentRouting routing = context.ai()
+                        .withDefaultLlm()
+                        .createObject(prompt, AgentModels.DiscoveryAgentRouting.class);
+                emitActionCompleted(eventBus, "", "discovery-agent", context, routing);
+                return routing;
             }
         }
 
         @Agent(
-                name = "WorkflowPlanningDispatchSubagent",
-                description = "Runs planning agent request in a subprocess",
-                scan = false
+                name = WORKFLOW_PLANNING_DISPATCH_SUBAGENT,
+                description = "Runs planning agent request in a subprocess"
         )
         @RequiredArgsConstructor
-        static final class PlanningDispatchSubagent {
+        public static final class PlanningDispatchSubagent {
 
             private final EventBus eventBus;
 
             @Action
-            @AchievesGoal(description = "Handle planning agent request")
+            @AchievesGoal(description = "Handle context agent request")
+            public AgentModels.PlanningAgentResult run(
+                    AgentModels.PlanningAgentResult input,
+                    OperationContext context
+            ) {
+                return input;
+            }
+
+            @Action
+            public AgentModels.PlanningAgentRouting transitionToInterruptState(
+                    AgentModels.PlanningAgentInterruptRequest interruptRequest,
+                    OperationContext context
+            ) {
+//                TODO: handles review, agent and human, waiting for human, agent
+                throw new RuntimeException();
+            }
+
+            @Action
             public AgentModels.PlanningAgentRouting run(
                     AgentModels.PlanningAgentRequest input,
                     OperationContext context
@@ -1394,16 +1180,32 @@ public interface AgentInterfaces {
         }
 
         @Agent(
-                name = "WorkflowTicketDispatchSubagent",
-                description = "Runs ticket agent request in a subprocess",
-                scan = false
+                name = WORKFLOW_TICKET_DISPATCH_SUBAGENT,
+                description = "Runs ticket agent request in a subprocess"
         )
         @RequiredArgsConstructor
-        static final class TicketDispatchSubagent {
+        public static final class TicketDispatchSubagent {
             private final EventBus eventBus;
 
             @Action
-            @AchievesGoal(description = "Handle ticket agent request")
+            @AchievesGoal(description = "Handle context agent request")
+            public AgentModels.TicketAgentResult run(
+                    AgentModels.TicketAgentResult input,
+                    OperationContext context
+            ) {
+                return input;
+            }
+
+            @Action
+            public AgentModels.TicketAgentRouting transitionToInterruptState(
+                    AgentModels.TicketAgentInterruptRequest interruptRequest,
+                    OperationContext context
+            ) {
+//                TODO: handles review, agent and human, waiting for human, agent
+                throw new RuntimeException();
+            }
+
+            @Action
             public AgentModels.TicketAgentRouting run(
                     AgentModels.TicketAgentRequest input,
                     OperationContext context
@@ -1426,33 +1228,49 @@ public interface AgentInterfaces {
             }
         }
 
-        @Agent(
-                name = "WorkflowContextDispatchSubagent",
-                description = "Runs context agent request in a subprocess",
-                scan = false
-        )
-        @RequiredArgsConstructor
-        static final class ContextDispatchSubagent {
+//        @Agent(
+//                name = WORKFLOW_CONTEXT_DISPATCH_SUBAGENT,
+//                description = "Runs context agent request in a subprocess"
+//        )
+//        @RequiredArgsConstructor
+//        public static final class ContextDispatchSubagent {
+//
+//            private final EventBus eventBus;
+//
+//            @Action
+//            @AchievesGoal(description = "Handle context agent request")
+//            public AgentModels.ContextAgentResult run(
+//                    AgentModels.ContextAgentResult input,
+//                    OperationContext context
+//            ) {
+//                return input;
+//            }
+//
+//            @Action
+//            public AgentModels.ContextAgentRouting transitionToInterruptState(
+//                    AgentModels.ContextAgentInterruptRequest interruptRequest,
+//                    OperationContext context
+//            ) {
+//                throw new RuntimeException();
+//            }
+//
+//            @Action
+//            public AgentModels.ContextAgentRouting run(
+//                    AgentModels.ContextAgentRequest input,
+//                    OperationContext context
+//            ) {
+//                emitActionStarted(eventBus, "", "context-agent", context);
+//                String prompt = renderTemplate(
+//                        CONTEXT_AGENT_START_MESSAGE,
+//                        Map.of("goal", input.goal(), "phase", input.phase())
+//                );
+//                AgentModels.ContextAgentRouting routing = context.ai()
+//                        .withDefaultLlm()
+//                        .createObject(prompt, AgentModels.ContextAgentRouting.class);
+//                emitActionCompleted(eventBus, "", "context-agent", context, routing);
+//                return routing;
+//            }
+//        }
 
-            private final EventBus eventBus;
-
-            @Action
-            @AchievesGoal(description = "Handle context agent request")
-            public AgentModels.ContextAgentRouting run(
-                    AgentModels.ContextAgentRequest input,
-                    OperationContext context
-            ) {
-                emitActionStarted(eventBus, "", "context-agent", context);
-                String prompt = renderTemplate(
-                        CONTEXT_AGENT_START_MESSAGE,
-                        Map.of("goal", input.goal(), "phase", input.phase())
-                );
-                AgentModels.ContextAgentRouting routing = context.ai()
-                        .withDefaultLlm()
-                        .createObject(prompt, AgentModels.ContextAgentRouting.class);
-                emitActionCompleted(eventBus, "", "context-agent", context, routing);
-                return routing;
-            }
-        }
     }
 }
