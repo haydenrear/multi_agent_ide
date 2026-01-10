@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.agent;
 
+import com.embabel.agent.api.common.OperationContext;
 import com.embabel.agent.api.common.PlannerType;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.ProcessOptions;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -101,14 +103,14 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 //        when(workflowGraphService.startReviewNode(any())).thenReturn(createMockReviewNode());
 //        when(workflowGraphService.startMergeNode(any())).thenReturn(createMockMergeNode());
         // Orchestrator collector completes
-        doReturn(new AgentModels.OrchestratorCollectorResult(
-                        "All done",
-                        new AgentModels.CollectorDecision(
-                                AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                "Complete",
-                                "COMPLETE"
-                        )
-                )).when(workflowAgent).finalCollectorResult(
+        doReturn(AgentModels.OrchestratorCollectorResult.builder()
+                        .consolidatedOutput("All done")
+                        .collectorDecision(AgentModels.CollectorDecision.builder()
+                                .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                .rationale("Complete")
+                                .requestedPhase("COMPLETE")
+                                .build())
+                        .build()).when(workflowAgent).finalCollectorResult(
                 Mockito.any(AgentModels.OrchestratorCollectorResult.class),
                 any()
         );
@@ -120,110 +122,130 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         @Test
         void fullWorkflow_discoveryToPlanningSingleAgentsToCompletion() {
             // 1. Orchestrator routes to collector
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Implement auth", "DISCOVERY")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Implement auth")
+                            .phase("DISCOVERY")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
             // 2. Collector routes to Discovery
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null,
-                    new AgentModels.DiscoveryOrchestratorRequest("Implement auth"),
-                    null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .discoveryRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
+                            .goal("Implement auth")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "DISCOVERY".equals(req.phase())),
                     any()
             );
 
             // 3. Discovery orchestrator creates single agent request
-            doReturn(new AgentModels.DiscoveryOrchestratorRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentRequests(List.of(
-                            new AgentModels.DiscoveryAgentRequest("Implement auth", "Auth modules")
-                    )),
-                    null
-            )).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
+            doReturn(AgentModels.DiscoveryOrchestratorRouting.builder()
+                    .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
+                            .requests(List.of(
+                                    AgentModels.DiscoveryAgentRequest.builder()
+                                            .goal("Implement auth")
+                                            .subdomainFocus("Auth modules")
+                                            .build()
+                            ))
+                            .build())
+                    .build()
+            ).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
 
-            // 4. Discovery subagent returns result
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("Found AuthService, UserService")
-            )).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            // 4. Discovery subagent returns output
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .agentResult(AgentModels.DiscoveryAgentResult.builder()
+                            .output("Found AuthService, UserService")
+                            .build())
+                    .build()
+            ).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
 
             // 5. Discovery dispatch routes to collector
-            doReturn(new AgentModels.DiscoveryAgentDispatchRouting(
-                    null,
-                    new AgentModels.DiscoveryCollectorRequest("Implement auth", "All findings")
-            )).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
+            doReturn(AgentModels.DiscoveryAgentDispatchRouting.builder()
+                    .collectorRequest(AgentModels.DiscoveryCollectorRequest.builder()
+                            .goal("Implement auth")
+                            .discoveryResults("All findings")
+                            .build())
+                    .build()
+            ).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
 
             // 6. Discovery collector routes to Planning
-            doReturn(new AgentModels.DiscoveryCollectorRouting(
-                    null, null, null, null,
-                    new AgentModels.PlanningOrchestratorRequest("Implement auth"),
-                    null, null, null, null
-            )).when(workflowAgent).consolidateDiscoveryFindings(any(AgentModels.DiscoveryCollectorRequest.class), any());
+            doReturn(AgentModels.DiscoveryCollectorRouting.builder()
+                    .planningRequest(AgentModels.PlanningOrchestratorRequest.builder()
+                            .goal("Implement auth")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateDiscoveryFindings(any(AgentModels.DiscoveryCollectorRequest.class), any());
 
             // 7. Planning orchestrator creates single agent request
-            doReturn(new AgentModels.PlanningOrchestratorRouting(
-                    null,
-                    new AgentModels.PlanningAgentRequests(List.of(
-                            new AgentModels.PlanningAgentRequest("Implement auth")
-                    )),
-                    null
-            )).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
+            doReturn(AgentModels.PlanningOrchestratorRouting.builder()
+                    .agentRequests(AgentModels.PlanningAgentRequests.builder()
+                            .requests(List.of(
+                                    AgentModels.PlanningAgentRequest.builder()
+                                            .goal("Implement auth")
+                                            .build()
+                            ))
+                            .build())
+                    .build()
+            ).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
 
-            // 8. Planning subagent returns result
-            doReturn(new AgentModels.PlanningAgentRouting(
-                    null,
-                    new AgentModels.PlanningAgentResult("Plan: Add JWT, Update UserService")
-            )).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            // 8. Planning subagent returns output
+            doReturn(AgentModels.PlanningAgentRouting.builder()
+                    .agentResult(AgentModels.PlanningAgentResult.builder()
+                            .output("Plan: Add JWT, Update UserService")
+                            .build())
+                    .build()
+            ).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
 
             // 9. Planning dispatch routes to collector
-            doReturn(new AgentModels.PlanningAgentDispatchRouting(
-                    null,
-                    new AgentModels.PlanningCollectorRequest("Implement auth", "All plans")
-            )).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
+            doReturn(AgentModels.PlanningAgentDispatchRouting.builder()
+                    .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
+                            .goal("Implement auth")
+                            .planningResults("All plans")
+                            .build())
+                    .build()
+            ).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
 
-            // 10. Planning collector routes back to orchestrator collector with result
-            doReturn(new AgentModels.PlanningCollectorRouting(
-                    null,
-                    new AgentModels.PlanningCollectorResult(
-                            "Plans consolidated",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Planning complete",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null
-            )).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
+            // 10. Planning collector routes back to orchestrator collector with output
+            doReturn(AgentModels.PlanningCollectorRouting.builder()
+                    .collectorResult(AgentModels.PlanningCollectorResult.builder()
+                            .consolidatedOutput("Plans consolidated")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Planning complete")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
 
-            // 11. Orchestrator collector returns final result
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorResult(
-                            "Workflow complete",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "All phases done",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            // 11. Orchestrator collector returns final output
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
+                            .consolidatedOutput("Workflow complete")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("All phases done")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-full-workflow").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Implement auth", "DISCOVERY"))
             );
 
             // Assert
-            assertThat(result.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
 
             // Verify action methods called in correct order
             verify(workflowAgent).coordinateWorkflow(any(), any());
@@ -253,82 +275,92 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         @Test
         void skipDiscovery_startAtPlanning() {
             // 1. Orchestrator routes to collector with PLANNING phase
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Quick task", "PLANNING")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Quick task")
+                            .phase("PLANNING")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
             // 2. Collector routes directly to Planning (skips Discovery)
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null,
-                    new AgentModels.PlanningOrchestratorRequest("Quick task"),
-                    null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .planningRequest(AgentModels.PlanningOrchestratorRequest.builder()
+                            .goal("Quick task")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "PLANNING".equals(req.phase())),
                     any()
             );
 
             // 3. Planning orchestrator creates request
-            doReturn(new AgentModels.PlanningOrchestratorRouting(
-                    null,
-                    new AgentModels.PlanningAgentRequests(List.of(
-                            new AgentModels.PlanningAgentRequest("Quick task")
-                    )),
-                    null
-            )).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
+            doReturn(AgentModels.PlanningOrchestratorRouting.builder()
+                    .agentRequests(AgentModels.PlanningAgentRequests.builder()
+                            .requests(List.of(
+                                    AgentModels.PlanningAgentRequest.builder()
+                                            .goal("Quick task")
+                                            .build()
+                            ))
+                            .build())
+                    .build()
+            ).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
 
-            // 4. Planning subagent returns result
-            doReturn(new AgentModels.PlanningAgentRouting(
-                    null,
-                    new AgentModels.PlanningAgentResult("Simple plan")
-            )).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            // 4. Planning subagent returns output
+            doReturn(AgentModels.PlanningAgentRouting.builder()
+                    .agentResult(AgentModels.PlanningAgentResult.builder()
+                            .output("Simple plan")
+                            .build())
+                    .build()
+            ).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
 
             // 5. Planning dispatch routes to collector
-            doReturn(new AgentModels.PlanningAgentDispatchRouting(
-                    null,
-                    new AgentModels.PlanningCollectorRequest("Quick task", "plan")
-            )).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
+            doReturn(AgentModels.PlanningAgentDispatchRouting.builder()
+                    .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
+                            .goal("Quick task")
+                            .planningResults("plan")
+                            .build())
+                    .build()
+            ).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
 
             // 6. Planning collector completes
-            doReturn(new AgentModels.PlanningCollectorRouting(
-                    null,
-                    new AgentModels.PlanningCollectorResult(
-                            "Done",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Complete",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null
-            )).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
+            doReturn(AgentModels.PlanningCollectorRouting.builder()
+                    .collectorResult(AgentModels.PlanningCollectorResult.builder()
+                            .consolidatedOutput("Done")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Complete")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
 
             // 7. Orchestrator collector completes
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorResult(
-                            "Complete",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Done",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
+                            .consolidatedOutput("Complete")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Done")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-skip-discovery").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Quick task", "PLANNING"))
             );
 
             // Assert
-            assertThat(result.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
 
             // Verify Discovery was skipped
             verify(workflowAgent, never()).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
@@ -343,83 +375,86 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         @Test
         void skipToTickets_directlyFromOrchestrator() {
             // 1. Orchestrator routes to collector with TICKETS phase
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Direct to tickets", "TICKETS")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Direct to tickets")
+                            .phase("TICKETS")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
             // 2. Collector routes directly to Tickets
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null, null,
-                    new AgentModels.TicketOrchestratorRequest("Direct to tickets", "", "", ""),
-                    null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .ticketRequest(new AgentModels.TicketOrchestratorRequest("Direct to tickets", "", "", ""))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "TICKETS".equals(req.phase())),
                     any()
             );
 
             // 3. Ticket orchestrator creates requests
-            doReturn(new AgentModels.TicketOrchestratorRouting(
-                    null,
-                    new AgentModels.TicketAgentRequests(List.of(
+            doReturn(AgentModels.TicketOrchestratorRouting.builder()
+                    .agentRequests(new AgentModels.TicketAgentRequests(List.of(
                             new AgentModels.TicketAgentRequest("Direct to tickets", "", "", "")
-                    )),
-                    null
-            )).when(workflowAgent).orchestrateTicketExecution(any(AgentModels.TicketOrchestratorRequest.class), any());
+                    )))
+                    .build()
+            ).when(workflowAgent).orchestrateTicketExecution(any(AgentModels.TicketOrchestratorRequest.class), any());
 
-            // 4. Ticket subagent returns result
-            doReturn(new AgentModels.TicketAgentRouting(
-                    null,
-                    new AgentModels.TicketAgentResult("Ticket completed")
-            )).when(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
+            // 4. Ticket subagent returns output
+            doReturn(AgentModels.TicketAgentRouting.builder()
+                    .agentResult(AgentModels.TicketAgentResult.builder()
+                            .output("Ticket completed")
+                            .build())
+                    .build()
+            ).when(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
 
             // 5. Ticket dispatch routes to collector
-            doReturn(new AgentModels.TicketAgentDispatchRouting(
-                    null,
-                    new AgentModels.TicketCollectorRequest("Direct to tickets", "results")
-            )).when(workflowAgent).dispatchTicketAgentRequests(any(AgentModels.TicketAgentRequests.class), any());
+            doReturn(AgentModels.TicketAgentDispatchRouting.builder()
+                    .ticketCollectorRequest(AgentModels.TicketCollectorRequest.builder()
+                            .goal("Direct to tickets")
+                            .ticketResults("outputs")
+                            .build())
+                    .build()
+            ).when(workflowAgent).dispatchTicketAgentRequests(any(AgentModels.TicketAgentRequests.class), any());
 
             // 6. Ticket collector completes
-            doReturn(new AgentModels.TicketCollectorRouting(
-                    null,
-                    new AgentModels.TicketCollectorResult(
-                            "Tickets done",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Complete",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null,
-                    null, null, null
-            )).when(workflowAgent).consolidateTicketResults(any(AgentModels.TicketCollectorRequest.class), any());
+            doReturn(AgentModels.TicketCollectorRouting.builder()
+                    .collectorResult(AgentModels.TicketCollectorResult.builder()
+                            .consolidatedOutput("Tickets done")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Complete")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateTicketResults(any(AgentModels.TicketCollectorRequest.class), any());
 
             // 7. Orchestrator collector completes
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorResult(
-                            "Complete",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Done",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
+                            .consolidatedOutput("Complete")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Done")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-direct-tickets").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Direct to tickets", "TICKETS"))
             );
 
             // Assert
-            assertThat(result.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
 
             // Verify Discovery and Planning were skipped
             verify(workflowGraphService, never()).startDiscoveryOrchestrator(any(), any());
@@ -437,103 +472,124 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         @Test
         void multipleDiscoveryAgents_allComplete() {
             // 1. Orchestrator routes to collector
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Complex discovery", "DISCOVERY")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Complex discovery")
+                            .phase("DISCOVERY")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
             // 2. Collector routes to Discovery
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null,
-                    new AgentModels.DiscoveryOrchestratorRequest("Complex discovery"),
-                    null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .discoveryRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
+                            .goal("Complex discovery")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "DISCOVERY".equals(req.phase())),
                     any()
             );
 
             // 3. Discovery orchestrator creates MULTIPLE agent requests
-            doReturn(new AgentModels.DiscoveryOrchestratorRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentRequests(List.of(
-                            new AgentModels.DiscoveryAgentRequest("Complex discovery", "Frontend"),
-                            new AgentModels.DiscoveryAgentRequest("Complex discovery", "Backend"),
-                            new AgentModels.DiscoveryAgentRequest("Complex discovery", "Database")
-                    )),
-                    null
-            )).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
+            doReturn(AgentModels.DiscoveryOrchestratorRouting.builder()
+                    .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
+                            .requests(List.of(
+                                    AgentModels.DiscoveryAgentRequest.builder()
+                                            .goal("Complex discovery")
+                                            .subdomainFocus("Frontend")
+                                            .build(),
+                                    AgentModels.DiscoveryAgentRequest.builder()
+                                            .goal("Complex discovery")
+                                            .subdomainFocus("Backend")
+                                            .build(),
+                                    AgentModels.DiscoveryAgentRequest.builder()
+                                            .goal("Complex discovery")
+                                            .subdomainFocus("Database")
+                                            .build()
+                            ))
+                            .build())
+                    .build()
+            ).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
 
-            // 4. Each discovery subagent returns results
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("Frontend findings")
-            )).when(discoveryDispatchSubagent).run(
+            // 4. Each discovery subagent returns outputs
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .agentResult(AgentModels.DiscoveryAgentResult.builder()
+                            .output("Frontend findings")
+                            .build())
+                    .build()
+            ).when(discoveryDispatchSubagent).run(
                     argThat((AgentModels.DiscoveryAgentRequest req) -> req.subdomainFocus().equals("Frontend")),
                     any()
             );
 
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("Backend findings")
-            )).when(discoveryDispatchSubagent).run(
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .agentResult(AgentModels.DiscoveryAgentResult.builder()
+                            .output("Backend findings")
+                            .build())
+                    .build()
+            ).when(discoveryDispatchSubagent).run(
                     argThat((AgentModels.DiscoveryAgentRequest req) -> req.subdomainFocus().equals("Backend")),
                     any()
             );
 
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("Database findings")
-            )).when(discoveryDispatchSubagent).run(
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .agentResult(AgentModels.DiscoveryAgentResult.builder()
+                            .output("Database findings")
+                            .build())
+                    .build()
+            ).when(discoveryDispatchSubagent).run(
                     argThat((AgentModels.DiscoveryAgentRequest req) -> req.subdomainFocus().equals("Database")),
                     any()
             );
 
             // 5. Discovery dispatch routes to collector
-            doReturn(new AgentModels.DiscoveryAgentDispatchRouting(
-                    null,
-                    new AgentModels.DiscoveryCollectorRequest("Complex discovery", "All findings")
-            )).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
+            doReturn(AgentModels.DiscoveryAgentDispatchRouting.builder()
+                    .collectorRequest(AgentModels.DiscoveryCollectorRequest.builder()
+                            .goal("Complex discovery")
+                            .discoveryResults("All findings")
+                            .build())
+                    .build()
+            ).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
 
             // 6. Discovery collector completes
-            doReturn(new AgentModels.DiscoveryCollectorRouting(
-                    null,
-                    new AgentModels.DiscoveryCollectorResult(
-                            "Discovery complete",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Done",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null, null, null, null
-            )).when(workflowAgent).consolidateDiscoveryFindings(any(AgentModels.DiscoveryCollectorRequest.class), any());
+            doReturn(AgentModels.DiscoveryCollectorRouting.builder()
+                    .collectorResult(AgentModels.DiscoveryCollectorResult.builder()
+                            .consolidatedOutput("Discovery complete")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Done")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateDiscoveryFindings(any(AgentModels.DiscoveryCollectorRequest.class), any());
 
             // 7. Orchestrator collector completes
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorResult(
-                            "Complete",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Done",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
+                            .consolidatedOutput("Complete")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Done")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-multiple-discovery").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Complex discovery", "DISCOVERY"))
             );
 
             // Assert
-            assertThat(result.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
 
             // Verify all 3 discovery agents were called
             verify(discoveryDispatchSubagent, times(3)).run(any(AgentModels.DiscoveryAgentRequest.class), any());
@@ -543,81 +599,89 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         @Test
         void multiplePlanningAgents_consolidatedIntoTickets() {
             // Setup: Start at planning with multiple agents
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Multi-plan", "PLANNING")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Multi-plan")
+                            .phase("PLANNING")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null,
-                    new AgentModels.PlanningOrchestratorRequest("Multi-plan"),
-                    null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .planningRequest(AgentModels.PlanningOrchestratorRequest.builder()
+                            .goal("Multi-plan")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "PLANNING".equals(req.phase())),
                     any()
             );
 
             // Create 4 planning agents
-            doReturn(new AgentModels.PlanningOrchestratorRouting(
-                    null,
-                    new AgentModels.PlanningAgentRequests(List.of(
-                            new AgentModels.PlanningAgentRequest("Multi-plan"),
-                            new AgentModels.PlanningAgentRequest("Multi-plan"),
-                            new AgentModels.PlanningAgentRequest("Multi-plan"),
-                            new AgentModels.PlanningAgentRequest("Multi-plan")
-                    )),
-                    null
-            )).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
+            doReturn(AgentModels.PlanningOrchestratorRouting.builder()
+                    .agentRequests(AgentModels.PlanningAgentRequests.builder()
+                            .requests(List.of(
+                                    AgentModels.PlanningAgentRequest.builder().goal("Multi-plan").build(),
+                                    AgentModels.PlanningAgentRequest.builder().goal("Multi-plan").build(),
+                                    AgentModels.PlanningAgentRequest.builder().goal("Multi-plan").build(),
+                                    AgentModels.PlanningAgentRequest.builder().goal("Multi-plan").build()
+                            ))
+                            .build())
+                    .build()
+            ).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
 
-            // All planning agents return results
-            doReturn(new AgentModels.PlanningAgentRouting(
-                    null,
-                    new AgentModels.PlanningAgentResult("Plan part")
-            )).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            // All planning agents return outputs
+            doReturn(AgentModels.PlanningAgentRouting.builder()
+                    .agentResult(AgentModels.PlanningAgentResult.builder()
+                            .output("Plan part")
+                            .build())
+                    .build()
+            ).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
 
-            doReturn(new AgentModels.PlanningAgentDispatchRouting(
-                    null,
-                    new AgentModels.PlanningCollectorRequest("Multi-plan", "All plans")
-            )).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
+            doReturn(AgentModels.PlanningAgentDispatchRouting.builder()
+                    .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
+                            .goal("Multi-plan")
+                            .planningResults("All plans")
+                            .build())
+                    .build()
+            ).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
 
-            doReturn(new AgentModels.PlanningCollectorRouting(
-                    null,
-                    new AgentModels.PlanningCollectorResult(
-                            "Plans ready",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Done",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null
-            )).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
+            doReturn(AgentModels.PlanningCollectorRouting.builder()
+                    .collectorResult(AgentModels.PlanningCollectorResult.builder()
+                            .consolidatedOutput("Plans ready")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Done")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorResult(
-                            "Complete",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Done",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
+                            .consolidatedOutput("Complete")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Done")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-multiple-planning").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Multi-plan", "PLANNING"))
             );
 
             // Assert
-            assertThat(result.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
             verify(planningDispatchSubagent, times(4)).run(any(AgentModels.PlanningAgentRequest.class), any());
             verify(workflowGraphService, times(4)).startPlanningAgent(any(), any(), any());
         }
@@ -629,16 +693,16 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         @Test
         void orchestratorPause_workflowStops() {
             // Orchestrator immediately pauses
-            doReturn(new AgentModels.OrchestratorRouting(
-                    new AgentModels.OrchestratorInterruptRequest(
-                            AgentModels.InterruptType.PAUSE,
-                            "User requested pause"
-                    ),
-                    null
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .interruptRequest(AgentModels.OrchestratorInterruptRequest.builder()
+                            .type(AgentModels.InterruptType.PAUSE)
+                            .reason("User requested pause")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-pause").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Paused task", "DISCOVERY"))
@@ -653,16 +717,16 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         @Test
         void orchestratorStop_workflowAborts() {
             // Orchestrator stops the workflow
-            doReturn(new AgentModels.OrchestratorRouting(
-                    new AgentModels.OrchestratorInterruptRequest(
-                            AgentModels.InterruptType.STOP,
-                            "Critical error detected"
-                    ),
-                    null
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .interruptRequest(AgentModels.OrchestratorInterruptRequest.builder()
+                            .type(AgentModels.InterruptType.STOP)
+                            .reason("Critical error detected")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-stop").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Stopped task", "DISCOVERY"))
@@ -677,47 +741,60 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         @Test
         void collectorPause_afterDiscovery() {
             // Normal orchestrator
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Task", "DISCOVERY")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Task")
+                            .phase("DISCOVERY")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
             // Collector routes to discovery
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null,
-                    new AgentModels.DiscoveryOrchestratorRequest("Task"),
-                    null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .discoveryRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
+                            .goal("Task")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
 
-            doReturn(new AgentModels.DiscoveryOrchestratorRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentRequests(List.of(
-                            new AgentModels.DiscoveryAgentRequest("Task", "subdomain")
-                    )),
-                    null
-            )).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
+            doReturn(AgentModels.DiscoveryOrchestratorRouting.builder()
+                    .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
+                            .requests(List.of(
+                                    AgentModels.DiscoveryAgentRequest.builder()
+                                            .goal("Task")
+                                            .subdomainFocus("subdomain")
+                                            .build()
+                            ))
+                            .build())
+                    .build()
+            ).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
 
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("Found stuff")
-            )).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .agentResult(AgentModels.DiscoveryAgentResult.builder()
+                            .output("Found stuff")
+                            .build())
+                    .build()
+            ).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
 
-            doReturn(new AgentModels.DiscoveryAgentDispatchRouting(
-                    null,
-                    new AgentModels.DiscoveryCollectorRequest("Task", "findings")
-            )).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
+            doReturn(AgentModels.DiscoveryAgentDispatchRouting.builder()
+                    .collectorRequest(AgentModels.DiscoveryCollectorRequest.builder()
+                            .goal("Task")
+                            .discoveryResults("findings")
+                            .build())
+                    .build()
+            ).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
 
             // Discovery collector PAUSES instead of continuing
-            doReturn(new AgentModels.DiscoveryCollectorRouting(
-                    new AgentModels.DiscoveryCollectorInterruptRequest(
-                            AgentModels.InterruptType.PAUSE,
-                            "Need human review"
-                    ),
-                    null, null, null, null, null, null, null, null
-            )).when(workflowAgent).consolidateDiscoveryFindings(any(AgentModels.DiscoveryCollectorRequest.class), any());
+            doReturn(AgentModels.DiscoveryCollectorRouting.builder()
+                    .interruptRequest(AgentModels.DiscoveryCollectorInterruptRequest.builder()
+                            .type(AgentModels.InterruptType.PAUSE)
+                            .reason("Need human review")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateDiscoveryFindings(any(AgentModels.DiscoveryCollectorRequest.class), any());
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-collector-pause").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Task", "DISCOVERY"))
@@ -731,60 +808,78 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
         @Test
         void discoveryAgentPause_oneOfMany() {
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Multi-agent pause", "DISCOVERY")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Multi-agent pause")
+                            .phase("DISCOVERY")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null,
-                    new AgentModels.DiscoveryOrchestratorRequest("Multi-agent pause"),
-                    null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .discoveryRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
+                            .goal("Multi-agent pause")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
 
             // Create 3 discovery agents
-            doReturn(new AgentModels.DiscoveryOrchestratorRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentRequests(List.of(
-                            new AgentModels.DiscoveryAgentRequest("Multi-agent pause", "Agent1"),
-                            new AgentModels.DiscoveryAgentRequest("Multi-agent pause", "Agent2"),
-                            new AgentModels.DiscoveryAgentRequest("Multi-agent pause", "Agent3")
-                    )),
-                    null
-            )).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
+            doReturn(AgentModels.DiscoveryOrchestratorRouting.builder()
+                    .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
+                            .requests(List.of(
+                                    AgentModels.DiscoveryAgentRequest.builder()
+                                            .goal("Multi-agent pause")
+                                            .subdomainFocus("Agent1")
+                                            .build(),
+                                    AgentModels.DiscoveryAgentRequest.builder()
+                                            .goal("Multi-agent pause")
+                                            .subdomainFocus("Agent2")
+                                            .build(),
+                                    AgentModels.DiscoveryAgentRequest.builder()
+                                            .goal("Multi-agent pause")
+                                            .subdomainFocus("Agent3")
+                                            .build()
+                            ))
+                            .build())
+                    .build()
+            ).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
 
             // Agent 1 succeeds
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("Agent 1 result")
-            )).when(discoveryDispatchSubagent).run(
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .agentResult(AgentModels.DiscoveryAgentResult.builder()
+                            .output("Agent 1 output")
+                            .build())
+                    .build()
+            ).when(discoveryDispatchSubagent).run(
                     argThat((AgentModels.DiscoveryAgentRequest req) -> req.subdomainFocus().equals("Agent1")),
                     any()
             );
 
             // Agent 2 PAUSES
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    new AgentModels.DiscoveryAgentInterruptRequest(
-                            AgentModels.InterruptType.PAUSE,
-                            "Agent 2 needs input"
-                    ),
-                    null
-            )).when(discoveryDispatchSubagent).run(
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .interruptRequest(AgentModels.DiscoveryAgentInterruptRequest.builder()
+                            .type(AgentModels.InterruptType.PAUSE)
+                            .reason("Agent 2 needs input")
+                            .build())
+                    .build()
+            ).when(discoveryDispatchSubagent).run(
                     argThat((AgentModels.DiscoveryAgentRequest req) -> req.subdomainFocus().equals("Agent2")),
                     any()
             );
 
             // Agent 3 succeeds
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("Agent 3 result")
-            )).when(discoveryDispatchSubagent).run(
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .agentResult(AgentModels.DiscoveryAgentResult.builder()
+                            .output("Agent 3 output")
+                            .build())
+                    .build()
+            ).when(discoveryDispatchSubagent).run(
                     argThat((AgentModels.DiscoveryAgentRequest req) -> req.subdomainFocus().equals("Agent3")),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-agent-pause").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Multi-agent pause", "DISCOVERY"))
@@ -797,28 +892,32 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
         @Test
         void planningOrchestratorHumanReview_needsApproval() {
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Review needed", "PLANNING")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Review needed")
+                            .phase("PLANNING")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null,
-                    new AgentModels.PlanningOrchestratorRequest("Review needed"),
-                    null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .planningRequest(AgentModels.PlanningOrchestratorRequest.builder()
+                            .goal("Review needed")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
 
             // Planning orchestrator requests HUMAN_REVIEW
-            doReturn(new AgentModels.PlanningOrchestratorRouting(
-                    new AgentModels.PlanningOrchestratorInterruptRequest(
-                            AgentModels.InterruptType.HUMAN_REVIEW,
-                            "Plan needs approval before proceeding"
-                    ),
-                    null, null
-            )).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
+            doReturn(AgentModels.PlanningOrchestratorRouting.builder()
+                    .interruptRequest(AgentModels.PlanningOrchestratorInterruptRequest.builder()
+                            .type(AgentModels.InterruptType.HUMAN_REVIEW)
+                            .reason("Plan needs approval before proceeding")
+                            .build())
+                    .build()
+            ).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-human-review").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Review needed", "PLANNING"))
@@ -831,36 +930,41 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
         @Test
         void ticketAgentStop_criticalError() {
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Ticket error", "TICKETS")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Ticket error")
+                            .phase("TICKETS")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null, null,
-                    new AgentModels.TicketOrchestratorRequest("Direct to tickets", "", "", ""),
-                    null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .ticketRequest(AgentModels.TicketOrchestratorRequest.builder()
+                            .goal("Direct to tickets")
+                            .discoveryContext("")
+                            .planningContext("")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
 
-            doReturn(new AgentModels.TicketOrchestratorRouting(
-                    null,
-                    new AgentModels.TicketAgentRequests(List.of(
+            doReturn(AgentModels.TicketOrchestratorRouting.builder()
+                    .agentRequests(new AgentModels.TicketAgentRequests(List.of(
                             new AgentModels.TicketAgentRequest("Ticket error", "", "", "")
-                    )),
-                    null
-            )).when(workflowAgent).orchestrateTicketExecution(any(), any());
+                    )))
+                    .build()
+            ).when(workflowAgent).orchestrateTicketExecution(any(), any());
 
             // Ticket agent encounters critical error and STOPS
-            doReturn(new AgentModels.TicketAgentRouting(
-                    new AgentModels.TicketAgentInterruptRequest(
-                            AgentModels.InterruptType.STOP,
-                            "Build failed, cannot continue"
-                    ),
-                    null
-            )).when(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
+            doReturn(AgentModels.TicketAgentRouting.builder()
+                    .interruptRequest(AgentModels.TicketAgentInterruptRequest.builder()
+                            .type(AgentModels.InterruptType.STOP)
+                            .reason("Build failed, cannot continue")
+                            .build())
+                    .build()
+            ).when(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-ticket-stop").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Ticket error", "TICKETS"))
@@ -876,143 +980,172 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
         @Test
         void discoveryCollector_loopsBackForMoreInvestigation() {
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Needs more discovery", "DISCOVERY")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Needs more discovery")
+                            .phase("DISCOVERY")
+                            .build())
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null,
-                    new AgentModels.DiscoveryOrchestratorRequest("Needs more discovery"),
-                    null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .discoveryRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
+                            .goal("Needs more discovery")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
 
             // First discovery iteration
-            doReturn(new AgentModels.DiscoveryOrchestratorRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentRequests(List.of(
-                            new AgentModels.DiscoveryAgentRequest("Needs more discovery", "Initial")
-                    )),
-                    null
-            )).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
+            doReturn(AgentModels.DiscoveryOrchestratorRouting.builder()
+                    .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
+                            .requests(List.of(
+                                    AgentModels.DiscoveryAgentRequest.builder()
+                                            .goal("Needs more discovery")
+                                            .subdomainFocus("Initial")
+                                            .build()
+                            ))
+                            .build())
+                    .build()
+            ).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
 
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("Initial findings - incomplete")
-            )).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .agentResult(AgentModels.DiscoveryAgentResult.builder()
+                            .output("Initial findings - incomplete")
+                            .build())
+                    .build()
+            ).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
 
-            doReturn(new AgentModels.DiscoveryAgentDispatchRouting(
-                    null,
-                    new AgentModels.DiscoveryCollectorRequest("Needs more discovery", "initial")
-            )).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
+            doReturn(AgentModels.DiscoveryAgentDispatchRouting.builder()
+                    .collectorRequest(AgentModels.DiscoveryCollectorRequest.builder()
+                            .goal("Needs more discovery")
+                            .discoveryResults("initial")
+                            .build())
+                    .build()
+            ).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
 
             // Discovery collector decides to loop back to orchestrator for MORE discovery
-            doReturn(new AgentModels.DiscoveryCollectorRouting(
-                    null, null,
-                    null,
-                    new AgentModels.DiscoveryOrchestratorRequest("Needs more discovery"), // Loop back!
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateDiscoveryFindings(
+            doReturn(AgentModels.DiscoveryCollectorRouting.builder()
+                    .discoveryRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
+                            .goal("Needs more discovery")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateDiscoveryFindings(
                     Mockito.<AgentModels.DiscoveryCollectorRequest>argThat(req -> req.discoveryResults().contains("initial")),
                     any()
             );
 
             // Second discovery iteration with different subdomain
-            doReturn(new AgentModels.DiscoveryOrchestratorRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentRequests(List.of(
-                            new AgentModels.DiscoveryAgentRequest("Needs more discovery", "Deeper")
-                    )),
-                    null
-            )).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(
+            doReturn(AgentModels.DiscoveryOrchestratorRouting.builder()
+                    .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
+                            .requests(List.of(
+                                    AgentModels.DiscoveryAgentRequest.builder()
+                                            .goal("Needs more discovery")
+                                            .subdomainFocus("Deeper")
+                                            .build()
+                            ))
+                            .build())
+                    .build()
+            ).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(
                     Mockito.<AgentModels.DiscoveryOrchestratorRequest>argThat(req -> "Needs more discovery".equals(req.goal())),
                     any()
             );
 
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("Deeper findings - complete")
-            )).when(discoveryDispatchSubagent).run(
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .agentResult(AgentModels.DiscoveryAgentResult.builder()
+                            .output("Deeper findings - complete")
+                            .build())
+                    .build()
+            ).when(discoveryDispatchSubagent).run(
                     argThat((AgentModels.DiscoveryAgentRequest req) -> req.subdomainFocus().equals("Deeper")),
                     any()
             );
 
-            doReturn(new AgentModels.DiscoveryAgentDispatchRouting(
-                    null,
-                    new AgentModels.DiscoveryCollectorRequest("Needs more discovery", "deeper")
-            )).when(workflowAgent).dispatchDiscoveryAgentRequests(
-                    argThat(results -> results.requests().stream()
+            doReturn(AgentModels.DiscoveryAgentDispatchRouting.builder()
+                    .collectorRequest(AgentModels.DiscoveryCollectorRequest.builder()
+                            .goal("Needs more discovery")
+                            .discoveryResults("deeper")
+                            .build())
+                    .build()
+            ).when(workflowAgent).dispatchDiscoveryAgentRequests(
+                    argThat(outputs -> outputs.requests().stream()
                             .anyMatch(r -> r.goal().contains("Deeper"))),
                     any()
             );
 
             // Second collector NOW advances to planning
-            doReturn(new AgentModels.DiscoveryCollectorRouting(
-                    null, null, null, null,
-                    new AgentModels.PlanningOrchestratorRequest("Needs more discovery"),
-                    null, null, null, null
-            )).when(workflowAgent).consolidateDiscoveryFindings(
+            doReturn(AgentModels.DiscoveryCollectorRouting.builder()
+                    .planningRequest(AgentModels.PlanningOrchestratorRequest.builder()
+                            .goal("Needs more discovery")
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateDiscoveryFindings(
                     Mockito.<AgentModels.DiscoveryCollectorRequest>argThat(req -> req.discoveryResults().contains("deeper")),
                     any()
             );
 
             // Rest of workflow
-            doReturn(new AgentModels.PlanningOrchestratorRouting(
-                    null,
-                    new AgentModels.PlanningAgentRequests(List.of(
-                            new AgentModels.PlanningAgentRequest("Needs more discovery")
-                    )),
-                    null
-            )).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
+            doReturn(AgentModels.PlanningOrchestratorRouting.builder()
+                    .agentRequests(AgentModels.PlanningAgentRequests.builder()
+                            .requests(List.of(
+                                    AgentModels.PlanningAgentRequest.builder()
+                                            .goal("Needs more discovery")
+                                            .build()
+                            ))
+                            .build())
+                    .build()
+            ).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
 
-            doReturn(new AgentModels.PlanningAgentRouting(
-                    null,
-                    new AgentModels.PlanningAgentResult("Plan")
-            )).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            doReturn(AgentModels.PlanningAgentRouting.builder()
+                    .agentResult(AgentModels.PlanningAgentResult.builder()
+                            .output("Plan")
+                            .build())
+                    .build()
+            ).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
 
-            doReturn(new AgentModels.PlanningAgentDispatchRouting(
-                    null,
-                    new AgentModels.PlanningCollectorRequest("Needs more discovery", "plan")
-            )).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
+            doReturn(AgentModels.PlanningAgentDispatchRouting.builder()
+                    .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
+                            .goal("Needs more discovery")
+                            .planningResults("plan")
+                            .build())
+                    .build()
+            ).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
 
-            doReturn(new AgentModels.PlanningCollectorRouting(
-                    null,
-                    new AgentModels.PlanningCollectorResult(
-                            "Done",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Complete",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null
-            )).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
+            doReturn(AgentModels.PlanningCollectorRouting.builder()
+                    .collectorResult(AgentModels.PlanningCollectorResult.builder()
+                            .consolidatedOutput("Done")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Complete")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorResult(
-                            "Complete",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Done",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
+                            .consolidatedOutput("Complete")
+                            .collectorDecision(AgentModels.CollectorDecision.builder()
+                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .rationale("Done")
+                                    .requestedPhase("COMPLETE")
+                                    .build())
+                            .build())
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-discovery-loop").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Needs more discovery", "DISCOVERY"))
             );
 
             // Assert
-            assertThat(result.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
 
             // Verify TWO discovery iterations
             verify(workflowAgent, times(2)).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
@@ -1025,240 +1158,435 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
         @Test
         void planningCollector_loopsBackToDiscovery_needsMoreContext() {
-            doAnswer(inv -> {
-                return new AgentModels.OrchestratorRouting(
-                    null,
-                   null,
-                   new AgentModels.DiscoveryOrchestratorRequest("hello!"));
-             }
-                ).when(workflowAgent).coordinateWorkflow(any(), any());
+            // Orchestrator routes to collector with PLANNING phase
+            doAnswer(inv -> AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                            .goal("Incomplete context")
+                            .phase("PLANNING")
+                            .build())
+                    .build())
+                    .when(workflowAgent).coordinateWorkflow(any(), any());
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null,
-                    new AgentModels.PlanningOrchestratorRequest("Incomplete context"),
-                    null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
-                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "PLANNING".equals(req.phase())),
+            doAnswer(inv -> {
+                return AgentModels.OrchestratorCollectorRouting.builder()
+                        .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
+                                .consolidatedOutput("Incomplete context")
+                                .collectorDecision(AgentModels.CollectorDecision.builder()
+                                        .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                        .rationale("")
+                                        .requestedPhase("PLANNING")
+                                        .build())
+                                .build())
+                        .build();
+            }).when(workflowAgent).consolidateWorkflowOutputs(
+                    Mockito.argThat(req -> "PLANNING".equals(req.phase())),
+                    any()
+            );
+
+            doAnswer(inv -> {
+                return AgentModels.OrchestratorCollectorRouting.builder()
+                        .discoveryRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
+                                .goal("Incomplete context")
+                                .build())
+                        .build();
+            }).when(workflowAgent).handleOrchestratorCollectorBranch(
+                    Mockito.argThat(req -> "PLANNING".equals(req.collectorDecision().requestedPhase())),
                     any()
             );
 
             // Planning phase
-            doReturn(new AgentModels.PlanningOrchestratorRouting(
-                    null,
-                    new AgentModels.PlanningAgentRequests(List.of(
-                            new AgentModels.PlanningAgentRequest("Incomplete context")
-                    )),
-                    null
-            )).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
+            doAnswer(inv -> {
+                return AgentModels.PlanningOrchestratorRouting.builder()
+                        .agentRequests(AgentModels.PlanningAgentRequests.builder()
+                                .requests(List.of(
+                                        AgentModels.PlanningAgentRequest.builder()
+                                                .goal("Incomplete context")
+                                                .build()
+                                ))
+                                .build())
+                        .build();
+            }).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
 
-            doReturn(new AgentModels.PlanningAgentRouting(
-                    null,
-                    new AgentModels.PlanningAgentResult("Plan missing context")
-            )).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            doAnswer(inv -> {
+                return AgentModels.PlanningAgentRouting.builder()
+                        .agentResult(AgentModels.PlanningAgentResult.builder()
+                                .output("Plan missing context")
+                                .build())
+                        .build();
+            }).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
 
-            doReturn(new AgentModels.PlanningAgentDispatchRouting(
-                    null,
-                    new AgentModels.PlanningCollectorRequest("Incomplete context", "plan")
-            )).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
+            doAnswer(inv -> {
+                return AgentModels.PlanningAgentDispatchRouting.builder()
+                        .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
+                                .goal("Incomplete context")
+                                .planningResults("plan")
+                                .build())
+                        .build();
+            }).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
 
-            // Planning collector decides to loop back to DISCOVERY for more context
-            doReturn(new AgentModels.PlanningCollectorRouting(
-                    null, null, null,
-                    new AgentModels.DiscoveryOrchestratorRequest("Incomplete context"), // Loop back to discovery!
-                    null, null
-            )).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
+            doAnswer(inv -> {
+                return AgentModels.DiscoveryCollectorRouting.builder()
+                        .collectorResult(AgentModels.DiscoveryCollectorResult.builder()
+                                .consolidatedOutput("Incomplete context")
+                                .collectorDecision(AgentModels.CollectorDecision.builder()
+                                        .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                        .rationale("")
+                                        .requestedPhase("PLANNING")
+                                        .build())
+                                .build())
+                        .build();
+            }).when(workflowAgent).consolidateDiscoveryFindings(
+                    any(AgentModels.DiscoveryCollectorRequest.class),
+                    any()
+            );
 
-            // Now do discovery
-            doReturn(new AgentModels.DiscoveryOrchestratorRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentRequests(List.of(
-                            new AgentModels.DiscoveryAgentRequest("Incomplete context", "Additional")
-                    )),
-                    null
-            )).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
+            doAnswer(inv -> {
+                return AgentModels.DiscoveryCollectorRouting.builder()
+                        .planningRequest(AgentModels.PlanningOrchestratorRequest.builder()
+                                .goal("Incomplete context")
+                                .build())
+                        .build();
+            }).when(workflowAgent).handleDiscoveryCollectorBranch(
+                    Mockito.argThat(req -> "DISCOVERY".equals(req.collectorDecision().requestedPhase())),
+                    any()
+            );
 
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("Additional context found")
-            )).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            doAnswer(inv -> {
+                return AgentModels.TicketCollectorRouting.builder()
+                        .collectorResult(AgentModels.TicketCollectorResult.builder()
+                                .consolidatedOutput("Incomplete context")
+                                .collectorDecision(AgentModels.CollectorDecision.builder()
+                                        .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                        .rationale("")
+                                        .requestedPhase("DISCOVERY")
+                                        .build())
+                                .build())
+                        .build();
+            }).when(workflowAgent).consolidateTicketResults(
+                    any(),
+                    any()
+            );
 
-            doReturn(new AgentModels.DiscoveryAgentDispatchRouting(
-                    null,
-                    new AgentModels.DiscoveryCollectorRequest("Incomplete context", "additional")
-            )).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
+            doAnswer(inv -> {
+                return AgentModels.TicketCollectorRouting.builder()
+                        .orchestratorCollectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                                .goal("orchestrator")
+                                .phase("TICKET")
+                                .build())
+                        .build();
+            }).when(workflowAgent).handleTicketCollectorBranch(
+                    any(),
+                    any()
+            );
 
-            // Discovery collector advances to orchestrator collector with result
-            doReturn(new AgentModels.DiscoveryCollectorRouting(
-                    null,
-                    new AgentModels.DiscoveryCollectorResult(
-                            "Context complete",
-                            new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Done",
-                                    "COMPLETE"
-                            )
-                    ),
-                    null, null, null, null, null, null, null
-            )).when(workflowAgent).consolidateDiscoveryFindings(any(AgentModels.DiscoveryCollectorRequest.class), any());
+            // Planning collector decides to loop back to DISCOVERY for more context (first call with "plan")
+            doAnswer(inv -> {
+                return AgentModels.PlanningCollectorRouting.builder()
+                        .discoveryOrchestratorRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
+                                .goal("Incomplete context")
+                                .build())
+                        .build();
+            }).when(workflowAgent).consolidatePlansIntoTickets(
+                    Mockito.argThat(req -> req.planningResults().contains("plan") && !req.planningResults().contains("complete-plan")),
+                    any()
+            );
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorResult(
+            AtomicInteger j = new AtomicInteger(0);
+            doAnswer(inv -> {
+                if (j.getAndIncrement() >= 1)  {
+                    return AgentModels.DiscoveryOrchestratorRouting.builder()
+                            .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
+                                    .requests(List.of(
+                                            AgentModels.DiscoveryAgentRequest.builder()
+                                                    .goal("Incomplete context")
+                                                    .subdomainFocus("Additional")
+                                                    .build()
+                                    ))
+                                    .build())
+                            .build();
+
+                } else {
+                    return AgentModels.DiscoveryOrchestratorRouting.builder()
+                            .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
+                                    .requests(List.of(
+                                            AgentModels.DiscoveryAgentRequest.builder()
+                                                    .goal("Incomplete context")
+                                                    .subdomainFocus("Additional")
+                                                    .build()
+                                    ))
+                                    .build())
+                            .build();
+                }
+            }).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
+
+            doAnswer(inv -> {
+                return AgentModels.DiscoveryAgentRouting.builder()
+                        .agentResult(AgentModels.DiscoveryAgentResult.builder()
+                                .output("Additional context found")
+                                .build())
+                        .build();
+            }).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+
+            doAnswer(inv -> {
+                return AgentModels.DiscoveryAgentDispatchRouting.builder()
+                        .collectorRequest(AgentModels.DiscoveryCollectorRequest.builder()
+                                .goal("Incomplete context")
+                                .discoveryResults("additional")
+                                .build())
+                        .build();
+            }).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
+
+            // Discovery collector completes and advances to planning (has the context now)
+            AtomicInteger i = new AtomicInteger(0);
+
+            // Planning orchestrator (second time, after getting more context from discovery)
+            doAnswer(inv -> {
+               return AgentModels.PlanningOrchestratorRouting.builder()
+                        .agentRequests(AgentModels.PlanningAgentRequests.builder()
+                                .requests(List.of(AgentModels.PlanningAgentRequest.builder()
+                                        .goal("Incomplete context")
+                                        .build()))
+                                .build())
+                        .build();
+            }).when(workflowAgent).decomposePlanAndCreateWorkItems(
+                    Mockito.argThat(req -> "Incomplete context".equals(req.goal())),
+                    any()
+            );
+
+            // Planning agent (second attempt with more context)
+            doAnswer(inv -> {
+                return AgentModels.PlanningAgentRouting.builder()
+                        .agentResult(AgentModels.PlanningAgentResult.builder()
+                                .output("Plan with full context")
+                                .build())
+                        .build();
+            }).when(planningDispatchSubagent).run(
+                    argThat((AgentModels.PlanningAgentRequest req) -> "Incomplete context".equals(req.goal())),
+                    any()
+            );
+
+            doAnswer(inv -> {
+                return AgentModels.PlanningCollectorRouting.builder()
+                        .ticketOrchestratorRequest(AgentModels.TicketOrchestratorRequest.builder()
+                                .goal("")
+                                .discoveryContext("")
+                                .planningContext("")
+                                .build())
+                        .build();
+            }).when(workflowAgent).handlePlanningCollectorBranch(
+                    any(),
+                    any()
+            );
+
+            doAnswer(inv -> {
+                return AgentModels.PlanningAgentDispatchRouting.builder()
+                        .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
+                                .goal("Incomplete context")
+                                .planningResults("complete-plan")
+                                .build())
+                        .build();
+            }).when(workflowAgent).dispatchPlanningAgentRequests(
+                    argThat(requests -> requests.requests().stream()
+                            .anyMatch(r -> "Incomplete context".equals(r.goal()))),
+                    any()
+            );
+
+            doAnswer(inv -> {
+                if (i.getAndIncrement() >= 1) {
+                    return AgentModels.PlanningCollectorRouting.builder()
+                            .collectorResult(AgentModels.PlanningCollectorResult.builder()
+                                    .consolidatedOutput("Planning complete with context")
+                                    .collectorDecision(AgentModels.CollectorDecision.builder()
+                                            .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                            .rationale("Complete")
+                                            .requestedPhase("COMPLETE")
+                                            .build())
+                                    .build())
+                            .build();
+                }
+
+                return AgentModels.PlanningCollectorRouting.builder()
+                        .discoveryOrchestratorRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
+                                .goal("Again!")
+                                .build())
+                        .build();
+
+            }).when(workflowAgent).consolidatePlansIntoTickets(
+                    Mockito.argThat(req -> req.planningResults().contains("complete-plan")),
+                    any()
+            );
+
+            // Orchestrator collector completes
+            doAnswer(ivn -> AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(new AgentModels.OrchestratorCollectorResult(
                             "Complete",
                             new AgentModels.CollectorDecision(
                                     AgentModels.CollectorDecisionType.ADVANCE_PHASE,
                                     "Done",
                                     "COMPLETE"
                             )
-                    ),
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
-                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
+                    ))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(Mockito.argThat(req -> "COMPLETE".equals(req.phase())), any());
+
+            doAnswer(inv -> {
+                return AgentModels.TicketOrchestratorRouting.builder()
+                        .collectorRequest(new AgentModels.TicketCollectorRequest("goal", "output"))
+                        .build();
+
+            }).when(workflowAgent).orchestrateTicketExecution(
+                    any(),
+                    any()
+            );
+
+            doAnswer(inv -> {
+                return AgentModels.TicketCollectorRouting.builder()
+                        .orchestratorCollectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
+                                .goal("orchestrator collector goal")
+                                .phase("COMPLETE")
+                                .build())
+                        .build();
+            }).when(workflowAgent).consolidateTicketResults(
+                    any(),
+                    any()
+            );
+
+
+
+            doAnswer(inv -> {
+                return inv.getArgument(0);
+            }).when(workflowAgent).finalCollectorResult(
+                    any(),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-planning-to-discovery").withPlannerType(PlannerType.GOAP),
-                    Map.of("it", new AgentModels.OrchestratorRequest("Incomplete context", "PLANNING"))
-            );
+                    Map.of("it", new AgentModels.OrchestratorRequest("Incomplete context", "PLANNING")));
 
             // Assert
-            assertThat(result.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
 
-            // Started at planning, then looped back to discovery
-            verify(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
-            verify(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
-            verify(workflowGraphService).startPlanningOrchestrator(any(), any());
-            verify(workflowGraphService).startDiscoveryOrchestrator(any(), any());
+            // Started at planning, then looped back to discovery, then back to planning
+            verify(workflowAgent, times(2)).decomposePlanAndCreateWorkItems(any(), any());
+            verify(workflowAgent, times(2)).consolidatePlansIntoTickets(any(), any());
+            verify(workflowAgent, times(2)).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
         }
 
         @Test
         void orchestratorCollector_loopsBackMultipleTimes() {
             // Orchestrator starts workflow
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Multi-loop", "DISCOVERY")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(new AgentModels.OrchestratorCollectorRequest("Multi-loop", "DISCOVERY"))
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
             // First: route to discovery
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null,
-                    new AgentModels.DiscoveryOrchestratorRequest("Multi-loop"),
-                    null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .discoveryRequest(new AgentModels.DiscoveryOrchestratorRequest("Multi-loop"))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "DISCOVERY".equals(req.phase())),
                     any()
             );
 
             // Discovery completes
-            doReturn(new AgentModels.DiscoveryOrchestratorRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentRequests(List.of(
+            doReturn(AgentModels.DiscoveryOrchestratorRouting.builder()
+                    .agentRequests(new AgentModels.DiscoveryAgentRequests(List.of(
                             new AgentModels.DiscoveryAgentRequest("Multi-loop", "First")
-                    )),
-                    null
-            )).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
+                    )))
+                    .build()
+            ).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
 
-            doReturn(new AgentModels.DiscoveryAgentRouting(
-                    null,
-                    new AgentModels.DiscoveryAgentResult("First discovery")
-            )).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            doReturn(AgentModels.DiscoveryAgentRouting.builder()
+                    .agentResult(new AgentModels.DiscoveryAgentResult("First discovery"))
+                    .build()
+            ).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
 
-            doReturn(new AgentModels.DiscoveryAgentDispatchRouting(
-                    null,
-                    new AgentModels.DiscoveryCollectorRequest("Multi-loop", "first")
-            )).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
+            doReturn(AgentModels.DiscoveryAgentDispatchRouting.builder()
+                    .collectorRequest(new AgentModels.DiscoveryCollectorRequest("Multi-loop", "first"))
+                    .build()
+            ).when(workflowAgent).dispatchDiscoveryAgentRequests(any(AgentModels.DiscoveryAgentRequests.class), any());
 
             // Discovery collector loops back to ORCHESTRATOR COLLECTOR (not to planning)
-            doReturn(new AgentModels.DiscoveryCollectorRouting(
-                    null, null,
-                    new AgentModels.OrchestratorRequest("Multi-loop", "PLANNING"), // Back to orchestrator!
-                    null, null, null, null, null, null
-            )).when(workflowAgent).consolidateDiscoveryFindings(any(AgentModels.DiscoveryCollectorRequest.class), any());
+            doReturn(AgentModels.DiscoveryCollectorRouting.builder()
+                    .orchestratorRequest(new AgentModels.OrchestratorRequest("Multi-loop", "PLANNING")) // Back to orchestrator!
+                    .build()
+            ).when(workflowAgent).consolidateDiscoveryFindings(any(AgentModels.DiscoveryCollectorRequest.class), any());
 
             // Second: orchestrator collector routes to planning
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null,
-                    new AgentModels.PlanningOrchestratorRequest("Multi-loop"),
-                    null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .planningRequest(new AgentModels.PlanningOrchestratorRequest("Multi-loop"))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "PLANNING".equals(req.phase())),
                     any()
             );
 
             // Planning completes
-            doReturn(new AgentModels.PlanningOrchestratorRouting(
-                    null,
-                    new AgentModels.PlanningAgentRequests(List.of(
+            doReturn(AgentModels.PlanningOrchestratorRouting.builder()
+                    .agentRequests(new AgentModels.PlanningAgentRequests(List.of(
                             new AgentModels.PlanningAgentRequest("Multi-loop")
-                    )),
-                    null
-            )).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
+                    )))
+                    .build()
+            ).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
 
-            doReturn(new AgentModels.PlanningAgentRouting(
-                    null,
-                    new AgentModels.PlanningAgentResult("Plan")
-            )).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            doReturn(AgentModels.PlanningAgentRouting.builder()
+                    .agentResult(new AgentModels.PlanningAgentResult("Plan"))
+                    .build()
+            ).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
 
-            doReturn(new AgentModels.PlanningAgentDispatchRouting(
-                    null,
-                    new AgentModels.PlanningCollectorRequest("Multi-loop", "plan")
-            )).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
+            doReturn(AgentModels.PlanningAgentDispatchRouting.builder()
+                    .planningCollectorRequest(new AgentModels.PlanningCollectorRequest("Multi-loop", "plan"))
+                    .build()
+            ).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
 
             // Planning collector ALSO loops back to orchestrator collector
-            doReturn(new AgentModels.PlanningCollectorRouting(
-                    null,
-                    null,
-                    null,
-                    null,
-                    new AgentModels.ReviewRequest(
+            doReturn(AgentModels.PlanningCollectorRouting.builder()
+                    .reviewRequest(new AgentModels.ReviewRequest(
                             "Multi-loop",
                             "Review criteria",
                             new AgentModels.OrchestratorCollectorRequest("Multi-loop", "TICKETS"),
                             null,
                             null,
                             null
-                    ),
-                    null
-            )).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
+                    ))
+                    .build()
+            ).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
 
-            doReturn(new AgentModels.ReviewRouting(
-                    null,
-                    new AgentModels.ReviewAgentResult("approved"),
-                    new AgentModels.OrchestratorCollectorRequest("Multi-loop", "TICKETS"),
-                    null,
-                    null,
-                    null
-            )).when(workflowAgent).evaluateContent(any(), any());
+            doReturn(AgentModels.ReviewRouting.builder()
+                    .reviewResult(new AgentModels.ReviewAgentResult("approved"))
+                    .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest("Multi-loop", "TICKETS"))
+                    .build()
+            ).when(workflowAgent).evaluateContent(any(), any());
 
             // Third: orchestrator collector finally completes
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorResult(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(new AgentModels.OrchestratorCollectorResult(
                             "Finally complete",
                             new AgentModels.CollectorDecision(
                                     AgentModels.CollectorDecisionType.ADVANCE_PHASE,
                                     "Done",
                                     "COMPLETE"
                             )
-                    ),
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    ))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "TICKETS".equals(req.phase())),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-multi-loop").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Multi-loop", "DISCOVERY"))
             );
 
             // Assert
-            assertThat(result.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
 
             // consolidateWorkflowOutputs called 3 times (DISCOVERY, PLANNING, TICKETS phases)
             verify(workflowAgent, atLeast(3)).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
@@ -1276,67 +1604,59 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         // @Test
         void ticketsToReview_thenMerge_thenComplete_DISABLED() {
             // Start at REVIEW phase
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Review flow", "REVIEW")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(new AgentModels.OrchestratorCollectorRequest("Review flow", "REVIEW"))
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
             // Orchestrator collector routes to Review
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null, null, null,
-                    new AgentModels.ReviewRequest(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .reviewRequest(new AgentModels.ReviewRequest(
                             "Review flow",
                             "Review criteria",
                             new AgentModels.OrchestratorCollectorRequest("Review flow", "MERGE"),
                             null,
                             null,
                             null
-                    ),
-                    null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    ))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "REVIEW".equals(req.phase())),
                     any()
             );
 
-            // Review action returns result routing to Merger
-            doReturn(new AgentModels.ReviewRouting(
-                    null,
-                    new AgentModels.ReviewAgentResult("Review passed"),
-                    new AgentModels.OrchestratorCollectorRequest("Review flow", "MERGE"),
-                    null,
-                    null,
-                    null
-            )).when(workflowAgent).evaluateContent(any(), any());
+            // Review action returns output routing to Merger
+            doReturn(AgentModels.ReviewRouting.builder()
+                    .reviewResult(new AgentModels.ReviewAgentResult("Review passed"))
+                    .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest("Review flow", "MERGE"))
+                    .build()
+            ).when(workflowAgent).evaluateContent(any(), any());
 
             // Merger completes
-            doReturn(new AgentModels.MergerRouting(
-                    null,
-                    new AgentModels.MergerAgentResult("Merged successfully"),
-                    new AgentModels.OrchestratorCollectorRequest("Review flow", "COMPLETE"),
-                    null,
-                    null,
-                    null
-            )).when(workflowAgent).performMerge(any(), any());
+            doReturn(AgentModels.MergerRouting.builder()
+                    .mergerResult(new AgentModels.MergerAgentResult("Merged successfully"))
+                    .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest("Review flow", "COMPLETE"))
+                    .build()
+            ).when(workflowAgent).performMerge(any(), any());
 
             // Orchestrator collector completes
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorResult(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(new AgentModels.OrchestratorCollectorResult(
                             "All done",
                             new AgentModels.CollectorDecision(
                                     AgentModels.CollectorDecisionType.ADVANCE_PHASE,
                                     "Complete",
                                     "COMPLETE"
                             )
-                    ),
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    ))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-review-merge").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Review flow", "REVIEW"))
@@ -1344,152 +1664,134 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Assert
             // TODO: Re-enable when review/merge actions are fully implemented
-            // assertThat(result.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            // assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
         }
 
         // @Test
         void reviewFails_loopsBackToTickets_DISABLED() {
-            doReturn(new AgentModels.OrchestratorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorRequest("Review fail", "REVIEW")
-            )).when(workflowAgent).coordinateWorkflow(any(), any());
+            doReturn(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(new AgentModels.OrchestratorCollectorRequest("Review fail", "REVIEW"))
+                    .build()
+            ).when(workflowAgent).coordinateWorkflow(any(), any());
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null, null, null,
-                    new AgentModels.ReviewRequest(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .reviewRequest(new AgentModels.ReviewRequest(
                             "Review fail",
                             "Review criteria",
                             new AgentModels.OrchestratorCollectorRequest("Review fail", "MERGE"),
                             null,
                             null,
                             null
-                    ),
-                    null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    ))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "REVIEW".equals(req.phase())),
                     any()
             );
 
             // Review FAILS - routes back to orchestrator collector to retry tickets
-            doReturn(new AgentModels.ReviewRouting(
-                    null,
-                    new AgentModels.ReviewAgentResult("Review failed - tests broken"),
-                    new AgentModels.OrchestratorCollectorRequest("Review fail", "TICKETS"), // Back to tickets!
-                    null,
-                    null,
-                    null
-            )).when(workflowAgent).evaluateContent(any(), any());
+            doReturn(AgentModels.ReviewRouting.builder()
+                    .reviewResult(new AgentModels.ReviewAgentResult("Review failed - tests broken"))
+                    .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest("Review fail", "TICKETS")) // Back to tickets!
+                    .build()
+            ).when(workflowAgent).evaluateContent(any(), any());
 
             // Now back to tickets phase
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null, null,
-                    new AgentModels.TicketOrchestratorRequest("Direct to tickets", "", "", ""),
-                    null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .ticketRequest(new AgentModels.TicketOrchestratorRequest("Direct to tickets", "", "", ""))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "TICKETS".equals(req.phase())),
                     any()
             );
 
             // Tickets execute
-            doReturn(new AgentModels.TicketOrchestratorRouting(
-                    null,
-                    new AgentModels.TicketAgentRequests(List.of(
+            doReturn(AgentModels.TicketOrchestratorRouting.builder()
+                    .agentRequests(new AgentModels.TicketAgentRequests(List.of(
                             new AgentModels.TicketAgentRequest("Review fail", "", "", "")
-                    )),
-                    null
-            )).when(workflowAgent).orchestrateTicketExecution(any(), any());
+                    )))
+                    .build()
+            ).when(workflowAgent).orchestrateTicketExecution(any(), any());
 
-            doReturn(new AgentModels.TicketAgentRouting(
-                    null,
-                    new AgentModels.TicketAgentResult("Fixed tests")
-            )).when(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
+            doReturn(AgentModels.TicketAgentRouting.builder()
+                    .agentResult(new AgentModels.TicketAgentResult("Fixed tests"))
+                    .build()
+            ).when(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
 
-            doReturn(new AgentModels.TicketAgentDispatchRouting(
-                    null,
-                    new AgentModels.TicketCollectorRequest("Review fail", "fixed")
-            )).when(workflowAgent).dispatchTicketAgentRequests(any(AgentModels.TicketAgentRequests.class), any());
+            doReturn(AgentModels.TicketAgentDispatchRouting.builder()
+                    .ticketCollectorRequest(new AgentModels.TicketCollectorRequest("Review fail", "fixed"))
+                    .build()
+            ).when(workflowAgent).dispatchTicketAgentRequests(any(AgentModels.TicketAgentRequests.class), any());
 
             // Ticket collector now advances to REVIEW again
-            doReturn(new AgentModels.TicketCollectorRouting(
-                    null,
-                    null,
-                    null,
-                    null,
-                    new AgentModels.ReviewRequest(
+            doReturn(AgentModels.TicketCollectorRouting.builder()
+                    .reviewRequest(new AgentModels.ReviewRequest(
                             "Review fail",
                             "Review criteria",
                             new AgentModels.OrchestratorCollectorRequest("Review fail", "REVIEW"),
                             null,
                             null,
                             null
-                    ),
-                    null
-            )).when(workflowAgent).consolidateTicketResults(any(AgentModels.TicketCollectorRequest.class), any());
+                    ))
+                    .build()
+            ).when(workflowAgent).consolidateTicketResults(any(AgentModels.TicketCollectorRequest.class), any());
 
             // Second review attempt
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null, null, null, null, null,
-                    new AgentModels.ReviewRequest(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .reviewRequest(new AgentModels.ReviewRequest(
                             "Review fail",
                             "Review criteria",
                             new AgentModels.OrchestratorCollectorRequest("Review fail", "MERGE"),
                             null,
                             null,
                             null
-                    ),
-                    null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    ))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "REVIEW".equals(req.phase())),
                     any()
             );
 
             // Second review passes
-            doReturn(new AgentModels.ReviewRouting(
-                    null,
-                    new AgentModels.ReviewAgentResult("Review passed"),
-                    new AgentModels.OrchestratorCollectorRequest("Review fail", "MERGE"),
-                    null,
-                    null,
-                    null
-            )).when(workflowAgent).evaluateContent(
+            doReturn(AgentModels.ReviewRouting.builder()
+                    .reviewResult(new AgentModels.ReviewAgentResult("Review passed"))
+                    .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest("Review fail", "MERGE"))
+                    .build()
+            ).when(workflowAgent).evaluateContent(
                     Mockito.<AgentModels.ReviewRequest>argThat(req -> "Review fail".equals(req.content())),
                     any()
             );
 
-            doReturn(new AgentModels.MergerRouting(
-                    null,
-                    new AgentModels.MergerAgentResult("Merged"),
-                    new AgentModels.OrchestratorCollectorRequest("Review fail", "COMPLETE"),
-                    null,
-                    null,
-                    null
-            )).when(workflowAgent).performMerge(any(), any());
+            doReturn(AgentModels.MergerRouting.builder()
+                    .mergerResult(new AgentModels.MergerAgentResult("Merged"))
+                    .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest("Review fail", "COMPLETE"))
+                    .build()
+            ).when(workflowAgent).performMerge(any(), any());
 
-            doReturn(new AgentModels.OrchestratorCollectorRouting(
-                    null,
-                    new AgentModels.OrchestratorCollectorResult(
+            doReturn(AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(new AgentModels.OrchestratorCollectorResult(
                             "Done",
                             new AgentModels.CollectorDecision(
                                     AgentModels.CollectorDecisionType.ADVANCE_PHASE,
                                     "Complete",
                                     "COMPLETE"
                             )
-                    ),
-                    null, null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    ))
+                    .build()
+            ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
                     any()
             );
 
             // Act
-            var result = agentPlatform.runAgentFrom(
+            var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-review-loop").withPlannerType(PlannerType.GOAP),
                     Map.of("it", new AgentModels.OrchestratorRequest("Review fail", "REVIEW"))
             );
 
             // Assert
-            assertThat(result.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
 
             // Review called twice (failed once, passed second time)
             verify(workflowAgent, times(2)).evaluateContent(any(), any());
@@ -1508,144 +1810,168 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
     // Mock node creation helpers
     private OrchestratorNode createMockOrchestratorNode() {
-        return new OrchestratorNode(
-                "orch-1", "Orch", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(),
-                "repo-url",
-                "main",
-                false,
-                new ArrayList<>(),
-                "wt",
-                new ArrayList<>(),
-                ""
-        );
+        return OrchestratorNode.builder()
+                .nodeId("orch-1")
+                .title("Orch")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .repositoryUrl("repo-url")
+                .baseBranch("main")
+                .mainWorktreeId("wt")
+                .submoduleWorktreeIds(new ArrayList<>())
+                .build();
     }
 
     private CollectorNode createMockCollectorNode() {
-        return new CollectorNode(
-                "coll-1", "Collector", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(),
-                "repo-url",
-                "main",
-                false,
-                new ArrayList<>(),
-                "wt",
-                new ArrayList<>(),
-                ""
-        );
+        return CollectorNode.builder()
+                .nodeId("coll-1")
+                .title("Collector")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .repositoryUrl("repo-url")
+                .baseBranch("main")
+                .mainWorktreeId("wt")
+                .submoduleWorktreeIds(new ArrayList<>())
+                .build();
     }
 
     private DiscoveryOrchestratorNode createMockDiscoveryOrchestratorNode() {
-        return new DiscoveryOrchestratorNode(
-                "disc-orch", "DiscOrch", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(), "", 0, 0
-        );
+        return DiscoveryOrchestratorNode.builder()
+                .nodeId("disc-orch")
+                .title("DiscOrch")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .build();
     }
 
     private DiscoveryCollectorNode createMockDiscoveryCollectorNode() {
-        return new DiscoveryCollectorNode(
-                "disc-coll", "DiscColl", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(), "", 0, 0
-        );
+        return DiscoveryCollectorNode.builder()
+                .nodeId("disc-coll")
+                .title("DiscColl")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .build();
     }
 
     private DiscoveryNode createMockDiscoveryNode() {
-        return new DiscoveryNode(
-                "disc", "Disc", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(), "", 0, 0
-        );
+        return DiscoveryNode.builder()
+                .nodeId("disc")
+                .title("Disc")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .build();
     }
 
     private PlanningOrchestratorNode createMockPlanningOrchestratorNode() {
-        return new PlanningOrchestratorNode(
-                "plan-orch", "PlanOrch", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(),
-                new ArrayList<>(),
-                "",
-                0,
-                0
-        );
+        return PlanningOrchestratorNode.builder()
+                .nodeId("plan-orch")
+                .title("PlanOrch")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .build();
     }
 
     private PlanningCollectorNode createMockPlanningCollectorNode() {
-        return new PlanningCollectorNode(
-                "plan-coll", "PlanColl", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(),
-                new ArrayList<>(),
-                "",
-                0,
-                0
-        );
+        return PlanningCollectorNode.builder()
+                .nodeId("plan-coll")
+                .title("PlanColl")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .build();
     }
 
     private PlanningNode createMockPlanningNode() {
-        return new PlanningNode(
-                "plan", "Plan", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(),
-                new ArrayList<>(),
-                "",
-                0,
-                0
-        );
+        return PlanningNode.builder()
+                .nodeId("plan")
+                .title("Plan")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .build();
     }
 
     private TicketOrchestratorNode createMockTicketOrchestratorNode() {
-        return new TicketOrchestratorNode(
-                "tick-orch", "TickOrch", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(),
-                new HasWorktree.WorkTree("wt", null, new ArrayList<>()),
-                0, 0, "agent", "", true, 0
-        );
+        return TicketOrchestratorNode.builder()
+                .nodeId("tick-orch")
+                .title("TickOrch")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .worktree(new HasWorktree.WorkTree("wt", null, new ArrayList<>()))
+                .build();
     }
 
     private TicketCollectorNode createMockTicketCollectorNode() {
-        return new TicketCollectorNode(
-                "tick-coll", "TickColl", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(), "", 0, 0
-        );
+        return TicketCollectorNode.builder()
+                .nodeId("tick-coll")
+                .title("TickColl")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .build();
     }
 
     private TicketNode createMockTicketNode() {
-        return new TicketNode(
-                "tick", "Tick", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(),
-                new HasWorktree.WorkTree("wt", null, new ArrayList<>()),
-                0, 0, "agent", "", true, 0
-        );
+        return TicketNode.builder()
+                .nodeId("tick")
+                .title("Tick")
+                .goal("goal")
+                .status(GraphNode.NodeStatus.RUNNING)
+                .metadata(new HashMap<>())
+                .createdAt(Instant.now())
+                .lastUpdatedAt(Instant.now())
+                .worktree(new HasWorktree.WorkTree("wt", null, new ArrayList<>()))
+                .build();
     }
 
-    private ReviewNode createMockReviewNode() {
-        return new ReviewNode(
-                "review", "Review", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(),
-                "reviewed-1",
-                "Review content",
-                false,
-                false,
-                "",
-                "human",
-                Instant.now()
-        );
-    }
-
-    private MergeNode createMockMergeNode() {
-        return new MergeNode(
-                "merge", "Merge", "goal", GraphNode.NodeStatus.RUNNING,
-                null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(),
-                "", 0, 0
-        );
-    }
+//    private ReviewNode createMockReviewNode() {
+//        return ReviewNode.builder()
+//                .nodeId("review")
+//                .title("Review")
+//                .goal("goal")
+//                .status(GraphNode.NodeStatus.RUNNING)
+//                .metadata(new HashMap<>())
+//                .createdAt(Instant.now())
+//                .lastUpdatedAt(Instant.now())
+//                .reviewedNodeId("reviewed-1")
+//                .reviewContent("Review content")
+//                .approved(false)
+//                .humanFeedbackRequested(false)
+//                .reviewedBy("human")
+//                .reviewedAt(Instant.now())
+//                .build();
+//    }
+//
+//    private MergeNode createMockMergeNode() {
+//        return MergeNode.builder()
+//                .nodeId("merge")
+//                .title("Merge")
+//                .goal("goal")
+//                .status(GraphNode.NodeStatus.RUNNING)
+//                .inputs(new ArrayList<>())
+//                .metadata(new HashMap<>())
+//                .createdAt(Instant.now())
+//                .updatedAt(Instant.now())
+//                .mergeContext("")
+//                .maxAgents(0)
+//                .currentAgents(0)
+//                .build();
+//    }
 }

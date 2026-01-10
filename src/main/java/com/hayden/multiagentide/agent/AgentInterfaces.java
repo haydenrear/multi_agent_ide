@@ -479,7 +479,7 @@ public interface AgentInterfaces {
             return input;
         }
 
-        @Action(canRerun = true)
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.OrchestratorCollectorRouting consolidateWorkflowOutputs(
                 AgentModels.OrchestratorCollectorRequest input,
                 OperationContext context
@@ -498,7 +498,65 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true)
+        @Action(canRerun = true, clearBlackboard = true)
+        public AgentModels.DiscoveryCollectorRouting consolidateDiscoveryFindings(
+                AgentModels.DiscoveryCollectorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "discovery-collector", context);
+            DiscoveryCollectorNode running = workflowGraphService.startDiscoveryCollector(context, input);
+            String prompt = renderTemplate(
+                    DISCOVERY_COLLECTOR_START_MESSAGE,
+                    Map.of("goal", input.goal(), "discoveryResults", input.discoveryResults())
+            );
+            AgentModels.DiscoveryCollectorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.DiscoveryCollectorRouting.class);
+            workflowGraphService.completeDiscoveryCollector(context, running, routing);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-collector", context, routing);
+            return routing;
+        }
+
+        @Action(canRerun = true, clearBlackboard = true)
+        public AgentModels.PlanningCollectorRouting consolidatePlansIntoTickets(
+                AgentModels.PlanningCollectorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "planning-collector", context);
+            PlanningCollectorNode running = workflowGraphService.startPlanningCollector(context, input);
+            String prompt = renderTemplate(
+                    PLANNING_COLLECTOR_MESSAGE,
+                    Map.of("goal", input.goal(), "planningResults", input.planningResults())
+            );
+            AgentModels.PlanningCollectorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.PlanningCollectorRouting.class);
+            workflowGraphService.completePlanningCollector(context, running, routing);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "planning-collector", context, routing);
+            return routing;
+        }
+
+        @Action(canRerun = true, clearBlackboard = true)
+        public AgentModels.TicketCollectorRouting consolidateTicketResults(
+                AgentModels.TicketCollectorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "ticket-collector", context);
+            TicketCollectorNode running = workflowGraphService.startTicketCollector(context, input);
+            String prompt = renderTemplate(
+                    TICKET_COLLECTOR_START_MESSAGE,
+                    Map.of("goal", input.goal(), "ticketResults", input.ticketResults())
+            );
+            AgentModels.TicketCollectorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.TicketCollectorRouting.class);
+            workflowGraphService.completeTicketCollector(context, running, routing);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-collector", context, routing);
+
+            return routing;
+        }
+
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.OrchestratorRouting coordinateWorkflow(
                 AgentModels.OrchestratorRequest input,
                 OperationContext context
@@ -518,7 +576,7 @@ public interface AgentInterfaces {
         }
 
 
-        @Action(canRerun = true, cost = 1)
+        @Action(canRerun = true, clearBlackboard = true, cost = 1)
         public AgentModels.OrchestratorRouting handleOrchestratorInterrupt(
                 AgentModels.OrchestratorInterruptRequest request,
                 OperationContext context
@@ -565,7 +623,7 @@ public interface AgentInterfaces {
         }
 
 
-        @Action(canRerun = true)
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.DiscoveryOrchestratorRouting kickOffAnyNumberOfAgentsForCodeSearch(
                 AgentModels.DiscoveryOrchestratorRequest input,
                 OperationContext context
@@ -585,7 +643,7 @@ public interface AgentInterfaces {
         }
 
 
-        @Action(canRerun = true)
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.DiscoveryAgentDispatchRouting dispatchDiscoveryAgentRequests(
                 AgentModels.DiscoveryAgentRequests input,
                 ActionContext context
@@ -642,26 +700,15 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true)
-        public AgentModels.DiscoveryCollectorRouting consolidateDiscoveryFindings(
-                AgentModels.DiscoveryCollectorRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "discovery-collector", context);
-            DiscoveryCollectorNode running = workflowGraphService.startDiscoveryCollector(context, input);
-            String prompt = renderTemplate(
-                    DISCOVERY_COLLECTOR_START_MESSAGE,
-                    Map.of("goal", input.goal(), "discoveryResults", input.discoveryResults())
-            );
-            AgentModels.DiscoveryCollectorRouting routing = context.ai()
-                    .withDefaultLlm()
-                    .createObject(prompt, AgentModels.DiscoveryCollectorRouting.class);
-            workflowGraphService.completeDiscoveryCollector(context, running, routing);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-collector", context, routing);
-            return routing;
-        }
+//        AfterInterrupted ... for each, so these will be to add the context from the interruption and contain the original request
+//        BackTo ... for each item you can jump back to, adds the additional context, removes the inner request, then, when you go
+//                  back through the BackTo, then it can add the inner request back to the blackboard -- ContinuationWrapper, which
+//                  can then accept the blackboard as a sort of visitor idea after and before, and based on it's inner, it operates
+//                  specifically over the blackboard to remove, and then it saves those items, and then can be smart about adding them
+//                  back - and there's one per - so specific to each, or one and case class over (maybe in a fn instead of visitor in one
+//                  place).
 
-        @Action(canRerun = true, cost = 1.0)
+        @Action(canRerun = true, clearBlackboard = true, cost = 1.0)
         public AgentModels.DiscoveryOrchestratorRouting handleDiscoveryInterrupt(
                 AgentModels.DiscoveryOrchestratorInterruptRequest request,
                 OperationContext context
@@ -711,7 +758,10 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true)
+//        add a conversation data model, add the stuff from the process into this, then clear everything else from the blackboard
+//        add more args for finer matching
+//        only clear blackboard when going backwards, then remove only items previous and add those to conversation
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.PlanningOrchestratorRouting decomposePlanAndCreateWorkItems(
                 AgentModels.PlanningOrchestratorRequest input,
                 OperationContext context
@@ -730,7 +780,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true)
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.PlanningAgentDispatchRouting dispatchPlanningAgentRequests(
                 AgentModels.PlanningAgentRequests input,
                 ActionContext context
@@ -789,26 +839,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true)
-        public AgentModels.PlanningCollectorRouting consolidatePlansIntoTickets(
-                AgentModels.PlanningCollectorRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "planning-collector", context);
-            PlanningCollectorNode running = workflowGraphService.startPlanningCollector(context, input);
-            String prompt = renderTemplate(
-                    PLANNING_COLLECTOR_MESSAGE,
-                    Map.of("goal", input.goal(), "planningResults", input.planningResults())
-            );
-            AgentModels.PlanningCollectorRouting routing = context.ai()
-                    .withDefaultLlm()
-                    .createObject(prompt, AgentModels.PlanningCollectorRouting.class);
-            workflowGraphService.completePlanningCollector(context, running, routing);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "planning-collector", context, routing);
-            return routing;
-        }
-
-        @Action(canRerun = true, cost = 1.0)
+        @Action(canRerun = true, clearBlackboard = true, cost = 1.0)
         public AgentModels.PlanningOrchestratorRouting handlePlanningInterrupt(
                 AgentModels.PlanningOrchestratorInterruptRequest request,
                 OperationContext context
@@ -858,7 +889,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true)
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.OrchestratorCollectorResult finalizeTicketOrchestrator(
                 AgentModels.TicketOrchestratorResult input,
                 OperationContext context
@@ -868,7 +899,7 @@ public interface AgentInterfaces {
                     new AgentModels.CollectorDecision(AgentModels.CollectorDecisionType.ADVANCE_PHASE, "", ""));
         }
 
-        @Action(canRerun = true)
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.TicketOrchestratorRouting orchestrateTicketExecution(
                 AgentModels.TicketOrchestratorRequest input,
                 OperationContext context
@@ -892,7 +923,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true)
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.TicketAgentDispatchRouting dispatchTicketAgentRequests(
                 AgentModels.TicketAgentRequests input,
                 ActionContext context
@@ -946,27 +977,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true)
-        public AgentModels.TicketCollectorRouting consolidateTicketResults(
-                AgentModels.TicketCollectorRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "ticket-collector", context);
-            TicketCollectorNode running = workflowGraphService.startTicketCollector(context, input);
-            String prompt = renderTemplate(
-                    TICKET_COLLECTOR_START_MESSAGE,
-                    Map.of("goal", input.goal(), "ticketResults", input.ticketResults())
-            );
-            AgentModels.TicketCollectorRouting routing = context.ai()
-                    .withDefaultLlm()
-                    .createObject(prompt, AgentModels.TicketCollectorRouting.class);
-            workflowGraphService.completeTicketCollector(context, running, routing);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-collector", context, routing);
-
-            return routing;
-        }
-
-        @Action(canRerun = true, cost = 1.0)
+        @Action(canRerun = true, clearBlackboard = true, cost = 1.0)
         public AgentModels.TicketOrchestratorRouting handleTicketInterrupt(
                 AgentModels.TicketOrchestratorInterruptRequest request,
                 OperationContext context
@@ -1021,7 +1032,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true)
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.ReviewRouting evaluateContent(
                 AgentModels.ReviewRequest input,
                 OperationContext context
@@ -1059,7 +1070,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true, cost = 1.0)
+        @Action(canRerun = true, clearBlackboard = true, cost = 1.0)
         public AgentModels.ReviewRouting handleReviewInterrupt(
                 AgentModels.ReviewInterruptRequest request,
                 OperationContext context
@@ -1128,7 +1139,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true)
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.MergerRouting performMerge(
                 AgentModels.MergerRequest input,
                 OperationContext context
@@ -1170,7 +1181,95 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action(canRerun = true, cost = 1.0)
+        @Action(canRerun = true, clearBlackboard = true)
+        public AgentModels.TicketCollectorRouting handleTicketCollectorBranch(
+                AgentModels.TicketCollectorResult request,
+                OperationContext context
+        ) {
+            return switch(request.collectorDecision().decisionType()) {
+                case ROUTE_BACK -> {
+                    yield AgentModels.TicketCollectorRouting.builder()
+                            .ticketRequest(new AgentModels.TicketOrchestratorRequest(request.consolidatedOutput(), "", "", ""))
+                            .build();
+                }
+                case ADVANCE_PHASE -> {
+                    yield AgentModels.TicketCollectorRouting.builder()
+                            .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest(request.consolidatedOutput(), request.collectorDecision().requestedPhase()))
+                            .build();
+                }
+                case STOP -> {
+                    throw new UnsupportedOperationException();
+                }
+            };
+        }
+
+        @Action(canRerun = true, clearBlackboard = true)
+        public AgentModels.DiscoveryCollectorRouting handleDiscoveryCollectorBranch(
+                AgentModels.DiscoveryCollectorResult request,
+                OperationContext context
+        ) {
+            return switch(request.collectorDecision().decisionType()) {
+                case ROUTE_BACK -> {
+                    yield AgentModels.DiscoveryCollectorRouting.builder()
+                            .discoveryRequest(new AgentModels.DiscoveryOrchestratorRequest(request.consolidatedOutput()))
+                            .build();
+                }
+                case ADVANCE_PHASE -> {
+                    yield AgentModels.DiscoveryCollectorRouting.builder()
+                            .planningRequest(new AgentModels.PlanningOrchestratorRequest(request.consolidatedOutput()))
+                            .build();
+                }
+                case STOP -> {
+                    throw new UnsupportedOperationException();
+                }
+            };
+        }
+
+        @Action(canRerun = true, clearBlackboard = true)
+        public AgentModels.OrchestratorCollectorRouting handleOrchestratorCollectorBranch(
+                AgentModels.OrchestratorCollectorResult request,
+                OperationContext context
+        ) {
+            return switch(request.collectorDecision().decisionType()) {
+                case ROUTE_BACK -> {
+                    yield AgentModels.OrchestratorCollectorRouting.builder()
+                            .orchestratorRequest(new AgentModels.OrchestratorRequest(request.consolidatedOutput(), request.collectorDecision().requestedPhase()))
+                            .build();
+                }
+                case ADVANCE_PHASE -> {
+                    yield AgentModels.OrchestratorCollectorRouting.builder()
+                            .collectorResult(new AgentModels.OrchestratorCollectorResult(request.consolidatedOutput(), request.collectorDecision()))
+                            .build();
+                }
+                case STOP -> {
+                    throw new UnsupportedOperationException();
+                }
+            };
+        }
+
+        @Action(canRerun = true, clearBlackboard = true)
+        public AgentModels.PlanningCollectorRouting handlePlanningCollectorBranch(
+                AgentModels.PlanningCollectorResult request,
+                OperationContext context
+        ) {
+            return switch(request.collectorDecision().decisionType()) {
+                case ROUTE_BACK -> {
+                    yield AgentModels.PlanningCollectorRouting.builder()
+                            .planningRequest(new AgentModels.PlanningOrchestratorRequest(request.consolidatedOutput()))
+                            .build();
+                }
+                case ADVANCE_PHASE -> {
+                    yield AgentModels.PlanningCollectorRouting.builder()
+                            .ticketOrchestratorRequest(new AgentModels.TicketOrchestratorRequest("", "", "", ""))
+                            .build();
+                }
+                case STOP -> {
+                    throw new UnsupportedOperationException();
+                }
+            };
+        }
+
+        @Action(canRerun = true, clearBlackboard = true, cost = 1.0)
         public AgentModels.MergerRouting handleMergerInterrupt(
                 AgentModels.MergerInterruptRequest request,
                 OperationContext context
@@ -1555,7 +1654,7 @@ public interface AgentInterfaces {
             return input;
         }
 
-        @Action
+        @Action(canRerun = true, clearBlackboard = true)
         public AgentModels.PlanningAgentRouting transitionToInterruptState(
                 AgentModels.PlanningAgentInterruptRequest interruptRequest,
                 OperationContext context
@@ -1564,7 +1663,7 @@ public interface AgentInterfaces {
             throw new RuntimeException();
         }
 
-        @Action
+        @Action(canRerun = true)
         public AgentModels.PlanningAgentRouting run(
                 AgentModels.PlanningAgentRequest input,
                 OperationContext context
