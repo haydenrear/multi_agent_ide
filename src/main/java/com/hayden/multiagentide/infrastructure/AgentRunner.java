@@ -388,7 +388,7 @@ public class AgentRunner {
 
     private boolean handleRoutingInterrupts(
             GraphNode node,
-            AgentModels.InterruptRequest interruptRequest,
+            AgentModels.InterruptDescriptor interruptRequest,
             List<AgentModels.InterruptType> fallbackInterrupts,
             String reason,
             String resultPayload

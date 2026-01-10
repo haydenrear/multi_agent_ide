@@ -581,7 +581,7 @@ public interface AgentInterfaces {
 
         @Action
         public AgentModels.OrchestratorRouting handleOrchestratorInterrupt(
-                AgentModels.InterruptRequest request,
+                AgentModels.OrchestratorInterruptRequest request,
                 OperationContext context
         ) {
             emitActionStarted(eventBus, multiAgentAgentName(), "orchestrator-interrupt", context);
@@ -659,7 +659,7 @@ public interface AgentInterfaces {
 
         @Action
         public AgentModels.DiscoveryOrchestratorRouting handleDiscoveryInterrupt(
-                AgentModels.InterruptRequest request,
+                AgentModels.DiscoveryOrchestratorInterruptRequest request,
                 OperationContext context
         ) {
             emitActionStarted(eventBus, multiAgentAgentName(), "discovery-interrupt", context);
@@ -739,7 +739,7 @@ public interface AgentInterfaces {
 
         @Action
         public AgentModels.PlanningOrchestratorRouting handlePlanningInterrupt(
-                AgentModels.InterruptRequest request,
+                AgentModels.PlanningOrchestratorInterruptRequest request,
                 OperationContext context
         ) {
             emitActionStarted(eventBus, multiAgentAgentName(), "planning-interrupt", context);
@@ -829,7 +829,7 @@ public interface AgentInterfaces {
 
         @Action
         public AgentModels.TicketOrchestratorRouting handleTicketInterrupt(
-                AgentModels.InterruptRequest request,
+                AgentModels.TicketOrchestratorInterruptRequest request,
                 OperationContext context
         ) {
             emitActionStarted(eventBus, multiAgentAgentName(), "ticket-interrupt", context);
@@ -883,7 +883,7 @@ public interface AgentInterfaces {
 
         @Action
         public AgentModels.ReviewRouting handleReviewInterrupt(
-                AgentModels.InterruptRequest request,
+                AgentModels.ReviewInterruptRequest request,
                 OperationContext context
         ) {
             emitActionStarted(eventBus, multiAgentAgentName(), "review-interrupt", context);
@@ -942,7 +942,7 @@ public interface AgentInterfaces {
 
         @Action
         public AgentModels.MergerRouting handleMergerInterrupt(
-                AgentModels.InterruptRequest request,
+                AgentModels.MergerInterruptRequest request,
                 OperationContext context
         ) {
             emitActionStarted(eventBus, multiAgentAgentName(), "merger-interrupt", context);
@@ -1026,7 +1026,7 @@ public interface AgentInterfaces {
 
         @Action
         public AgentModels.ContextOrchestratorRouting handleContextInterrupt(
-                AgentModels.InterruptRequest request,
+                AgentModels.ContextOrchestratorInterruptRequest request,
                 OperationContext context
         ) {
             emitActionStarted(eventBus, multiAgentAgentName(), "context-interrupt", context);
