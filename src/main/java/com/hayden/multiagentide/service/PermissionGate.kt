@@ -8,10 +8,16 @@ import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator
 import com.hayden.multiagentide.repository.GraphRepository
 import com.hayden.multiagentidelib.infrastructure.EventBus
 import com.hayden.multiagentidelib.model.events.Events
+import com.hayden.multiagentidelib.agent.AgentModels
 import com.hayden.multiagentidelib.model.nodes.AskPermissionNode
 import com.hayden.multiagentidelib.model.nodes.GraphNode
+import com.hayden.multiagentidelib.model.nodes.InterruptContext
+import com.hayden.multiagentidelib.model.nodes.InterruptNode
+import com.hayden.multiagentidelib.model.nodes.Interruptible
+import com.hayden.multiagentidelib.model.nodes.ReviewNode
 import com.hayden.multiagentidelib.service.IPermissionGate
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -25,7 +31,23 @@ class PermissionGate(
     private val eventBus: EventBus
 ) : IPermissionGate {
 
+    data class PendingInterruptRequest(
+        val interruptId: String,
+        val originNodeId: String,
+        val type: AgentModels.InterruptType,
+        val reason: String?,
+        val deferred: CompletableDeferred<InterruptResolution>
+    )
+
+    data class InterruptResolution(
+        val interruptId: String,
+        val originNodeId: String,
+        val resolutionType: String?,
+        val resolutionNotes: String?
+    )
+
     private val pendingRequests = ConcurrentHashMap<String, IPermissionGate.PendingPermissionRequest>()
+    private val pendingInterrupts = ConcurrentHashMap<String, PendingInterruptRequest>()
 
     override fun publishRequest(
         requestId: String,
@@ -171,5 +193,221 @@ class PermissionGate(
                 selectedOptionId
             )
         )
+    }
+
+    fun publishInterrupt(
+        interruptId: String,
+        originNodeId: String,
+        type: AgentModels.InterruptType,
+        reason: String?
+    ): PendingInterruptRequest {
+        val existing = pendingInterrupts[interruptId]
+        if (existing != null) {
+            return existing
+        }
+
+        val pending = PendingInterruptRequest(
+            interruptId = interruptId,
+            originNodeId = originNodeId,
+            type = type,
+            reason = reason,
+            deferred = CompletableDeferred()
+        )
+        pendingInterrupts[interruptId] = pending
+
+        if (type == AgentModels.InterruptType.HUMAN_REVIEW) {
+            val node = graphRepository.findById(interruptId).orElse(null)
+            val reviewNode = node as? ReviewNode
+            val reviewContent = reason ?: reviewNode?.reviewContent ?: ""
+            if (reviewNode != null && reviewNode.status() != GraphNode.NodeStatus.WAITING_INPUT) {
+                val updated = reviewNode
+                    .toBuilder()
+                    .status(GraphNode.NodeStatus.WAITING_INPUT)
+                    .lastUpdatedAt(Instant.now())
+                    .build()
+                graphRepository.save(updated)
+                orchestrator.emitStatusChangeEvent(
+                    reviewNode.nodeId(),
+                    reviewNode.status(),
+                    GraphNode.NodeStatus.WAITING_INPUT,
+                    "Human review requested"
+                )
+            }
+            orchestrator.emitReviewRequestedEvent(
+                originNodeId,
+                interruptId,
+                ReviewNode.ReviewType.HUMAN,
+                reviewContent
+            )
+        }
+        if (type == AgentModels.InterruptType.AGENT_REVIEW) {
+            val node = graphRepository.findById(interruptId).orElse(null)
+            val reviewNode = node as? ReviewNode
+            if (reviewNode != null && reviewNode.status() == GraphNode.NodeStatus.READY) {
+                val updated = reviewNode
+                    .toBuilder()
+                    .status(GraphNode.NodeStatus.RUNNING)
+                    .lastUpdatedAt(Instant.now())
+                    .build()
+                graphRepository.save(updated)
+                orchestrator.emitStatusChangeEvent(
+                    reviewNode.nodeId(),
+                    reviewNode.status(),
+                    GraphNode.NodeStatus.RUNNING,
+                    "Agent review started"
+                )
+            }
+        }
+
+        return pending
+    }
+
+    suspend fun awaitInterrupt(interruptId: String): InterruptResolution {
+        val pending = pendingInterrupts[interruptId] ?: return InterruptResolution(
+            interruptId = interruptId,
+            originNodeId = interruptId,
+            resolutionType = "cancelled",
+            resolutionNotes = null
+        )
+        return pending.deferred.await()
+    }
+
+    fun awaitInterruptBlocking(interruptId: String): InterruptResolution {
+        return runBlocking {
+            awaitInterrupt(interruptId)
+        }
+    }
+
+    fun resolveInterrupt(
+        interruptId: String,
+        resolutionType: String?,
+        resolutionNotes: String?,
+        reviewResult: AgentModels.ReviewAgentResult? = null
+    ): Boolean {
+        val pending = pendingInterrupts.remove(interruptId) ?: return false
+        val resolution = InterruptResolution(
+            interruptId = interruptId,
+            originNodeId = pending.originNodeId,
+            resolutionType = resolutionType,
+            resolutionNotes = resolutionNotes
+        )
+        pending.deferred.complete(resolution)
+
+        val interruptNode = graphRepository.findById(interruptId).orElse(null)
+        when (interruptNode) {
+            is ReviewNode -> {
+                val approved = resolutionType?.equals("approved", ignoreCase = true) == true
+                    || resolutionType?.equals("accept", ignoreCase = true) == true
+                val updatedContext = interruptNode.interruptContext()
+                    ?.withStatus(InterruptContext.InterruptStatus.RESOLVED)
+                    ?.withResultPayload(resolutionNotes)
+                val updated = interruptNode
+                    .toBuilder()
+                    .approved(approved)
+                    .agentFeedback(resolutionNotes ?: "")
+                    .reviewCompletedAt(Instant.now())
+                    .reviewResult(reviewResult)
+                    .interruptContext(updatedContext ?: interruptNode.interruptContext())
+                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .lastUpdatedAt(Instant.now())
+                    .build()
+                graphRepository.save(updated)
+                orchestrator.emitStatusChangeEvent(
+                    interruptNode.nodeId(),
+                    interruptNode.status(),
+                    GraphNode.NodeStatus.COMPLETED,
+                    "Review resolved"
+                )
+            }
+            is InterruptNode -> {
+                val updatedContext = interruptNode.interruptContext()
+                    ?.withStatus(InterruptContext.InterruptStatus.RESOLVED)
+                    ?.withResultPayload(resolutionNotes)
+                val updated = interruptNode
+                    .toBuilder()
+                    .interruptContext(updatedContext ?: interruptNode.interruptContext())
+                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .lastUpdatedAt(Instant.now())
+                    .build()
+                graphRepository.save(updated)
+                orchestrator.emitStatusChangeEvent(
+                    interruptNode.nodeId(),
+                    interruptNode.status(),
+                    GraphNode.NodeStatus.COMPLETED,
+                    "Interrupt resolved"
+                )
+            }
+            else -> {
+            }
+        }
+
+        val originNode = graphRepository.findById(pending.originNodeId).orElse(null)
+        if (originNode is Interruptible) {
+            val context = originNode.interruptibleContext()
+            if (context != null) {
+                val updatedContext = context
+                    .withStatus(InterruptContext.InterruptStatus.RESOLVED)
+                    .withResultPayload(resolutionNotes)
+                val updatedOrigin = updateInterruptContext(originNode, updatedContext)
+                graphRepository.save(updatedOrigin)
+                if (originNode.status() == GraphNode.NodeStatus.WAITING_INPUT ||
+                    originNode.status() == GraphNode.NodeStatus.WAITING_REVIEW
+                ) {
+                    val resumed = updatedOrigin.withStatus(GraphNode.NodeStatus.RUNNING)
+                    graphRepository.save(resumed)
+                    orchestrator.emitStatusChangeEvent(
+                        originNode.nodeId(),
+                        originNode.status(),
+                        GraphNode.NodeStatus.RUNNING,
+                        "Interrupt resolved"
+                    )
+                }
+                orchestrator.emitInterruptStatusEvent(
+                    originNode.nodeId(),
+                    pending.type.name,
+                    InterruptContext.InterruptStatus.RESOLVED.name,
+                    context.originNodeId(),
+                    context.resumeNodeId()
+                )
+            }
+        }
+        return true
+    }
+
+    private fun updateInterruptContext(node: GraphNode, context: InterruptContext): GraphNode {
+        return when (node) {
+            is com.hayden.multiagentidelib.model.nodes.DiscoveryNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.DiscoveryCollectorNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.DiscoveryOrchestratorNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.PlanningNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.PlanningCollectorNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.PlanningOrchestratorNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.TicketNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.TicketCollectorNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.TicketOrchestratorNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is ReviewNode ->
+                node.toBuilder().interruptContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.MergeNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.OrchestratorNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.CollectorNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.SummaryNode ->
+                node.toBuilder().interruptibleContext(context).lastUpdatedAt(Instant.now()).build()
+            is InterruptNode ->
+                node.toBuilder().interruptContext(context).lastUpdatedAt(Instant.now()).build()
+            is com.hayden.multiagentidelib.model.nodes.AskPermissionNode ->
+                node.toBuilder().lastUpdatedAt(Instant.now()).build()
+        }
     }
 }

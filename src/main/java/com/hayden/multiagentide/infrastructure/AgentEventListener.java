@@ -124,6 +124,8 @@ public class AgentEventListener implements EventListener {
             }
             case Events.PermissionResolvedEvent permissionResolvedEvent -> {
             }
+            default -> {
+            }
         }
     }
 

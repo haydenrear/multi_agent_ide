@@ -4,11 +4,13 @@ import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.infrastructure.EventBus;
 import com.hayden.multiagentidelib.model.events.Events;
 import com.hayden.multiagentide.service.AgentControlService;
+import com.hayden.multiagentide.service.PermissionGate;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +26,7 @@ public class InterruptController {
 
     private final AgentControlService agentControlService;
     private final EventBus eventBus;
+    private final PermissionGate permissionGate;
 
     @PostMapping
     public InterruptStatusResponse requestInterrupt(@RequestBody InterruptRequest request) {
@@ -54,6 +57,15 @@ public class InterruptController {
             @RequestBody InterruptResolution request
     ) {
         String message = request.resolutionNotes() != null ? request.resolutionNotes() : "Interrupt resolved";
+        boolean resolved = permissionGate.resolveInterrupt(
+                interruptId,
+                request.resolutionType(),
+                message,
+                null
+        );
+        if (!resolved) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Interrupt request not found");
+        }
         eventBus.publish(new Events.ResolveInterruptEvent(
                 UUID.randomUUID().toString(),
                 Instant.now(),
