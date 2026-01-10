@@ -1,20 +1,17 @@
 package com.hayden.multiagentide.workflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.embabel.agent.api.common.OperationContext;
-import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.WorkflowGraphService;
+import com.hayden.multiagentide.agent.WorkflowGraphState;
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentide.infrastructure.AgentRunner;
-import com.hayden.multiagentidelib.model.MergeResult;
 import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
-import com.hayden.multiagentide.service.WorktreeService;
 import com.hayden.multiagentide.support.AgentTestBase;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,28 +21,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest
 class AgentRunnerWorkflowTest extends AgentTestBase {
 
     @Autowired
-    private AgentRunner agentRunner;
+    private WorkflowGraphService workflowGraphService;
 
     @Autowired
     private GraphRepository graphRepository;
 
     @Autowired
     private WorktreeRepository worktreeRepository;
-
-    @MockitoBean
-    private WorktreeService worktreeService;
 
     @BeforeEach
     void setUp() {
@@ -63,15 +55,44 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         graphRepository.save(ticketNode);
         graphRepository.save(reviewNode);
 
-        when(reviewAgent.evaluateContent(
-            any(AgentInterfaces.ReviewAgentInput.class),
-            any(OperationContext.class)
-        )).thenReturn(new AgentModels.ReviewAgentResult(
-            "approved",
-            List.of()
-        ));
+        workflowGraphService.completeReview(
+                reviewNode,
+                new AgentModels.ReviewRouting(
+                        null,
+                        new AgentModels.ReviewAgentResult("approved"),
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        );
 
-        agentRunner.runReviewAgent(reviewNode, ticketNode);
+        WorkflowGraphState state = new WorkflowGraphState(
+                ticketOrchestrator.nodeId(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                reviewNode.nodeId(),
+                null
+        );
+        OperationContext context = Mockito.mock(OperationContext.class);
+        when(context.last(WorkflowGraphState.class)).thenReturn(state);
+        workflowGraphService.startMerge(
+                context,
+                new AgentModels.MergerRequest(
+                        "merge context",
+                        "merge summary",
+                        "",
+                        new AgentModels.OrchestratorCollectorRequest("Review ticket", "COMPLETE"),
+                        null,
+                        null,
+                        null
+                )
+        );
 
         Optional<GraphNode> updatedReview = graphRepository.findById(reviewNode.nodeId());
         assertThat(updatedReview).isPresent();
@@ -82,9 +103,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         assertThat(children.get(0)).isInstanceOf(MergeNode.class);
 
         MergeNode mergeNode = (MergeNode) children.get(0);
-        assertThat(mergeNode.metadata().get("child_worktree_id")).isEqualTo(ticketNode.mainWorktreeId());
-        assertThat(mergeNode.metadata().get("target_worktree_id")).isEqualTo(ticketOrchestrator.mainWorktreeId());
-        assertThat(mergeNode.metadata().get("merge_scope")).isEqualTo("ticket");
+        assertThat(mergeNode.parentNodeId()).isEqualTo(reviewNode.nodeId());
     }
 
     @Test
@@ -97,24 +116,20 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         graphRepository.save(ticketNode);
         graphRepository.save(reviewNode);
 
-        when(reviewAgent.evaluateContent(
-            any(AgentInterfaces.ReviewAgentInput.class),
-            any(OperationContext.class)
-        )).thenReturn(new AgentModels.ReviewAgentResult(
-            "needs revision",
-            List.of()
-        ));
+        workflowGraphService.completeReview(
+                reviewNode,
+                new AgentModels.ReviewRouting(
+                        null,
+                        new AgentModels.ReviewAgentResult("human review needed"),
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        );
 
-        agentRunner.runReviewAgent(reviewNode, ticketNode);
-
-        List<GraphNode> orchestratorChildren = graphRepository.findByParentId(ticketOrchestrator.nodeId());
-        boolean hasRevision = orchestratorChildren.stream()
-            .filter(TicketNode.class::isInstance)
-            .map(TicketNode.class::cast)
-            .anyMatch(node -> node.title().contains("(Revision)") &&
-                node.metadata().containsKey("review_feedback"));
-
-        assertThat(hasRevision).isTrue();
+        GraphNode updatedReview = graphRepository.findById(reviewNode.nodeId()).orElseThrow();
+        assertThat(updatedReview.status()).isEqualTo(GraphNode.NodeStatus.WAITING_INPUT);
     }
 
     @Test
@@ -159,28 +174,21 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         );
         graphRepository.save(mergeNode);
 
-        MergeResult mergeResult = new MergeResult(
-            UUID.randomUUID().toString(),
-            childWorktreeId,
-            parentWorktreeId,
-            false,
-            null,
-            List.of(new MergeResult.MergeConflict("conflict.txt", "content", "", "", "")),
-            List.of(),
-            "conflicts",
-            Instant.now()
+        workflowGraphService.completeMerge(
+                mergeNode,
+                new AgentModels.MergerRouting(
+                        new AgentModels.MergerInterruptRequest(
+                                AgentModels.InterruptType.HUMAN_REVIEW,
+                                "conflicts"
+                        ),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                ),
+                "conflicts"
         );
-
-        Mockito.when(mergerAgent.performMerge(
-                any(AgentInterfaces.MergerAgentInput.class),
-                any(OperationContext.class)
-        ))
-                        .thenReturn(new AgentModels.MergerAgentResult("hello!", List.of(AgentModels.InterruptType.HUMAN_REVIEW)));
-
-        when(worktreeService.mergeWorktrees(childWorktreeId, parentWorktreeId))
-            .thenReturn(mergeResult);
-
-        agentRunner.runMergeAgent(mergeNode, null);
 
         GraphNode updated = graphRepository.findById(mergeNode.nodeId()).orElseThrow();
         assertThat(updated.status()).isEqualTo(GraphNode.NodeStatus.WAITING_INPUT);

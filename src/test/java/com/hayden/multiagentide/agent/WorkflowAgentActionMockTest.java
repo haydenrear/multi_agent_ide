@@ -12,6 +12,7 @@ import com.hayden.multiagentidelib.model.nodes.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -116,7 +117,10 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     null, null,
                     new AgentModels.DiscoveryOrchestratorRequest("Implement auth"),
                     null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "DISCOVERY".equals(req.phase())),
+                    any()
+            );
 
             // 3. Discovery orchestrator creates single agent request
             doReturn(new AgentModels.DiscoveryOrchestratorRouting(
@@ -194,7 +198,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     ),
                     null, null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    argThat((AgentModels.OrchestratorCollectorRequest req) -> req.goal().equals("Implement auth")),
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "Implement auth".equals(req.goal())),
                     any()
             );
 
@@ -210,7 +214,10 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Verify action methods called in correct order
             verify(workflowAgent).coordinateWorkflow(any(), any());
-            verify(workflowAgent, atLeastOnce()).consolidateWorkflowOutputs(any(), any());
+            verify(workflowAgent, atLeastOnce()).consolidateWorkflowOutputs(
+                    any(AgentModels.OrchestratorCollectorRequest.class),
+                    any()
+            );
             verify(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
             verify(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
             verify(workflowAgent).dispatchDiscoveryAgentRequests(any(), any());
@@ -243,7 +250,10 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     null, null, null,
                     new AgentModels.PlanningOrchestratorRequest("Quick task"),
                     null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "TICKETS".equals(req.phase())),
+                    any()
+            );
 
             // 3. Planning orchestrator creates request
             doReturn(new AgentModels.PlanningOrchestratorRouting(
@@ -293,8 +303,8 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     ),
                     null, null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(), any(),
-                    argThat(routing -> routing.collectorResult() != null)
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
+                    any()
             );
 
             // Act
@@ -330,7 +340,10 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     null, null, null, null,
                     new AgentModels.TicketOrchestratorRequest("Direct to tickets", "", "", ""),
                     null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "DISCOVERY".equals(req.phase())),
+                    any()
+            );
 
             // 3. Ticket orchestrator creates requests
             doReturn(new AgentModels.TicketOrchestratorRouting(
@@ -380,8 +393,8 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     ),
                     null, null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(), any(),
-                    argThat(routing -> routing.collectorResult() != null)
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
+                    any()
             );
 
             // Act
@@ -420,7 +433,10 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     null, null,
                     new AgentModels.DiscoveryOrchestratorRequest("Complex discovery"),
                     null, null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "PLANNING".equals(req.phase())),
+                    any()
+            );
 
             // 3. Discovery orchestrator creates MULTIPLE agent requests
             doReturn(new AgentModels.DiscoveryOrchestratorRouting(
@@ -491,8 +507,8 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     ),
                     null, null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(), any(),
-                    argThat(routing -> routing.collectorResult() != null)
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
+                    any()
             );
 
             // Act
@@ -522,7 +538,10 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     null, null, null,
                     new AgentModels.PlanningOrchestratorRequest("Multi-plan"),
                     null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "DISCOVERY".equals(req.phase())),
+                    any()
+            );
 
             // Create 4 planning agents
             doReturn(new AgentModels.PlanningOrchestratorRouting(
@@ -572,8 +591,8 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     ),
                     null, null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(), any(),
-                    argThat(routing -> routing.collectorResult() != null)
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
+                    any()
             );
 
             // Act
@@ -691,8 +710,12 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             );
 
             // Assert
-            verify(workflowGraphService).handleDiscoveryCollectorInterrupt(any(), any(),
-                    argThat(req -> req.type() == AgentModels.InterruptType.PAUSE));
+            verify(workflowGraphService).completeDiscoveryCollector(
+                    any(),
+                    any(DiscoveryCollectorNode.class),
+                    argThat(routing -> routing.interruptRequest() != null
+                            && routing.interruptRequest().type() == AgentModels.InterruptType.PAUSE)
+            );
             // Should NOT proceed to planning
             verify(workflowAgent, never()).decomposePlanAndCreateWorkItems(any(), any());
         }
@@ -813,7 +836,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             doReturn(new AgentModels.TicketOrchestratorRouting(
                     null,
                     new AgentModels.TicketAgentRequests(List.of(
-                            new AgentModels.TicketAgentRequest("Ticket error", 0)
+                            new AgentModels.TicketAgentRequest("Ticket error", "", "", "")
                     )),
                     null
             )).when(workflowAgent).orchestrateTicketExecution(any(), any());
@@ -877,10 +900,11 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             // Discovery collector decides to loop back to orchestrator for MORE discovery
             doReturn(new AgentModels.DiscoveryCollectorRouting(
                     null, null,
+                    null,
                     new AgentModels.DiscoveryOrchestratorRequest("Needs more discovery"), // Loop back!
-                    null, null, null, null, null, null
+                    null, null, null, null, null
             )).when(workflowAgent).consolidateDiscoveryFindings(
-                    argThat(req -> req.discoveryResults().contains("initial")),
+                    Mockito.<AgentModels.DiscoveryCollectorRequest>argThat(req -> req.discoveryResults().contains("initial")),
                     any()
             );
 
@@ -892,8 +916,8 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     )),
                     null
             )).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(
-                    argThat(node -> node != null),
-                    argThat(req -> req.getAgentProcess().getGoal().toString().equals("Needs more discovery"))
+                    Mockito.<AgentModels.DiscoveryOrchestratorRequest>argThat(req -> "Needs more discovery".equals(req.goal())),
+                    any()
             );
 
             doReturn(new AgentModels.DiscoveryAgentRouting(
@@ -919,7 +943,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     new AgentModels.PlanningOrchestratorRequest("Needs more discovery"),
                     null, null, null, null
             )).when(workflowAgent).consolidateDiscoveryFindings(
-                    argThat(req -> req.discoveryResults().contains("deeper")),
+                    Mockito.<AgentModels.DiscoveryCollectorRequest>argThat(req -> req.discoveryResults().contains("deeper")),
                     any()
             );
 
@@ -967,8 +991,8 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     ),
                     null, null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(), any(),
-                    argThat(routing -> routing.collectorResult() != null)
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
+                    any()
             );
 
             // Act
@@ -1001,7 +1025,10 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     null, null, null,
                     new AgentModels.PlanningOrchestratorRequest("Incomplete context"),
                     null, null, null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "PLANNING".equals(req.phase())),
+                    any()
+            );
 
             // Planning phase
             doReturn(new AgentModels.PlanningOrchestratorRouting(
@@ -1074,8 +1101,8 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     ),
                     null, null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(), any(),
-                    argThat(routing -> routing.collectorResult() != null)
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
+                    any()
             );
 
             // Act
@@ -1109,8 +1136,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     new AgentModels.DiscoveryOrchestratorRequest("Multi-loop"),
                     null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(),
-                    argThat(node -> node.getPhase().equals("DISCOVERY")),
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "DISCOVERY".equals(req.phase())),
                     any()
             );
 
@@ -1126,7 +1152,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             doReturn(new AgentModels.DiscoveryAgentRouting(
                     null,
                     new AgentModels.DiscoveryAgentResult("First discovery")
-            )).when(workflowAgent).discoverCodebaseForRequestedInfo(any(), any(), any(), any());
+            )).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
 
             doReturn(new AgentModels.DiscoveryAgentDispatchRouting(
                     null,
@@ -1136,7 +1162,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             // Discovery collector loops back to ORCHESTRATOR COLLECTOR (not to planning)
             doReturn(new AgentModels.DiscoveryCollectorRouting(
                     null, null,
-                    new AgentModels.OrchestratorCollectorRequest("Multi-loop", "PLANNING"), // Back to orch collector!
+                    new AgentModels.OrchestratorRequest("Multi-loop", "PLANNING"), // Back to orchestrator!
                     null, null, null, null, null, null
             )).when(workflowAgent).consolidateDiscoveryFindings(any(AgentModels.DiscoveryCollectorRequest.class), any());
 
@@ -1146,8 +1172,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     new AgentModels.PlanningOrchestratorRequest("Multi-loop"),
                     null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(),
-                    argThat(node -> node.getPhase().equals("PLANNING")),
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "PLANNING".equals(req.phase())),
                     any()
             );
 
@@ -1163,7 +1188,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             doReturn(new AgentModels.PlanningAgentRouting(
                     null,
                     new AgentModels.PlanningAgentResult("Plan")
-            )).when(workflowAgent).breakDownGoalIntoPlan(any(), any(), any(), any());
+            )).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
 
             doReturn(new AgentModels.PlanningAgentDispatchRouting(
                     null,
@@ -1172,10 +1197,29 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Planning collector ALSO loops back to orchestrator collector
             doReturn(new AgentModels.PlanningCollectorRouting(
-                    null, null,
-                    new AgentModels.OrchestratorCollectorRequest("Multi-loop", "TICKETS"), // Back again!
-                    null, null, null
+                    null,
+                    null,
+                    null,
+                    null,
+                    new AgentModels.ReviewRequest(
+                            "Multi-loop",
+                            "Review criteria",
+                            new AgentModels.OrchestratorCollectorRequest("Multi-loop", "TICKETS"),
+                            null,
+                            null,
+                            null
+                    ),
+                    null
             )).when(workflowAgent).consolidatePlansIntoTickets(any(AgentModels.PlanningCollectorRequest.class), any());
+
+            doReturn(new AgentModels.ReviewRouting(
+                    null,
+                    new AgentModels.ReviewAgentResult("approved"),
+                    new AgentModels.OrchestratorCollectorRequest("Multi-loop", "TICKETS"),
+                    null,
+                    null,
+                    null
+            )).when(workflowAgent).evaluateContent(any(), any());
 
             // Third: orchestrator collector finally completes
             doReturn(new AgentModels.OrchestratorCollectorRouting(
@@ -1190,8 +1234,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     ),
                     null, null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(),
-                    argThat(node -> node.getPhase().equals("TICKETS")),
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "TICKETS".equals(req.phase())),
                     any()
             );
 
@@ -1229,34 +1272,39 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             // Orchestrator collector routes to Review
             doReturn(new AgentModels.OrchestratorCollectorRouting(
                     null, null, null, null, null,
-                    new AgentModels.ReviewRequest("Review flow"),
+                    new AgentModels.ReviewRequest(
+                            "Review flow",
+                            "Review criteria",
+                            new AgentModels.OrchestratorCollectorRequest("Review flow", "MERGE"),
+                            null,
+                            null,
+                            null
+                    ),
                     null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "REVIEW".equals(req.phase())),
+                    any()
+            );
 
             // Review action returns result routing to Merger
             doReturn(new AgentModels.ReviewRouting(
                     null,
-                    new AgentModels.ReviewResult("Review passed", true),
+                    new AgentModels.ReviewAgentResult("Review passed"),
+                    new AgentModels.OrchestratorCollectorRequest("Review flow", "MERGE"),
+                    null,
+                    null,
                     null
             )).when(workflowAgent).evaluateContent(any(), any());
-
-            // Dispatch review routes to Merger
-            doReturn(new AgentModels.ReviewDispatchRouting(
-                    null,
-                    new AgentModels.MergerRequest("Review flow")
-            )).when(workflowAgent).dispatchReviewResults(any(AgentModels.ReviewAgentResult.class), any());
 
             // Merger completes
             doReturn(new AgentModels.MergerRouting(
                     null,
-                    new AgentModels.MergerResult("Merged successfully")
-            )).when(workflowAgent).performMerge(any(), any());
-
-            // Dispatch merger routes back to orchestrator collector with completion
-            doReturn(new AgentModels.MergerDispatchRouting(
+                    new AgentModels.MergerAgentResult("Merged successfully"),
+                    new AgentModels.OrchestratorCollectorRequest("Review flow", "COMPLETE"),
                     null,
-                    new AgentModels.OrchestratorCollectorRequest("Review flow", "COMPLETE")
-            )).when(workflowAgent).dispatchMergerResults(any(AgentModels.MergerAgentResult.class), any());
+                    null,
+                    null
+            )).when(workflowAgent).performMerge(any(), any());
 
             // Orchestrator collector completes
             doReturn(new AgentModels.OrchestratorCollectorRouting(
@@ -1271,8 +1319,8 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     ),
                     null, null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(), any(),
-                    argThat(routing -> routing.collectorResult() != null)
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
+                    any()
             );
 
             // Act
@@ -1296,15 +1344,28 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             doReturn(new AgentModels.OrchestratorCollectorRouting(
                     null, null, null, null, null,
-                    new AgentModels.ReviewRequest("Review fail"),
+                    new AgentModels.ReviewRequest(
+                            "Review fail",
+                            "Review criteria",
+                            new AgentModels.OrchestratorCollectorRequest("Review fail", "MERGE"),
+                            null,
+                            null,
+                            null
+                    ),
                     null
-            )).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
+            )).when(workflowAgent).consolidateWorkflowOutputs(
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "REVIEW".equals(req.phase())),
+                    any()
+            );
 
             // Review FAILS - routes back to orchestrator collector to retry tickets
             doReturn(new AgentModels.ReviewRouting(
                     null,
-                    new AgentModels.ReviewResult("Review failed - tests broken", false),
-                    new AgentModels.OrchestratorCollectorRequest("Review fail", "TICKETS") // Back to tickets!
+                    new AgentModels.ReviewAgentResult("Review failed - tests broken"),
+                    new AgentModels.OrchestratorCollectorRequest("Review fail", "TICKETS"), // Back to tickets!
+                    null,
+                    null,
+                    null
             )).when(workflowAgent).evaluateContent(any(), any());
 
             // Now back to tickets phase
@@ -1313,8 +1374,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     new AgentModels.TicketOrchestratorRequest("Direct to tickets", "", "", ""),
                     null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(),
-                    argThat(node -> node.getPhase().equals("TICKETS")),
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "TICKETS".equals(req.phase())),
                     any()
             );
 
@@ -1322,7 +1382,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             doReturn(new AgentModels.TicketOrchestratorRouting(
                     null,
                     new AgentModels.TicketAgentRequests(List.of(
-                            new AgentModels.TicketAgentRequest("Review fail", 0)
+                            new AgentModels.TicketAgentRequest("Review fail", "", "", "")
                     )),
                     null
             )).when(workflowAgent).orchestrateTicketExecution(any(), any());
@@ -1339,46 +1399,58 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Ticket collector now advances to REVIEW again
             doReturn(new AgentModels.TicketCollectorRouting(
-                    null, null,
-                    new AgentModels.OrchestratorCollectorRequest("Review fail", "REVIEW"),
-                    null, null
+                    null,
+                    null,
+                    null,
+                    new AgentModels.ReviewRequest(
+                            "Review fail",
+                            "Review criteria",
+                            new AgentModels.OrchestratorCollectorRequest("Review fail", "REVIEW"),
+                            null,
+                            null,
+                            null
+                    ),
+                    null
             )).when(workflowAgent).consolidateTicketResults(any(AgentModels.TicketCollectorRequest.class), any());
 
             // Second review attempt
             doReturn(new AgentModels.OrchestratorCollectorRouting(
                     null, null, null, null, null,
-                    new AgentModels.ReviewRequest("Review fail"),
+                    new AgentModels.ReviewRequest(
+                            "Review fail",
+                            "Review criteria",
+                            new AgentModels.OrchestratorCollectorRequest("Review fail", "MERGE"),
+                            null,
+                            null,
+                            null
+                    ),
                     null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(),
-                    argThat(node -> node.getPhase().equals("REVIEW")),
-                    argThat(routing -> routing.reviewRequest() != null)
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "REVIEW".equals(req.phase())),
+                    any()
             );
 
             // Second review passes
             doReturn(new AgentModels.ReviewRouting(
                     null,
-                    new AgentModels.ReviewResult("Review passed", true),
+                    new AgentModels.ReviewAgentResult("Review passed"),
+                    new AgentModels.OrchestratorCollectorRequest("Review fail", "MERGE"),
+                    null,
+                    null,
                     null
             )).when(workflowAgent).evaluateContent(
-                    any(),
-                    argThat(req -> req.goal().equals("Review fail"))
+                    Mockito.<AgentModels.ReviewRequest>argThat(req -> "Review fail".equals(req.content())),
+                    any()
             );
-
-            doReturn(new AgentModels.ReviewDispatchRouting(
-                    null,
-                    new AgentModels.MergerRequest("Review fail")
-            )).when(workflowAgent).dispatchReviewResults(any(AgentModels.ReviewAgentResult.class), any());
 
             doReturn(new AgentModels.MergerRouting(
                     null,
-                    new AgentModels.MergerResult("Merged")
-            )).when(workflowAgent).performMerge(any(), any());
-
-            doReturn(new AgentModels.MergerDispatchRouting(
+                    new AgentModels.MergerAgentResult("Merged"),
+                    new AgentModels.OrchestratorCollectorRequest("Review fail", "COMPLETE"),
                     null,
-                    new AgentModels.OrchestratorCollectorRequest("Review fail", "COMPLETE")
-            )).when(workflowAgent).dispatchMergerResults(any(AgentModels.MergerAgentResult.class), any());
+                    null,
+                    null
+            )).when(workflowAgent).performMerge(any(), any());
 
             doReturn(new AgentModels.OrchestratorCollectorRouting(
                     null,
@@ -1392,8 +1464,8 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     ),
                     null, null, null, null, null
             )).when(workflowAgent).consolidateWorkflowOutputs(
-                    any(), any(),
-                    argThat(routing -> routing.collectorResult() != null)
+                    Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "COMPLETE".equals(req.phase())),
+                    any()
             );
 
             // Act
@@ -1427,8 +1499,13 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 "orch-1", "Orch", "goal", GraphNode.NodeStatus.RUNNING,
                 null, new ArrayList<>(), new HashMap<>(),
                 Instant.now(), Instant.now(),
-                new HasWorktree.WorkTree("wt", null, new ArrayList<>()),
-                0, 0, "agent", "", true, 0
+                "repo-url",
+                "main",
+                false,
+                new ArrayList<>(),
+                "wt",
+                new ArrayList<>(),
+                ""
         );
     }
 
@@ -1436,7 +1513,14 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         return new CollectorNode(
                 "coll-1", "Collector", "goal", GraphNode.NodeStatus.RUNNING,
                 null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(), "", 0, 0
+                Instant.now(), Instant.now(),
+                "repo-url",
+                "main",
+                false,
+                new ArrayList<>(),
+                "wt",
+                new ArrayList<>(),
+                ""
         );
     }
 
@@ -1460,7 +1544,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         return new DiscoveryNode(
                 "disc", "Disc", "goal", GraphNode.NodeStatus.RUNNING,
                 null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(), "", 0, 0, "agent", "", null, ""
+                Instant.now(), Instant.now(), "", 0, 0
         );
     }
 
@@ -1468,7 +1552,11 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         return new PlanningOrchestratorNode(
                 "plan-orch", "PlanOrch", "goal", GraphNode.NodeStatus.RUNNING,
                 null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(), "", 0, 0
+                Instant.now(), Instant.now(),
+                new ArrayList<>(),
+                "",
+                0,
+                0
         );
     }
 
@@ -1476,7 +1564,11 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         return new PlanningCollectorNode(
                 "plan-coll", "PlanColl", "goal", GraphNode.NodeStatus.RUNNING,
                 null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(), "", 0, 0
+                Instant.now(), Instant.now(),
+                new ArrayList<>(),
+                "",
+                0,
+                0
         );
     }
 
@@ -1484,7 +1576,11 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         return new PlanningNode(
                 "plan", "Plan", "goal", GraphNode.NodeStatus.RUNNING,
                 null, new ArrayList<>(), new HashMap<>(),
-                Instant.now(), Instant.now(), "", 0, 0, "agent", "", null, ""
+                Instant.now(), Instant.now(),
+                new ArrayList<>(),
+                "",
+                0,
+                0
         );
     }
 
@@ -1521,8 +1617,13 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 "review", "Review", "goal", GraphNode.NodeStatus.RUNNING,
                 null, new ArrayList<>(), new HashMap<>(),
                 Instant.now(), Instant.now(),
-                new HasWorktree.WorkTree("wt", null, new ArrayList<>()),
-                0, 0, "agent", "", true, 0
+                "reviewed-1",
+                "Review content",
+                false,
+                false,
+                "",
+                "human",
+                Instant.now()
         );
     }
 
