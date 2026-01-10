@@ -1,8 +1,8 @@
 package com.hayden.multiagentide.controller;
 
-import com.hayden.multiagentide.agent.AgentModels;
+import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentide.infrastructure.EventBus;
-import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentidelib.model.events.Events;
 import com.hayden.multiagentide.service.AgentControlService;
 import java.time.Instant;
 import java.util.List;

@@ -6,12 +6,11 @@ import static org.mockito.Mockito.when;
 
 import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentide.agent.AgentInterfaces;
-import com.hayden.multiagentide.agent.AgentModels;
+import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentide.infrastructure.AgentRunner;
-import com.hayden.multiagentide.model.MergeResult;
-import com.hayden.multiagentide.model.nodes.*;
-import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
-import com.hayden.multiagentide.model.worktree.WorktreeContext;
+import com.hayden.multiagentidelib.model.MergeResult;
+import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
+import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.WorktreeService;

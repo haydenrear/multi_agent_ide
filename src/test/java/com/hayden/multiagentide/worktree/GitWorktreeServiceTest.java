@@ -2,8 +2,8 @@ package com.hayden.multiagentide.worktree;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
-import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
+import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
+import com.hayden.multiagentidelib.model.worktree.SubmoduleWorktreeContext;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.GitWorktreeService;
 import com.hayden.multiagentide.support.AgentTestBase;

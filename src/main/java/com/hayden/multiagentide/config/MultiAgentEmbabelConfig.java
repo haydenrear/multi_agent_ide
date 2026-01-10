@@ -1,35 +1,24 @@
 package com.hayden.multiagentide.config;
 
 import com.embabel.agent.api.annotation.support.AgentMetadataReader;
+import com.embabel.agent.api.channel.*;
 import com.embabel.agent.core.AgentPlatform;
-import com.embabel.agent.core.ProcessOptions;
 import com.embabel.agent.spi.AgentProcessIdGenerator;
 import com.embabel.common.ai.model.Llm;
-import com.embabel.common.ai.model.LlmOptions;
-import com.embabel.common.ai.model.OptionsConverter;
 import com.hayden.multiagentide.agent.AgentInterfaces;
-import com.hayden.multiagentide.model.acp.AcpChatModel;
-import com.hayden.multiagentide.model.acp.AcpChatRequestParameters;
+import com.hayden.multiagentidelib.config.AcpModelProperties;
+import com.hayden.multiagentidelib.infrastructure.EventBus;
+import com.hayden.multiagentidelib.model.acp.AcpChatModel;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.StreamingChatModel;
-import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.model.SimpleApiKey;
-import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.context.annotation.Profile;
-import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClient;
-import reactor.util.annotation.NonNull;
+import org.springframework.context.annotation.*;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -91,6 +80,31 @@ public class MultiAgentEmbabelConfig {
     @Bean
     public Llm llm(org.springframework.ai.chat.model.ChatModel chatModel) {
         return new Llm("acp-chat-model", modelProvider, chatModel);
+    }
+
+    @Bean
+    @Primary
+    public OutputChannel llmOutputChannel(ChatModel chatModel, @Lazy AgentPlatform agentPlatform) {
+        return new MulticastOutputChannel(List.of(
+                (OutputChannel) event -> {
+                    switch (event) {
+                        case MessageOutputChannelEvent evt -> {
+//                          var process = agentPlatform.getAgentProcess(evt.getProcessId());
+//                          process.getProcessContext().getAgentProcess().getLlmInvocations().getLast().getLlm();
+                            var prev = EventBus.agentProcess.get();
+                            try {
+                                EventBus.agentProcess.set(new EventBus.AgentProcessData(evt.getProcessId()));
+                                chatModel.call(new Prompt(new AssistantMessage(evt.getMessage().getContent())));
+                            } finally {
+                                EventBus.agentProcess.set(prev);
+                            }
+                        }
+                        default -> {
+                        }
+                    }
+                },
+                DevNullOutputChannel.INSTANCE
+        ));
     }
 
     /**

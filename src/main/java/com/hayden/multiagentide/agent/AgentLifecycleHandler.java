@@ -2,19 +2,17 @@ package com.hayden.multiagentide.agent;
 
 import com.embabel.agent.api.event.*;
 import com.embabel.agent.core.*;
-import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
-import com.hayden.multiagentide.model.nodes.SubmoduleNode;
-import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
-import com.hayden.multiagentide.model.nodes.*;
+import com.hayden.multiagentidelib.infrastructure.EventBus;
+import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
+import com.hayden.multiagentidelib.model.nodes.SubmoduleNode;
+import com.hayden.multiagentidelib.model.worktree.SubmoduleWorktreeContext;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.WorktreeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
@@ -51,13 +49,13 @@ public class AgentLifecycleHandler {
             @Override
             public void onProcessEvent(@NonNull AgentProcessEvent event) {
                 if (event instanceof LlmRequestEvent creation) {
-                    AgentInterfaces.agentProcess.set(new AgentInterfaces.AgentProcessData(creation.getProcessId()));
+                    EventBus.agentProcess.set(new EventBus.AgentProcessData(creation.getProcessId()));
                 }
                 if (event instanceof AgentProcessCreationEvent creation) {
-                    AgentInterfaces.agentProcess.set(new AgentInterfaces.AgentProcessData(creation.getProcessId()));
+                    EventBus.agentProcess.set(new EventBus.AgentProcessData(creation.getProcessId()));
                 }
                 if (event instanceof AgentProcessFinishedEvent) {
-                    AgentInterfaces.agentProcess.remove();
+                    EventBus.agentProcess.remove();
                 }
             }
         };

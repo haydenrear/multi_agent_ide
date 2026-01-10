@@ -1,9 +1,9 @@
 package com.hayden.multiagentide.orchestration;
 
-import com.hayden.multiagentide.infrastructure.EventBus;
-import com.hayden.multiagentide.model.events.Events;
-import com.hayden.multiagentide.model.nodes.*;
-import com.hayden.multiagentide.model.worktree.WorktreeContext;
+import com.hayden.multiagentidelib.infrastructure.EventBus;
+import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.multiagentidelib.model.nodes.GraphNode;
+import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 
@@ -312,6 +312,11 @@ public class ComputationGraphOrchestrator {
                             .build();
             case TicketOrchestratorNode ticketOrchestratorNode ->
                     ticketOrchestratorNode.toBuilder()
+                            .childNodeIds(childIds)
+                            .lastUpdatedAt(Instant.now())
+                            .build();
+            case AskPermissionNode askPermissionNode ->
+                    askPermissionNode.toBuilder()
                             .childNodeIds(childIds)
                             .lastUpdatedAt(Instant.now())
                             .build();

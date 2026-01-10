@@ -2,8 +2,7 @@ package com.hayden.multiagentide.adapter;
 
 import com.hayden.multiagentide.infrastructure.EventAdapter;
 import com.hayden.multiagentide.infrastructure.EventBus;
-import com.hayden.multiagentide.model.events.Events;
-import lombok.RequiredArgsConstructor;
+import com.hayden.multiagentidelib.model.events.Events;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
@@ -20,14 +19,14 @@ public class WebSocketEventAdapter extends EventAdapter {
 
     private final List<WebSocketSession> connectedClients = new CopyOnWriteArrayList<>();
 
-    private AgUiSerdes serdes;
+    private com.hayden.multiagentidelib.adapter.AgUiSerdes serdes;
 
     public WebSocketEventAdapter() {
         super("websocket-adapter");
     }
 
     @Autowired
-    public void setSerdes(AgUiSerdes serdes) {
+    public void setSerdes(com.hayden.multiagentidelib.adapter.AgUiSerdes serdes) {
         this.serdes = serdes;
     }
 

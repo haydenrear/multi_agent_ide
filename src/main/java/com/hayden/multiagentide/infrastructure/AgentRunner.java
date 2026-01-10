@@ -1,22 +1,16 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.embabel.agent.api.event.*;
-import com.embabel.agent.core.Agent;
-import com.embabel.agent.core.AgentProcess;
+import com.embabel.agent.api.channel.MessageOutputChannelEvent;
+import com.embabel.agent.api.channel.OutputChannel;
 import com.embabel.agent.core.AgentPlatform;
-import com.embabel.agent.core.IoBinding;
-import com.embabel.agent.core.ProcessOptions;
-import com.embabel.chat.ChatSession;
 import com.embabel.chat.UserMessage;
-import com.embabel.chat.agent.AgentProcessChatbot;
-import com.embabel.common.ai.model.ModelSelectionCriteria;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
-import com.hayden.multiagentide.agent.AgentModels;
-import com.hayden.multiagentide.model.MergeResult;
-import com.hayden.multiagentide.model.events.Events;
-import com.hayden.multiagentide.model.nodes.*;
-import com.hayden.multiagentide.model.worktree.WorktreeContext;
+import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.multiagentidelib.model.MergeResult;
+import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.multiagentidelib.model.nodes.GraphNode;
+import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
@@ -30,7 +24,6 @@ import javax.annotation.Nullable;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 /**
@@ -50,6 +43,7 @@ public class AgentRunner {
 
     private final AgentPlatform agentPlatform;
     private final AgentLifecycleHandler agentLifecycleHandler;
+    private final OutputChannel llmOutputChannel;
 
     private static final String META_TICKET_QUEUE = "ticket_queue";
     private static final String META_TICKET_POINTER = "ticket_pointer";
@@ -66,17 +60,13 @@ public class AgentRunner {
     ) {
     }
 
-    private void addMessageToAgent(String input, String agentProcessId) {
-        AgentProcess process = agentPlatform.getAgentProcess(agentProcessId);
-        var chatbot = AgentProcessChatbot.utilityFromPlatform(agentPlatform);
-        ChatSession chatSession = chatbot.findSession(agentProcessId);
-        if (process != null && chatSession != null) {
-            chatSession.onUserMessage(new UserMessage(input));
-        } else {
-            log.error("Could not add message to agent - {} - {}", process, chatSession);
-        }
+    private void addMessageToAgent(AgentDispatchArgs input, Events.AddMessageEvent addMessageEvent) {
+        addMessageToAgent(addMessageEvent.toAddMessage(), addMessageEvent.nodeId());
     }
 
+    private void addMessageToAgent(String input, String agentProcessId) {
+        llmOutputChannel.send(new MessageOutputChannelEvent(agentProcessId, new UserMessage(input)));
+    }
 
     public void runOnAgent(AgentDispatchArgs d) {
         var parent = d.parent;
@@ -84,28 +74,13 @@ public class AgentRunner {
         // TODO: wrap in an exception - propagate error event
         switch (d.agentEvent) {
             case Events.AddMessageEvent addMessageEvent ->
-                    addMessageToAgent(
-                            d,
-                            addMessageEvent
-                    );
+                    addMessageToAgent(d, addMessageEvent);
             case Events.PauseEvent pauseEvent ->
-                    handleInterruptType(
-                            d,
-                            AgentModels.InterruptType.PAUSE,
-                            pauseEvent.toAddMessage()
-                    );
+                    handleInterruptType(d, AgentModels.InterruptType.PAUSE, pauseEvent.toAddMessage());
             case Events.StopAgentEvent stopAgentEvent ->
-                    handleInterruptType(
-                            d,
-                            AgentModels.InterruptType.STOP,
-                            "User stop requested"
-                    );
-            case Events.NodeReviewRequestedEvent reviewRequestedEvent -> {
-                handleInterruptType(
-                        d,
-                        reviewRequestedEvent.reviewType().toInterruptType(),
-                        reviewRequestedEvent.contentToReview());
-            }
+                    handleInterruptType(d, AgentModels.InterruptType.STOP, "User stop requested");
+            case Events.NodeReviewRequestedEvent reviewRequestedEvent ->
+                    handleInterruptType(d, reviewRequestedEvent.reviewType().toInterruptType(), reviewRequestedEvent.contentToReview());
             case Events.NodeBranchedEvent branched -> {
                 //              Implement ability to split what the agent is doing in
                 //              another screen and worktree and ask it to do it just a bit differently
@@ -216,6 +191,8 @@ public class AgentRunner {
             }
             case InterruptNode interruptNode -> {
             }
+            case AskPermissionNode askPermissionNode -> {
+            }
         }
     }
 
@@ -223,81 +200,6 @@ public class AgentRunner {
         return mergeNode.isFinalMerge();
     }
 
-    public void addMessageToAgent(
-            AgentDispatchArgs dispatchArgs,
-            Events.AddMessageEvent addMessageEvent
-    ) {
-        if (resumeInterruptedNode(dispatchArgs.self, addMessageEvent)) {
-            return;
-        }
-        //        TODO: do this for the rest of the node types
-        switch (dispatchArgs.self) {
-            case DiscoveryNode node -> {
-                agentLifecycleHandler.runAgent(
-                        AgentInterfaces.DISCOVERY_AGENT,
-                        new AgentInterfaces.DiscoveryAgentInput(node.goal(), node.title()),
-                        AgentModels.DiscoveryAgentResult.class,
-                        node.nodeId()
-                );
-            }
-            case CollectorNode node -> {
-
-            }
-            case DiscoveryCollectorNode node -> {
-                AgentModels.CollectorDecisionType decision =
-                        parseCollectorDecisionFromMessage(
-                                addMessageEvent.toAddMessage()
-                        );
-                applyCollectorReviewDecision(
-                        node,
-                        dispatchArgs.parent,
-                        decision
-                );
-            }
-            case DiscoveryOrchestratorNode node -> {
-            }
-            case TicketNode node -> {
-            }
-            case MergeNode node -> {
-            }
-            case OrchestratorNode node -> {
-            }
-            case PlanningCollectorNode node -> {
-                AgentModels.CollectorDecisionType decision =
-                        parseCollectorDecisionFromMessage(
-                                addMessageEvent.toAddMessage()
-                        );
-                applyCollectorReviewDecision(
-                        node,
-                        dispatchArgs.parent,
-                        decision
-                );
-            }
-            case PlanningNode node -> {
-            }
-            case PlanningOrchestratorNode node -> {
-            }
-            case ReviewNode node -> {
-            }
-            case SummaryNode node -> {
-            }
-            case TicketCollectorNode node -> {
-                AgentModels.CollectorDecisionType decision =
-                        parseCollectorDecisionFromMessage(
-                                addMessageEvent.toAddMessage()
-                        );
-                applyCollectorReviewDecision(
-                        node,
-                        dispatchArgs.parent,
-                        decision
-                );
-            }
-            case TicketOrchestratorNode ticketOrchestratorNode -> {
-            }
-            case InterruptNode interruptNode -> {
-            }
-        }
-    }
 
     private static boolean isNodeReady(GraphNode planningNode) {
         return planningNode.status() == GraphNode.NodeStatus.READY;
@@ -633,6 +535,7 @@ public class AgentRunner {
             case CollectorNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
             case SummaryNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
             case InterruptNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
+            case AskPermissionNode n -> n.toBuilder().metadata(metadata).lastUpdatedAt(Instant.now()).build();
         };
     }
 
@@ -2144,25 +2047,6 @@ public class AgentRunner {
             case "ADVANCE_PHASE" -> AgentModels.CollectorDecisionType.ADVANCE_PHASE;
             default -> null;
         };
-    }
-
-    private AgentModels.CollectorDecisionType parseCollectorDecisionFromMessage(
-            String message
-    ) {
-        if (message == null || message.isBlank()) {
-            return null;
-        }
-        String lower = message.toLowerCase();
-        if (lower.contains("rerun") || lower.contains("route back") || lower.contains("back")) {
-            return AgentModels.CollectorDecisionType.ROUTE_BACK;
-        }
-        if (lower.contains("stop") || lower.contains("halt")) {
-            return AgentModels.CollectorDecisionType.STOP;
-        }
-        if (lower.contains("advance") || lower.contains("next") || lower.contains("proceed")) {
-            return AgentModels.CollectorDecisionType.ADVANCE_PHASE;
-        }
-        return null;
     }
 
     private boolean isCollectorReviewGateEnabled(GraphNode node) {

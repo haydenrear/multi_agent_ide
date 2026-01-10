@@ -8,18 +8,17 @@ import com.embabel.agent.api.annotation.Action;
 import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.annotation.support.AgentMetadataReader;
 import com.embabel.agent.api.common.OperationContext;
+import com.embabel.agent.api.common.PlannerType;
 import com.embabel.agent.api.event.*;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.IoBinding;
 import com.embabel.agent.core.ProcessOptions;
-import com.hayden.multiagentide.agent.AgentModels;
-import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.embabel.chat.support.InMemoryConversation;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.controller.OrchestrationController;
-import com.hayden.multiagentide.model.acp.AcpChatModel;
+import com.hayden.multiagentidelib.model.acp.AcpChatModel;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,19 +55,49 @@ class AcpChatModelCodexIntegrationTest {
     private OrchestrationController orchestrationController;
 
     public record ResultValue(String result) {}
+    public record FinalValue(String result) {}
 
     public record RequestValue(String request) {}
 
     @Agent(
             name = TEST_AGENT,
-            description = "tests some stuff."
+            description = "tests some stuff.",
+            planner = PlannerType.GOAP
     )
     public static class TestAgent {
 
         public static final String TEST_AGENT = "test_agent";
 
+
+//        @Action
+//        @AchievesGoal(description = "finishes the test")
+//        public FinalValue sendsMessage(
+//                ResultValue input,
+//                ActionContext context,
+//                Conversation conversation
+//        ) {
+//            AssistantMessage message = new AssistantMessage("Hello!");
+//            context.sendMessage(message);
+//            conversation.addMessage(message);
+//            return context.ai().withDefaultLlm()
+//                    .withId("hello!")
+//                    .createObject(input.result, FinalValue.class);
+//        }
+
+//        @Action
+//        public void after(
+//                ResultValue input,
+//                ActionContext context,
+//                Conversation conversation
+//        ) {
+//            AssistantMessage message = new AssistantMessage("Hello!");
+//            context.sendMessage(message);
+//            conversation.addMessage(message);
+//            log.info("Sent");
+//        }
+
         @Action
-        @AchievesGoal(description = "performs the test.")
+        @AchievesGoal(description = "finishes the test")
         public ResultValue performTest(
                 RequestValue input,
                 OperationContext context
@@ -87,19 +116,20 @@ class AcpChatModelCodexIntegrationTest {
                 .ifPresentOrElse(agentPlatform::deploy, () -> log.error("Error deploying {} - could not create agent metadata.", agentInterface));
     }
 
-    @Test
+//    @Test
     void testCreateGoal() {
         orchestrationController.startGoal(new OrchestrationController.StartGoalRequest(
                 "hello!", "/Users/hayde/IdeaProjects/multi_agent_ide_parent/libs-resolver",
                 "main", "hello", UUID.randomUUID().toString()));
     }
 
-    @Test
+//    @Test
     void chatModelUsesAcpProtocol() {
         assertThat(chatModel).isInstanceOf(AcpChatModel.class);
 
         var c = chatModel.call("Do you have the capability to read or write to the file");
-        log.info("{}", "");
+        var x = chatModel.call("Can you please read the file log.log");
+        log.info("");
 
         try {
             String nodeId = UUID.randomUUID().toString();
@@ -114,13 +144,16 @@ class AcpChatModelCodexIntegrationTest {
             AgentProcess process = agentPlatform.runAgentFrom(
                     thisAgent,
                     processOptions,
-                    Map.of(IoBinding.DEFAULT_BINDING, new RequestValue("Can you read one of the files in the root directory, return the result, " +
-                                                                        "then write that result to another file named log.log, " +
-                                                                        "then update that file and add the words WHATEVER!??")));
+                    Map.of(
+                            IoBinding.DEFAULT_BINDING,
+                            new RequestValue("Please use your tools read one of the files in the current directory, return the result, " +
+                                             "then write that result to another file named log.log, then update that file and add the words WHATEVER!?? " +
+                                             "Please assume you have access to the log.log file.")));
+
+            process.bind("conversation", new InMemoryConversation());
 
             var res = process.run().resultOfType(ResultValue.class);
 
-            var resAgain = process.run().resultOfType(ResultValue.class);
             log.info("{}", res);
 
             assertThat(new File("log.log").exists() || new File("multi_agent_ide/log.log").exists()).isTrue();

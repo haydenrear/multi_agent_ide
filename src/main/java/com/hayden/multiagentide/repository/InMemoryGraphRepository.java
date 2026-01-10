@@ -1,10 +1,9 @@
 package com.hayden.multiagentide.repository;
 
-import com.hayden.multiagentide.model.events.Events;
-import com.hayden.multiagentide.model.nodes.GraphNode;
+import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.multiagentidelib.model.nodes.GraphNode;
 import org.springframework.stereotype.Repository;
 
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;

@@ -4,7 +4,6 @@ import com.embabel.agent.api.annotation.AchievesGoal;
 import com.embabel.agent.api.annotation.Action;
 import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.common.OperationContext;
-import com.embabel.agent.core.AgentProcess;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -15,10 +14,6 @@ import java.util.Objects;
  * Each agent currently exposes a single action.
  */
 public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, AgentInterfaces.ContextCollectorAgent, AgentInterfaces.ContextOrchestratorAgent, AgentInterfaces.DiscoveryAgent, AgentInterfaces.DiscoveryCollector, AgentInterfaces.DiscoveryOrchestrator, AgentInterfaces.MergerAgent, AgentInterfaces.OrchestratorAgent, AgentInterfaces.OrchestratorCollectorAgent, AgentInterfaces.PlanningAgent, AgentInterfaces.PlanningCollector, AgentInterfaces.ReviewAgent, AgentInterfaces.TicketAgent, AgentInterfaces.TicketCollector, AgentInterfaces.TicketOrchestrator, AgentInterfaces.PlanningOrchestrator {
-
-    record AgentProcessData(String id) {}
-
-    ThreadLocal<AgentProcessData> agentProcess = new ThreadLocal<>();
 
     String multiAgentAgentName();
 
@@ -146,7 +141,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Coordinate workflow for the current phase")
-        public AgentModels.OrchestratorAgentResult coordinateWorkflow(
+        public com.hayden.multiagentidelib.agent.AgentModels.OrchestratorAgentResult coordinateWorkflow(
                 OrchestratorInput input,
                 OperationContext context
         ) {
@@ -154,7 +149,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     ORCHESTRATOR_AGENT_START_MESSAGE,
                     Map.of("goal", input.goal(), "phase", input.phase())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.OrchestratorAgentResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.OrchestratorAgentResult.class);
         }
     }
 
@@ -188,7 +183,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Consolidate discovery findings")
-        public AgentModels.DiscoveryCollectorResult consolidateDiscoveryFindings(
+        public com.hayden.multiagentidelib.agent.AgentModels.DiscoveryCollectorResult consolidateDiscoveryFindings(
                 DiscoveryCollectorInput input,
                 OperationContext context
         ) {
@@ -196,7 +191,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     DISCOVERY_COLLECTOR_START_MESSAGE,
                     Map.of("goal", input.goal(), "discoveryResults", input.discoveryResults())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.DiscoveryCollectorResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.DiscoveryCollectorResult.class);
         }
     }
 
@@ -220,7 +215,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Create structured plan")
-        public AgentModels.PlanningAgentResult decomposePlanAndCreateWorkItems(
+        public com.hayden.multiagentidelib.agent.AgentModels.PlanningAgentResult decomposePlanAndCreateWorkItems(
                 PlanningAgentInput input,
                 OperationContext context
         ) {
@@ -228,7 +223,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     PLANNING_AGENT_USER_MESSAGE,
                     Map.of("goal", input.goal())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.PlanningAgentResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningAgentResult.class);
         }
     }
 
@@ -260,7 +255,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Consolidate planning results into tickets")
-        public AgentModels.PlanningCollectorResult consolidatePlansIntoTickets(
+        public com.hayden.multiagentidelib.agent.AgentModels.PlanningCollectorResult consolidatePlansIntoTickets(
                 PlanningCollectorInput input,
                 OperationContext context
         ) {
@@ -268,7 +263,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     PLANNING_COLLECTOR_MESSAGE,
                     Map.of("goal", input.goal(), "planningResults", input.planningResults())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.PlanningCollectorResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningCollectorResult.class);
         }
     }
 
@@ -299,7 +294,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Orchestrate ticket execution")
-        public AgentModels.TicketOrchestratorResult orchestrateTicketExecution(
+        public com.hayden.multiagentidelib.agent.AgentModels.TicketOrchestratorResult orchestrateTicketExecution(
                 TicketOrchestratorInput input,
                 OperationContext context
         ) {
@@ -312,7 +307,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                             "planningContext", input.planningContext()
                     )
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.TicketOrchestratorResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.TicketOrchestratorResult.class);
         }
     }
 
@@ -348,7 +343,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Implement a ticket")
-        public AgentModels.TicketAgentResult implementTicket(
+        public com.hayden.multiagentidelib.agent.AgentModels.TicketAgentResult implementTicket(
                 TicketAgentInput input,
                 OperationContext context
         ) {
@@ -361,7 +356,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                             "planningContext", input.planningContext()
                     )
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.TicketAgentResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.TicketAgentResult.class);
         }
 
         @Override
@@ -397,7 +392,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Consolidate ticket results")
-        public AgentModels.TicketCollectorResult consolidateTicketResults(
+        public com.hayden.multiagentidelib.agent.AgentModels.TicketCollectorResult consolidateTicketResults(
                 TicketCollectorInput input,
                 OperationContext context
         ) {
@@ -405,7 +400,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     TICKET_COLLECTOR_START_MESSAGE,
                     Map.of("goal", input.goal(), "ticketResults", input.ticketResults())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.TicketCollectorResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.TicketCollectorResult.class);
         }
     }
 
@@ -434,7 +429,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Review merge result")
-        public AgentModels.MergerAgentResult performMerge(
+        public com.hayden.multiagentidelib.agent.AgentModels.MergerAgentResult performMerge(
                 MergerAgentInput input,
                 OperationContext context
         ) {
@@ -446,7 +441,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                             "conflictFiles", input.conflictFiles()
                     )
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.MergerAgentResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.MergerAgentResult.class);
         }
     }
 
@@ -476,7 +471,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Evaluate content quality")
-        public AgentModels.ReviewAgentResult evaluateContent(
+        public com.hayden.multiagentidelib.agent.AgentModels.ReviewAgentResult evaluateContent(
                 ReviewAgentInput input,
                 OperationContext context
         ) {
@@ -484,7 +479,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     REVIEW_AGENT_START_MESSAGE,
                     Map.of("content", input.content(), "criteria", input.criteria())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.ReviewAgentResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.ReviewAgentResult.class);
         }
     }
 
@@ -508,7 +503,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Consolidate orchestrator workflow outputs")
-        public AgentModels.OrchestratorCollectorResult coordinateWorkflow(
+        public com.hayden.multiagentidelib.agent.AgentModels.OrchestratorCollectorResult coordinateWorkflow(
                 OrchestratorCollectorInput input,
                 OperationContext context
         ) {
@@ -516,7 +511,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE,
                     Map.of("goal", input.goal(), "phase", input.phase())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.OrchestratorCollectorResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.OrchestratorCollectorResult.class);
         }
     }
 
@@ -537,7 +532,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Coordinate context operations")
-        public AgentModels.OrchestratorAgentResult coordinateWorkflow(
+        public com.hayden.multiagentidelib.agent.AgentModels.OrchestratorAgentResult coordinateWorkflow(
                 ContextOrchestratorInput input,
                 OperationContext context
         ) {
@@ -545,7 +540,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE,
                     Map.of("goal", input.goal(), "phase", input.phase())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.OrchestratorAgentResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.OrchestratorAgentResult.class);
         }
     }
 
@@ -566,7 +561,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Apply context operations")
-        public AgentModels.ContextAgentResult applyContextOperations(
+        public com.hayden.multiagentidelib.agent.AgentModels.ContextAgentResult applyContextOperations(
                 ContextAgentInput input,
                 OperationContext context
         ) {
@@ -574,7 +569,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     CONTEXT_AGENT_START_MESSAGE,
                     Map.of("goal", input.goal(), "phase", input.phase())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.ContextAgentResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.ContextAgentResult.class);
         }
     }
 
@@ -595,7 +590,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Consolidate context operations")
-        public AgentModels.ContextCollectorResult coordinateWorkflow(
+        public com.hayden.multiagentidelib.agent.AgentModels.ContextCollectorResult coordinateWorkflow(
                 ContextCollectorInput input,
                 OperationContext context
         ) {
@@ -603,7 +598,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     CONTEXT_COLLECTOR_START_MESSAGE,
                     Map.of("goal", input.goal(), "phase", input.phase())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.ContextCollectorResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.ContextCollectorResult.class);
         }
     }
 
@@ -639,7 +634,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Discover codebase section")
-        public AgentModels.DiscoveryAgentResult discoverCodebaseSection(
+        public com.hayden.multiagentidelib.agent.AgentModels.DiscoveryAgentResult discoverCodebaseSection(
                 DiscoveryAgentInput input,
                 OperationContext context
         ) {
@@ -647,7 +642,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     DISCOVERY_AGENT_START_MESSAGE,
                     Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.DiscoveryAgentResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.DiscoveryAgentResult.class);
         }
     }
 
@@ -676,7 +671,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Create a discovery delegation plan")
-        public AgentModels.DiscoveryOrchestratorResult kickOffAnyNumberOfAgentsForCodeSearch(
+        public com.hayden.multiagentidelib.agent.AgentModels.DiscoveryOrchestratorResult kickOffAnyNumberOfAgentsForCodeSearch(
                 DiscoveryOrchestratorInput input,
                 OperationContext context
         ) {
@@ -684,7 +679,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     DISCOVERY_ORCHESTRATOR_START_MESSAGE,
                     Map.of("goal", input.goal())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.DiscoveryOrchestratorResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.DiscoveryOrchestratorResult.class);
         }
     }
 
@@ -706,7 +701,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
 
         @Action
         @AchievesGoal(description = "Create planning delegation plan")
-        public AgentModels.PlanningOrchestratorResult decomposePlanAndCreateWorkItems(
+        public com.hayden.multiagentidelib.agent.AgentModels.PlanningOrchestratorResult decomposePlanAndCreateWorkItems(
                 PlanningOrchestratorInput input,
                 OperationContext context
         ) {
@@ -714,7 +709,7 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                     PLANNING_ORCHESTRATOR_MESSAGE,
                     Map.of("goal", input.goal())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, AgentModels.PlanningOrchestratorResult.class);
+            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningOrchestratorResult.class);
         }
 
         @Override

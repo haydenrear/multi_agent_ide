@@ -2,9 +2,8 @@ package com.hayden.multiagentide.adapter;
 
 import com.hayden.multiagentide.infrastructure.EventAdapter;
 import com.hayden.multiagentide.infrastructure.EventBus;
-import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentidelib.model.events.Events;
 import com.hayden.multiagentide.repository.EventStreamRepository;
-import com.hayden.multiagentide.repository.GraphRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -20,7 +19,7 @@ public class SseEventAdapter extends EventAdapter {
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
-    private AgUiSerdes serdes;
+    private com.hayden.multiagentidelib.adapter.AgUiSerdes serdes;
 
     @Autowired
     private EventStreamRepository graphRepository;
@@ -30,7 +29,7 @@ public class SseEventAdapter extends EventAdapter {
     }
 
     @Autowired
-    public void setSerdes(AgUiSerdes serdes) {
+    public void setSerdes(com.hayden.multiagentidelib.adapter.AgUiSerdes serdes) {
         this.serdes = serdes;
     }
 

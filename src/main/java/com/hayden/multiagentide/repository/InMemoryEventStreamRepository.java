@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.repository;
 
-import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentidelib.model.events.Events;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;

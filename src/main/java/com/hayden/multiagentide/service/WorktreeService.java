@@ -1,8 +1,8 @@
 package com.hayden.multiagentide.service;
 
-import com.hayden.multiagentide.model.worktree.MainWorktreeContext;
-import com.hayden.multiagentide.model.worktree.SubmoduleWorktreeContext;
-import com.hayden.multiagentide.model.MergeResult;
+import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
+import com.hayden.multiagentidelib.model.worktree.SubmoduleWorktreeContext;
+import com.hayden.multiagentidelib.model.MergeResult;
 import org.springframework.util.CollectionUtils;
 
 import java.nio.file.Path;

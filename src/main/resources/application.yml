@@ -45,6 +45,7 @@ logging:
     root: INFO
 #    org.springframework.web: DEBUG
     com.hayden.multiagentide: DEBUG
+    com.embabel.agent.api.channel: INFO
 #    com.embabel.agent: DEBUG
 #    dev.langchain4j: DEBUG
 otel:

@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.hayden.multiagentide.model.events.Events;
+import com.hayden.multiagentidelib.model.events.Events;
 
 /**
  * Abstract base class for event adapters that transform events for specific targets

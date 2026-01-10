@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.repository;
 
-import com.hayden.multiagentide.model.worktree.WorktreeContext;
+import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
 import java.util.List;
 import java.util.Optional;
 

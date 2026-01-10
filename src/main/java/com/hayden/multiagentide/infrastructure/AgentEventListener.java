@@ -1,7 +1,6 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.hayden.multiagentide.model.events.Events;
-import com.hayden.multiagentide.model.nodes.*;
+import com.hayden.multiagentidelib.model.events.Events;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -113,6 +112,10 @@ public class AgentEventListener implements EventListener {
             case Events.PlanUpdateEvent planUpdateEvent -> {
             }
             case Events.UserMessageChunkEvent userMessageChunkEvent -> {
+            }
+            case Events.PermissionRequestedEvent permissionRequestedEvent -> {
+            }
+            case Events.PermissionResolvedEvent permissionResolvedEvent -> {
             }
         }
     }
