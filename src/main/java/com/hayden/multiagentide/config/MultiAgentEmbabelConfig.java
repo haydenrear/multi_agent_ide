@@ -37,12 +37,18 @@ public class MultiAgentEmbabelConfig {
     private String modelProvider;
 
     @Bean
-    public ApplicationRunner deployAgents(List<AgentInterfaces> agentInterfaces,
+    public ApplicationRunner deployAgents(List<Object> agents,
                                           AgentPlatform agentPlatform,
                                           AgentMetadataReader agentMetadataReader) {
-        for (AgentInterfaces agentInterface : agentInterfaces) {
-            Optional.ofNullable(agentMetadataReader.createAgentMetadata(agentInterface))
-                    .ifPresentOrElse(agentPlatform::deploy, () -> log.error("Error deploying {} - could not create agent metadata.", agentInterface));
+        for (Object agent : agents) {
+            if (!agent.getClass().isAnnotationPresent(com.embabel.agent.api.annotation.Agent.class)) {
+                continue;
+            }
+            Optional.ofNullable(agentMetadataReader.createAgentMetadata(agent))
+                    .ifPresentOrElse(agentPlatform::deploy, () -> log.error(
+                            "Error deploying {} - could not create agent metadata.",
+                            agent.getClass().getName()
+                    ));
 
         }
         return args -> {

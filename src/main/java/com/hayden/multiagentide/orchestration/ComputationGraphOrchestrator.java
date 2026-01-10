@@ -168,21 +168,20 @@ public class ComputationGraphOrchestrator {
     }
 
     public void emitErrorEvent(
-            String s,
-            String string,
-            String simpleName,
+            String nodeId,
+            String nodeTitle,
+            GraphNode.NodeType nodeType,
             String errorMessage
     ) {
-        //        TODO: add event and implement
-        //        Events.NodeStatusChangedEvent event = new Events.NodeStatusChangedEvent(
-        //                UUID.randomUUID().toString(),
-        //                Instant.now(),
-        //                nodeId,
-        //                oldStatus,
-        //                newStatus,
-        //                reason
-        //        );
-        //        eventBus.publish(event);
+        Events.NodeErrorEvent event = new Events.NodeErrorEvent(
+                UUID.randomUUID().toString(),
+                Instant.now(),
+                nodeId,
+                nodeTitle,
+                nodeType,
+                errorMessage
+        );
+        eventBus.publish(event);
     }
 
     /**

@@ -528,17 +528,26 @@ public interface AgentInterfaces {
             OrchestratorNode originNode = workflowGraphService.requireOrchestrator(context);
             AgentModels.OrchestratorRequest lastRequest =
                     context.last(AgentModels.OrchestratorRequest.class);
-
+            if (lastRequest == null) {
+                workflowGraphService.emitErrorEvent(
+                        originNode,
+                        "Missing orchestrator request while handling interrupt."
+                );
+                AgentModels.OrchestratorRouting routing = new AgentModels.OrchestratorRouting(
+                        request,
+                        null
+                );
+                emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator-interrupt", context, routing);
+                return routing;
+            }
             var resumed = interruptService.handleReviewInterrupt(
                     context,
                     request,
                     originNode,
-                    () -> lastRequest != null
-                            ? renderTemplate(
-                                    ORCHESTRATOR_AGENT_START_MESSAGE,
-                                    Map.of("goal", lastRequest.goal(), "phase", lastRequest.phase())
-                            )
-                            : null,
+                    () -> renderTemplate(
+                            ORCHESTRATOR_AGENT_START_MESSAGE,
+                            Map.of("goal", lastRequest.goal(), "phase", lastRequest.phase())
+                    ),
                     AgentModels.OrchestratorRouting.class,
                     REVIEW_AGENT_START_MESSAGE
             );
@@ -660,16 +669,28 @@ public interface AgentInterfaces {
             DiscoveryOrchestratorNode originNode = workflowGraphService.requireDiscoveryOrchestrator(context);
             AgentModels.DiscoveryOrchestratorRequest lastRequest =
                     context.last(AgentModels.DiscoveryOrchestratorRequest.class);
+            if (lastRequest == null) {
+                workflowGraphService.emitErrorEvent(
+                        originNode,
+                        "Missing discovery orchestrator request while handling interrupt."
+                );
+                AgentModels.DiscoveryOrchestratorRouting routing =
+                        new AgentModels.DiscoveryOrchestratorRouting(
+                                request,
+                                null,
+                                null
+                        );
+                emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-interrupt", context, routing);
+                return routing;
+            }
             var resumed = interruptService.handleReviewInterrupt(
                     context,
                     request,
                     originNode,
-                    () -> lastRequest != null
-                            ? renderTemplate(
-                                    DISCOVERY_ORCHESTRATOR_START_MESSAGE,
-                                    Map.of("goal", lastRequest.goal())
-                            )
-                            : null,
+                    () -> renderTemplate(
+                            DISCOVERY_ORCHESTRATOR_START_MESSAGE,
+                            Map.of("goal", lastRequest.goal())
+                    ),
                     AgentModels.DiscoveryOrchestratorRouting.class,
                     REVIEW_AGENT_START_MESSAGE
             );
@@ -795,16 +816,28 @@ public interface AgentInterfaces {
             PlanningOrchestratorNode originNode = workflowGraphService.requirePlanningOrchestrator(context);
             AgentModels.PlanningOrchestratorRequest lastRequest =
                     context.last(AgentModels.PlanningOrchestratorRequest.class);
+            if (lastRequest == null) {
+                workflowGraphService.emitErrorEvent(
+                        originNode,
+                        "Missing planning orchestrator request while handling interrupt."
+                );
+                AgentModels.PlanningOrchestratorRouting routing =
+                        new AgentModels.PlanningOrchestratorRouting(
+                                request,
+                                null,
+                                null
+                        );
+                emitActionCompleted(eventBus, multiAgentAgentName(), "planning-interrupt", context, routing);
+                return routing;
+            }
             var resumed = interruptService.handleReviewInterrupt(
                     context,
                     request,
                     originNode,
-                    () -> lastRequest != null
-                            ? renderTemplate(
-                                    PLANNING_ORCHESTRATOR_MESSAGE,
-                                    Map.of("goal", lastRequest.goal())
-                            )
-                            : null,
+                    () -> renderTemplate(
+                            PLANNING_ORCHESTRATOR_MESSAGE,
+                            Map.of("goal", lastRequest.goal())
+                    ),
                     AgentModels.PlanningOrchestratorRouting.class,
                     REVIEW_AGENT_START_MESSAGE
             );
@@ -931,21 +964,33 @@ public interface AgentInterfaces {
             TicketOrchestratorNode originNode = workflowGraphService.requireTicketOrchestrator(context);
             AgentModels.TicketOrchestratorRequest lastRequest =
                     context.last(AgentModels.TicketOrchestratorRequest.class);
+            if (lastRequest == null) {
+                workflowGraphService.emitErrorEvent(
+                        originNode,
+                        "Missing ticket orchestrator request while handling interrupt."
+                );
+                AgentModels.TicketOrchestratorRouting routing =
+                        new AgentModels.TicketOrchestratorRouting(
+                                request,
+                                null,
+                                null
+                        );
+                emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-interrupt", context, routing);
+                return routing;
+            }
             var resumed = interruptService.handleReviewInterrupt(
                     context,
                     request,
                     originNode,
-                    () -> lastRequest != null
-                            ? renderTemplate(
-                                    TICKET_ORCHESTRATOR_START_MESSAGE,
-                                    Map.of(
-                                            "goal", lastRequest.goal(),
-                                            "tickets", lastRequest.tickets(),
-                                            "discoveryContext", lastRequest.discoveryContext(),
-                                            "planningContext", lastRequest.planningContext()
-                                    )
+                    () -> renderTemplate(
+                            TICKET_ORCHESTRATOR_START_MESSAGE,
+                            Map.of(
+                                    "goal", lastRequest.goal(),
+                                    "tickets", lastRequest.tickets(),
+                                    "discoveryContext", lastRequest.discoveryContext(),
+                                    "planningContext", lastRequest.planningContext()
                             )
-                            : null,
+                    ),
                     AgentModels.TicketOrchestratorRouting.class,
                     REVIEW_AGENT_START_MESSAGE
             );
@@ -1012,14 +1057,28 @@ public interface AgentInterfaces {
             ReviewNode originNode = workflowGraphService.requireReviewNode(context);
             AgentModels.ReviewRequest lastRequest =
                     context.last(AgentModels.ReviewRequest.class);
+            if (lastRequest == null) {
+                workflowGraphService.emitErrorEvent(
+                        originNode,
+                        "Missing review request while handling interrupt."
+                );
+                AgentModels.ReviewRouting routing =
+                        new AgentModels.ReviewRouting(
+                                request,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null
+                        );
+                emitActionCompleted(eventBus, multiAgentAgentName(), "review-interrupt", context, routing);
+                return routing;
+            }
             var resumed = interruptService.handleReviewInterrupt(
                     context,
                     request,
                     originNode,
                     () -> {
-                        if (lastRequest == null) {
-                            return null;
-                        }
                         String returnRoute = renderReturnRoute(
                                 lastRequest.returnToOrchestratorCollector(),
                                 lastRequest.returnToDiscoveryCollector(),
@@ -1109,14 +1168,28 @@ public interface AgentInterfaces {
             MergeNode originNode = workflowGraphService.requireMergeNode(context);
             AgentModels.MergerRequest lastRequest =
                     context.last(AgentModels.MergerRequest.class);
+            if (lastRequest == null) {
+                workflowGraphService.emitErrorEvent(
+                        originNode,
+                        "Missing merger request while handling interrupt."
+                );
+                AgentModels.MergerRouting routing =
+                        new AgentModels.MergerRouting(
+                                request,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null
+                        );
+                emitActionCompleted(eventBus, multiAgentAgentName(), "merger-interrupt", context, routing);
+                return routing;
+            }
             var resumed = interruptService.handleReviewInterrupt(
                     context,
                     request,
                     originNode,
                     () -> {
-                        if (lastRequest == null) {
-                            return null;
-                        }
                         String returnRoute = renderReturnRoute(
                                 lastRequest.returnToOrchestratorCollector(),
                                 lastRequest.returnToDiscoveryCollector(),

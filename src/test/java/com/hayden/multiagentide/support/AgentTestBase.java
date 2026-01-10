@@ -1,43 +1,20 @@
 package com.hayden.multiagentide.support;
 
-import com.hayden.multiagentide.agent.AgentInterfaces;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
+/**
+ * Base class for agent tests.
+ * 
+ * Test strategies:
+ * 
+ * 1. For workflow routing tests: Mock the WorkflowAgent action methods directly
+ *    to return specific routing responses, then verify the planner routes correctly
+ *    through the graph.
+ * 
+ * 2. For ACP integration tests: Mock AcpChatModel to return specific responses,
+ *    then verify the actions process them correctly and return proper routing.
+ * 
+ * DO NOT mock LlmOperations - it's just an intermediary. Mock either above it
+ * (actions) or below it (AcpChatModel).
+ */
 public abstract class AgentTestBase {
-
-    @MockitoBean
-    protected AgentInterfaces.DiscoveryAgent discoveryAgent;
-
-    @MockitoBean
-    protected AgentInterfaces.DiscoveryOrchestrator discoveryOrchestrator;
-
-    @MockitoBean
-    protected AgentInterfaces.DiscoveryCollector discoveryCollector;
-
-    @MockitoBean
-    protected AgentInterfaces.PlanningAgent planningAgent;
-
-    @MockitoBean
-    protected AgentInterfaces.PlanningOrchestrator planningOrchestrator;
-
-    @MockitoBean
-    protected AgentInterfaces.PlanningCollector planningCollector;
-
-    @MockitoBean
-    protected AgentInterfaces.TicketOrchestrator ticketOrchestrator;
-
-    @MockitoBean
-    protected AgentInterfaces.TicketAgent ticketAgent;
-
-    @MockitoBean
-    protected AgentInterfaces.TicketCollector ticketCollector;
-
-    @MockitoBean
-    protected AgentInterfaces.ReviewAgent reviewAgent;
-
-    @MockitoBean
-    protected AgentInterfaces.MergerAgent mergerAgent;
-
-    @MockitoBean
-    protected AgentInterfaces.OrchestratorAgent orchestratorAgent;
+    // Common test utilities can go here
 }

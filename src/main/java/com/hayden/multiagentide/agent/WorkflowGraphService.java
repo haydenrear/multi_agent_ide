@@ -75,6 +75,18 @@ public class WorkflowGraphService {
         return requireNode(state.mergeNodeId(), MergeNode.class, "merge");
     }
 
+    public void emitErrorEvent(GraphNode node, String message) {
+        if (node == null) {
+            return;
+        }
+        computationGraphOrchestrator.emitErrorEvent(
+                node.nodeId(),
+                node.title(),
+                node.nodeType(),
+                message
+        );
+    }
+
     public OrchestratorNode startOrchestrator(OperationContext context) {
         OrchestratorNode orchestratorNode = requireOrchestrator(context);
         return markNodeRunning(orchestratorNode);
