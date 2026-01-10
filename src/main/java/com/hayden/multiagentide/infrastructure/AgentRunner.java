@@ -54,6 +54,7 @@ public class AgentRunner {
     private static final String META_FINAL_REVIEW = "final_review_requested";
     private static final String META_COLLECTOR_REVIEW_GATE = "collector_review_gate";
     private static final String META_COLLECTOR_REVIEW_DECISION = "collector_review_decision";
+    private static final String META_DISCOVERY_COLLECTOR_RESULTS = "discovery_collector_results";
 
     public record AgentDispatchArgs(
             GraphNode self,
@@ -383,6 +384,43 @@ public class AgentRunner {
                 node.nodeId()
         );
         return true;
+    }
+
+    private boolean handleRoutingInterrupts(
+            GraphNode node,
+            AgentModels.InterruptRequest interruptRequest,
+            List<AgentModels.InterruptType> fallbackInterrupts,
+            String reason,
+            String resultPayload
+    ) {
+        if (interruptRequest != null) {
+            String resolvedReason = interruptRequest.reason() != null ? interruptRequest.reason() : reason;
+            return handleAgentInterrupts(
+                    node,
+                    List.of(interruptRequest.type()),
+                    resolvedReason,
+                    resultPayload
+            );
+        }
+        return handleAgentInterrupts(node, fallbackInterrupts, reason, resultPayload);
+    }
+
+    private AgentModels.DiscoveryAgentResult requireDiscoveryAgentResult(
+            AgentModels.DiscoveryAgentRouting routing
+    ) {
+        if (routing == null || routing.agentResult() == null) {
+            throw new IllegalStateException("Discovery agent returned no discovery result.");
+        }
+        return routing.agentResult();
+    }
+
+    private AgentModels.DiscoveryCollectorResult requireDiscoveryCollectorResult(
+            AgentModels.DiscoveryCollectorRouting routing
+    ) {
+        if (routing == null || routing.collectorResult() == null) {
+            throw new IllegalStateException("Discovery collector returned no collector result.");
+        }
+        return routing.collectorResult();
     }
 
     private void handleInterruptStatusChange(
@@ -771,10 +809,10 @@ public class AgentRunner {
         );
         DiscoveryOrchestratorNode running = markNodeRunning(node);
         try {
-            AgentModels.DiscoveryOrchestratorResult result = agentLifecycleHandler.runAgent(
+            AgentModels.DiscoveryOrchestratorRouting routing = agentLifecycleHandler.runAgent(
                     AgentInterfaces.DISCOVERY_ORCHESTRATOR_AGENT,
-                    new AgentInterfaces.DiscoveryOrchestratorInput(running.goal()),
-                    AgentModels.DiscoveryOrchestratorResult.class,
+                    new AgentModels.DiscoveryOrchestratorRequest(running.goal()),
+                    AgentModels.DiscoveryOrchestratorRouting.class,
                     running.nodeId()
             );
             String divisionStrategy = resolveDelegationSummary(
@@ -790,22 +828,27 @@ public class AgentRunner {
                     divisionStrategy
             );
 
-            DiscoveryOrchestratorNode updated = running
-                    .withResult(result)
-                    .withContent(divisionStrategy);
+            DiscoveryOrchestratorNode updated = running.withContent(divisionStrategy);
             graphRepository.save(updated);
 
-            if (handleAgentInterrupts(
+            if (handleRoutingInterrupts(
                     updated,
-                    result.interruptsRequested(),
+                    routing.interruptRequest(),
+                    null,
                     "Discovery orchestrator interrupt requested",
                     divisionStrategy
             )) {
                 return;
             }
 
+            if (routing.collectorRequest() != null) {
+                ensureDiscoveryCollector(updated);
+                applyCollectorRequestOverride(updated, routing.collectorRequest());
+                return;
+            }
+
             // Next: Kick off DiscoveryAgent(s) based on strategy
-            kickOffDiscoveryAgents(updated, focusAreas);
+            kickOffDiscoveryAgents(updated, agentRequests);
         } catch (Exception e) {
             markNodeFailed(running, e);
             log.error(
@@ -821,17 +864,21 @@ public class AgentRunner {
      */
     private void kickOffDiscoveryAgents(
             DiscoveryOrchestratorNode orchestratorNode,
-            List<String> focusAreas
+            List<AgentModels.DiscoveryAgentRequest> agentRequests
     ) {
         log.info(
                 "Kicking off DiscoveryAgent(s) for orchestrator: {}",
                 orchestratorNode.nodeId()
         );
-        if (focusAreas.isEmpty()) {
-            focusAreas = List.of("Repository overview");
+        if (agentRequests == null || agentRequests.isEmpty()) {
+            agentRequests = List.of(new AgentModels.DiscoveryAgentRequest(
+                    orchestratorNode.goal(),
+                    "Repository overview"
+            ));
         }
 
-        for (String focus : focusAreas) {
+        for (AgentModels.DiscoveryAgentRequest request : agentRequests) {
+            String focus = request.subdomainFocus();
             DiscoveryNode discoveryNode = new DiscoveryNode(
                     newNodeId(),
                     "Discover: " + focus,
@@ -865,12 +912,13 @@ public class AgentRunner {
         DiscoveryNode running = markNodeRunning(node);
         try {
             String subdomainFocus = running.title();
-            AgentModels.DiscoveryAgentResult result = agentLifecycleHandler.runAgent(
-                    AgentInterfaces.DISCOVERY_AGENT,
-                    new AgentInterfaces.DiscoveryAgentInput(running.goal(), subdomainFocus),
-                    AgentModels.DiscoveryAgentResult.class,
+            AgentModels.DiscoveryAgentRouting routing = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.DISCOVERY_ORCHESTRATOR_AGENT,
+                    new AgentModels.DiscoveryAgentRequest(running.goal(), subdomainFocus),
+                    AgentModels.DiscoveryAgentRouting.class,
                     running.nodeId()
             );
+            AgentModels.DiscoveryAgentResult result = requireDiscoveryAgentResult(routing);
             String findings = result.output();
             log.info(
                     "DiscoveryAgent completed findings for subdomain: {}",
@@ -882,8 +930,9 @@ public class AgentRunner {
                     .withContent(findings);
             graphRepository.save(withContent);
 
-            if (handleAgentInterrupts(
+            if (handleRoutingInterrupts(
                     withContent,
+                    routing.interruptRequest(),
                     result.interruptsRequested(),
                     "Discovery interrupt requested",
                     findings
@@ -910,20 +959,21 @@ public class AgentRunner {
         log.info("Executing DiscoveryMergerAgent for node: {}", node.nodeId());
         DiscoveryCollectorNode running = markNodeRunning(node);
         try {
-            // Collect all discovery findings from sibling DiscoveryNodes
-            String allDiscoveryFindings = collectSiblingOutputs(
-                    running,
-                    DiscoveryNode.class
-            );
-            List<CollectedNodeStatus> collectedNodes =
-                    collectSiblingStatusSnapshots(running, DiscoveryNode.class);
+            String overrideFindings = running.metadata().get(META_DISCOVERY_COLLECTOR_RESULTS);
+            String allDiscoveryFindings = overrideFindings != null
+                    ? overrideFindings
+                    : collectSiblingOutputs(running, DiscoveryNode.class);
+            List<CollectedNodeStatus> collectedNodes = overrideFindings != null
+                    ? List.of()
+                    : collectSiblingStatusSnapshots(running, DiscoveryNode.class);
 
-            AgentModels.DiscoveryCollectorResult result = agentLifecycleHandler.runAgent(
-                    AgentInterfaces.DISCOVERY_COLLECTOR_AGENT,
-                    new AgentInterfaces.DiscoveryCollectorInput(running.goal(), allDiscoveryFindings),
-                    AgentModels.DiscoveryCollectorResult.class,
+            AgentModels.DiscoveryCollectorRouting routing = agentLifecycleHandler.runAgent(
+                    AgentInterfaces.DISCOVERY_ORCHESTRATOR_AGENT,
+                    new AgentModels.DiscoveryCollectorRequest(running.goal(), allDiscoveryFindings),
+                    AgentModels.DiscoveryCollectorRouting.class,
                     running.nodeId()
             );
+            AgentModels.DiscoveryCollectorResult result = requireDiscoveryCollectorResult(routing);
             String mergedFindings = result.consolidatedOutput();
             log.info(
                     "DiscoveryMerger consolidated findings for goal: {}",
@@ -936,8 +986,9 @@ public class AgentRunner {
                     .withCollectedNodes(collectedNodes);
             graphRepository.save(withContent);
 
-            if (handleAgentInterrupts(
+            if (handleRoutingInterrupts(
                     withContent,
+                    routing.interruptRequest(),
                     result.interruptsRequested(),
                     "Discovery collector interrupt requested",
                     mergedFindings

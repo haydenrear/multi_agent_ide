@@ -4,112 +4,37 @@ import com.embabel.agent.api.annotation.AchievesGoal;
 import com.embabel.agent.api.annotation.Action;
 import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.common.OperationContext;
-import org.springframework.stereotype.Component;
+import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.multiagentidelib.infrastructure.EventBus;
+import com.hayden.multiagentidelib.model.events.Events;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
- * Embabel @Agent definitions for multi-agent IDE.
- * Each agent currently exposes a single action.
+ * Embabel @Agent definition for multi-agent IDE.
+ * Single agent with all workflow actions.
  */
-public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, AgentInterfaces.ContextCollectorAgent, AgentInterfaces.ContextOrchestratorAgent, AgentInterfaces.DiscoveryAgent, AgentInterfaces.DiscoveryCollector, AgentInterfaces.DiscoveryOrchestrator, AgentInterfaces.MergerAgent, AgentInterfaces.OrchestratorAgent, AgentInterfaces.OrchestratorCollectorAgent, AgentInterfaces.PlanningAgent, AgentInterfaces.PlanningCollector, AgentInterfaces.ReviewAgent, AgentInterfaces.TicketAgent, AgentInterfaces.TicketCollector, AgentInterfaces.TicketOrchestrator, AgentInterfaces.PlanningOrchestrator {
+public interface AgentInterfaces {
 
     String multiAgentAgentName();
 
-    String ORCHESTRATOR_AGENT_NAME = "OrchestratorAgent";
-    String DISCOVERY_ORCHESTRATOR_AGENT_NAME = "DiscoveryOrchestrator";
-    String DISCOVERY_AGENT_NAME = "DiscoveryAgent";
-    String DISCOVERY_COLLECTOR_AGENT_NAME = "DiscoveryCollector";
-    String PLANNING_ORCHESTRATOR_AGENT_NAME = "PlanningOrchestrator";
-    String PLANNING_AGENT_NAME = "PlanningAgent";
-    String PLANNING_COLLECTOR_AGENT_NAME = "PlanningCollector";
-    String TICKET_ORCHESTRATOR_AGENT_NAME = "TicketOrchestrator";
-    String TICKET_AGENT_NAME = "TicketAgent";
-    String TICKET_COLLECTOR_AGENT_NAME = "TicketCollector";
-    String MERGER_AGENT_NAME = "MergerAgent";
-    String REVIEW_AGENT_NAME = "ReviewAgent";
-    String ORCHESTRATOR_COLLECTOR_AGENT_NAME = "OrchestratorCollectorAgent";
-    String CONTEXT_ORCHESTRATOR_AGENT_NAME = "ContextOrchestratorAgent";
-    String CONTEXT_AGENT_NAME = "ContextAgent";
-    String CONTEXT_COLLECTOR_AGENT_NAME = "ContextCollectorAgent";
+    String WORKFLOW_AGENT_NAME = "WorkflowAgent";
 
-    OrchestratorAgent ORCHESTRATOR_AGENT = new OrchestratorAgent();
-    DiscoveryOrchestrator DISCOVERY_ORCHESTRATOR_AGENT = new DiscoveryOrchestrator();
-    DiscoveryAgent DISCOVERY_AGENT = new DiscoveryAgent();
-    DiscoveryCollector DISCOVERY_COLLECTOR_AGENT = new DiscoveryCollector();
-    PlanningOrchestrator PLANNING_ORCHESTRATOR_AGENT = new PlanningOrchestrator();
-    PlanningAgent PLANNING_AGENT = new PlanningAgent();
-    PlanningCollector PLANNING_COLLECTOR_AGENT = new PlanningCollector();
-    TicketOrchestrator TICKET_ORCHESTRATOR_AGENT = new TicketOrchestrator();
-    TicketAgent TICKET_AGENT = new TicketAgent();
-    TicketCollector TICKET_COLLECTOR_AGENT = new TicketCollector();
-    MergerAgent MERGER_AGENT = new MergerAgent();
-    ReviewAgent REVIEW_AGENT = new ReviewAgent ();
-    OrchestratorCollectorAgent ORCHESTRATOR_COLLECTOR_AGENT = new OrchestratorCollectorAgent();
-    ContextOrchestratorAgent CONTEXT_ORCHESTRATOR_AGENT = new ContextOrchestratorAgent();
-    ContextAgent CONTEXT_AGENT = new ContextAgent();
-    ContextCollectorAgent CONTEXT_COLLECTOR_AGENT = new ContextCollectorAgent();
+    WorkflowAgent WORKFLOW_AGENT = new WorkflowAgent(null);
+    AgentInterfaces ORCHESTRATOR_AGENT = WORKFLOW_AGENT;
+    AgentInterfaces DISCOVERY_ORCHESTRATOR_AGENT = WORKFLOW_AGENT;
+    AgentInterfaces PLANNING_ORCHESTRATOR_AGENT = WORKFLOW_AGENT;
+    AgentInterfaces TICKET_ORCHESTRATOR_AGENT = WORKFLOW_AGENT;
+    AgentInterfaces REVIEW_AGENT = WORKFLOW_AGENT;
+    AgentInterfaces MERGER_AGENT = WORKFLOW_AGENT;
+    AgentInterfaces CONTEXT_ORCHESTRATOR_AGENT = WORKFLOW_AGENT;
 
-    record OrchestratorInput(String goal, String phase) {
-    }
-
-    record DiscoveryOrchestratorInput(String goal) {
-    }
-
-    record DiscoveryAgentInput(String goal, String subdomainFocus) {
-    }
-
-    record DiscoveryCollectorInput(String goal, String discoveryResults) {
-    }
-
-    record PlanningOrchestratorInput(String goal) {
-    }
-
-    record PlanningAgentInput(String goal) {
-    }
-
-    record PlanningCollectorInput(String goal, String planningResults) {
-    }
-
-    record TicketOrchestratorInput(
-            String goal,
-            String tickets,
-            String discoveryContext,
-            String planningContext
-    ) {
-    }
-
-    record TicketAgentInput(
-            String ticketDetails,
-            String ticketDetailsFilePath,
-            String discoveryContext,
-            String planningContext
-    ) {
-    }
-
-    record TicketCollectorInput(String goal, String ticketResults) {
-    }
-
-    record MergerAgentInput(String mergeContext, String mergeSummary, String conflictFiles) {
-    }
-
-    record ReviewAgentInput(String content, String criteria) {
-    }
-
-    record OrchestratorCollectorInput(String goal, String phase) {
-    }
-
-    record ContextOrchestratorInput(String goal, String phase) {
-    }
-
-    record ContextAgentInput(String goal, String phase) {
-    }
-
-    record ContextCollectorInput(String goal, String phase) {
-    }
-
-    public static String renderTemplate(String template, Map<String, String> values) {
+    static String renderTemplate(String template, Map<String, String> values) {
         String rendered = template;
         for (var entry : values.entrySet()) {
             rendered = rendered.replace(
@@ -120,11 +45,100 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
         return rendered;
     }
 
-    @Agent(name = ORCHESTRATOR_AGENT_NAME, description = "Coordinates multiple agents to accomplish complex goals")
-    record OrchestratorAgent() implements AgentInterfaces {
+    static void emitActionStarted(EventBus eventBus, String agentName, String actionName, OperationContext context) {
+        if (eventBus == null) {
+            return;
+        }
+        String nodeId = resolveNodeId(context);
+        eventBus.publish(new Events.ActionStartedEvent(
+                UUID.randomUUID().toString(),
+                Instant.now(),
+                nodeId,
+                agentName,
+                actionName
+        ));
+    }
 
+    static void emitActionCompleted(EventBus eventBus, String agentName, String actionName, OperationContext context, Object result) {
+        if (eventBus == null) {
+            return;
+        }
+        String nodeId = resolveNodeId(context);
+        String outcomeType = result != null ? result.getClass().getSimpleName() : "null";
+        eventBus.publish(new Events.ActionCompletedEvent(
+                UUID.randomUUID().toString(),
+                Instant.now(),
+                nodeId,
+                agentName,
+                actionName,
+                outcomeType
+        ));
+    }
+
+    static String resolveNodeId(OperationContext context) {
+        if (context == null || context.getProcessContext() == null) {
+            return "unknown";
+        }
+        var options = context.getProcessContext().getProcessOptions();
+        if (options == null) {
+            return "unknown";
+        }
+        String contextId = options.getContextIdString();
+        return contextId != null ? contextId : "unknown";
+    }
+
+    static void addRequestsToBlackboard(OperationContext context, List<?> requests) {
+        if (context == null || requests == null || requests.isEmpty()) {
+            return;
+        }
+        List<Object> toAdd = new ArrayList<>(requests.size());
+        for (Object request : requests) {
+            if (request != null) {
+                toAdd.add(request);
+            }
+        }
+        if (!toAdd.isEmpty()) {
+            context.addAll(toAdd);
+        }
+    }
+
+    static String renderReturnRoute(
+            AgentModels.OrchestratorCollectorRequest orchestratorCollector,
+            AgentModels.DiscoveryCollectorRequest discoveryCollector,
+            AgentModels.PlanningCollectorRequest planningCollector,
+            AgentModels.TicketCollectorRequest ticketCollector,
+            AgentModels.ContextCollectorRequest contextCollector
+    ) {
+        if (orchestratorCollector != null) {
+            return "orchestratorCollectorRequest(goal=" + orchestratorCollector.goal() + ", phase=" + orchestratorCollector.phase() + ")";
+        }
+        if (discoveryCollector != null) {
+            return "discoveryCollectorRequest(goal=" + discoveryCollector.goal() + ")";
+        }
+        if (planningCollector != null) {
+            return "planningCollectorRequest(goal=" + planningCollector.goal() + ")";
+        }
+        if (ticketCollector != null) {
+            return "ticketCollectorRequest(goal=" + ticketCollector.goal() + ")";
+        }
+        if (contextCollector != null) {
+            return "contextCollectorRequest(goal=" + contextCollector.goal() + ", phase=" + contextCollector.phase() + ")";
+        }
+        return "none";
+    }
+
+    @Agent(name = WORKFLOW_AGENT_NAME, description = "Coordinates multi-agent workflow")
+    final class WorkflowAgent implements AgentInterfaces {
+
+        private final EventBus eventBus;
+
+        WorkflowAgent(EventBus eventBus) {
+            this.eventBus = eventBus;
+        }
+
+        @Override
         public String multiAgentAgentName() {
-            return ORCHESTRATOR_AGENT_NAME;
+            return WORKFLOW_AGENT_NAME;
         }
 
         public static final String ORCHESTRATOR_AGENT_START_MESSAGE = """
@@ -133,32 +147,65 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                 Goal: {{goal}}
                 Current phase: {{phase}}
 
-                Determine:
-                1. Next agent to invoke
-                2. Input for that agent
-                3. Success criteria
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - collectorRequest: { goal, phase }
                 """;
 
-        @Action
-        @AchievesGoal(description = "Coordinate workflow for the current phase")
-        public com.hayden.multiagentidelib.agent.AgentModels.OrchestratorAgentResult coordinateWorkflow(
-                OrchestratorInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    ORCHESTRATOR_AGENT_START_MESSAGE,
-                    Map.of("goal", input.goal(), "phase", input.phase())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.OrchestratorAgentResult.class);
-        }
-    }
+        public static final String ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE = """
+                Consolidate the workflow results and provide a routing decision.
 
-    @Agent(name = DISCOVERY_COLLECTOR_AGENT_NAME, description = "Consolidates discovery findings into unified codebase understanding")
-    record DiscoveryCollector() implements AgentInterfaces {
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
+                - orchestratorRequest: { goal, phase }
+                - discoveryRequest: { goal }
+                - planningRequest: { goal }
+                - ticketRequest: { goal, tickets, discoveryContext, planningContext }
+                - contextRequest: { goal, phase }
+                - reviewRequest: { content, criteria, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
+                - mergerRequest: { mergeContext, mergeSummary, conflictFiles, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
+                """;
 
-        public String multiAgentAgentName() {
-            return DISCOVERY_COLLECTOR_AGENT_NAME;
-        }
+        public static final String DISCOVERY_ORCHESTRATOR_START_MESSAGE = """
+                Coordinate the following multi-agent workflow:
+
+                Goal: {{goal}}
+
+                Based on this information and files you find on the repository, or information about the ticket,
+                decide how to divide up the discovery phase of the workflow.
+
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - agentRequests: { requests: [ { goal, subdomainFocus } ] }
+                - collectorRequest: { goal, discoveryResults }
+                """;
+
+        public static final String DISCOVERY_AGENT_START_MESSAGE = """
+                Discover and analyze the codebase for the following subdomain:
+
+                Overall Goal: {{goal}}
+                Subdomain Focus: {{subdomainFocus}}
+
+                Use your tools to:
+                1. Search for relevant files and modules
+                2. Analyze key source files
+                3. Understand dependencies and imports
+                4. Identify architectural patterns
+                5. Document test patterns
+
+                Generate comprehensive discovery findings including:
+                - Module overview
+                - Key classes and responsibilities
+                - Data flow patterns
+                - Integration points
+                - Technology stack
+                - Test patterns
+
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - agentResult: { output }
+                """;
 
         public static final String DISCOVERY_COLLECTOR_START_MESSAGE = """
                 Merge and consolidate the following discovery results from multiple agents:
@@ -175,51 +222,69 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                 - Test patterns and conventions
                 - Critical files and entry points
 
-                Return consolidated discovery in structured format suitable for planning phase, and include a routing decision:
-                - ROUTE_BACK to rerun discovery
-                - ADVANCE_PHASE to continue to planning
-                - STOP to halt the workflow
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
+                - orchestratorRequest: { goal, phase }
+                - discoveryRequest: { goal }
+                - planningRequest: { goal }
+                - ticketRequest: { goal, tickets, discoveryContext, planningContext }
+                - contextRequest: { goal, phase }
+                - reviewRequest: { content, criteria, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
+                - mergerRequest: { mergeContext, mergeSummary, conflictFiles, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
                 """;
 
-        @Action
-        @AchievesGoal(description = "Consolidate discovery findings")
-        public com.hayden.multiagentidelib.agent.AgentModels.DiscoveryCollectorResult consolidateDiscoveryFindings(
-                DiscoveryCollectorInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    DISCOVERY_COLLECTOR_START_MESSAGE,
-                    Map.of("goal", input.goal(), "discoveryResults", input.discoveryResults())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.DiscoveryCollectorResult.class);
-        }
-    }
+        public static final String PLANNING_ORCHESTRATOR_MESSAGE = """
+                Decompose the planning for the goal according to the results from discovery.
+                Define tickets and update the spec file in .specify/.../spec.md.
 
-    @Agent(name = PLANNING_AGENT_NAME, description = "Decomposes high-level goals into structured work items")
-    record PlanningAgent() implements AgentInterfaces {
-        @Override
-        public String multiAgentAgentName() {
-            return PLANNING_AGENT_NAME;
-        }
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - agentRequests: { requests: [ { goal } ] }
+                - collectorRequest: { goal, planningResults }
 
-    }
+                Goal: {{goal}}
+                """;
 
-    @Agent(name = PLANNING_COLLECTOR_AGENT_NAME, description = "Consolidates planning outputs into structured tickets")
-    record PlanningCollector() implements AgentInterfaces {
-        @Override
-        public String multiAgentAgentName() {
-            return PLANNING_COLLECTOR_AGENT_NAME;
-        }
+        public static final String PLANNING_AGENT_USER_MESSAGE = """
+                Analyze the following goal and break it down into 3 work items:
+                1. Architecture & Setup - Design foundational structure
+                2. Implementation - Core functionality
+                3. Testing & Validation - Tests and validation
 
-    }
+                Goal: {{goal}}
 
-    @Agent(name = TICKET_ORCHESTRATOR_AGENT_NAME, description = "Orchestrates ticket-based implementation workflow")
-    record TicketOrchestrator() implements AgentInterfaces {
+                Provide a structured plan with clear sections for each work item.
 
-        @Override
-        public String multiAgentAgentName() {
-            return TICKET_ORCHESTRATOR_AGENT_NAME;
-        }
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - agentResult: { output }
+                """;
+
+        public static final String PLANNING_COLLECTOR_MESSAGE = """
+                Merge and consolidate the following planning results from multiple agents:
+
+                Goal: {{goal}}
+                Planning Results: {{planningResults}}
+
+                Create structured tickets with:
+                - Ticket ID and title
+                - Clear implementation tasks
+                - Dependencies between tickets
+                - Acceptance criteria
+                - Estimated effort
+
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
+                - orchestratorRequest: { goal, phase }
+                - discoveryRequest: { goal }
+                - planningRequest: { goal }
+                - ticketRequest: { goal, tickets, discoveryContext, planningContext }
+                - contextRequest: { goal, phase }
+                - reviewRequest: { content, criteria, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
+                - mergerRequest: { mergeContext, mergeSummary, conflictFiles, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
+                """;
 
         public static final String TICKET_ORCHESTRATOR_START_MESSAGE = """
                 Orchestrate ticket-based implementation for the following tickets:
@@ -235,30 +300,11 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                 3. Prepare worktree context for ticket agents
                 4. Monitor ticket completion and quality
 
-                Return orchestration plan and ticket coordination strategy.
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - agentRequests: { requests: [ { ticketDetails, ticketDetailsFilePath, discoveryContext, planningContext } ] }
+                - collectorRequest: { goal, ticketResults }
                 """;
-
-        @Action
-        @AchievesGoal(description = "Orchestrate ticket execution")
-        public com.hayden.multiagentidelib.agent.AgentModels.TicketOrchestratorResult orchestrateTicketExecution(
-                TicketOrchestratorInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    TICKET_ORCHESTRATOR_START_MESSAGE,
-                    Map.of(
-                            "goal", input.goal(),
-                            "tickets", input.tickets(),
-                            "discoveryContext", input.discoveryContext(),
-                            "planningContext", input.planningContext()
-                    )
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.TicketOrchestratorResult.class);
-        }
-    }
-
-    @Agent(name = TICKET_AGENT_NAME, description = "Implements individual tickets with complete code generation")
-    record TicketAgent() implements AgentInterfaces {
 
         public static final String TICKET_AGENT_START_MESSAGE = """
                 Implement the following ticket with complete, production-ready code:
@@ -278,46 +324,10 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                 6. Run tests in the worktree
                 7. Commit implementation to feature branch
 
-                Return comprehensive implementation summary including:
-                - Files modified/created
-                - Key implementation decisions
-                - Test results
-                - Worktree state
-
-                Provide complete, production-ready code with proper structure and error handling.
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - agentResult: { output }
                 """;
-
-        @Action
-        @AchievesGoal(description = "Implement a ticket")
-        public com.hayden.multiagentidelib.agent.AgentModels.TicketAgentResult implementTicket(
-                TicketAgentInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    TICKET_AGENT_START_MESSAGE,
-                    Map.of(
-                            "ticketDetails", input.ticketDetails(),
-                            "ticketDetailsFilePath", input.ticketDetailsFilePath(),
-                            "discoveryContext", input.discoveryContext(),
-                            "planningContext", input.planningContext()
-                    )
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.TicketAgentResult.class);
-        }
-
-        @Override
-        public String multiAgentAgentName() {
-            return TICKET_AGENT_NAME;
-        }
-    }
-
-    @Agent(name = TICKET_COLLECTOR_AGENT_NAME, description = "Consolidates ticket execution results into a unified summary")
-    record TicketCollector() implements AgentInterfaces {
-
-        @Override
-        public String multiAgentAgentName() {
-            return TICKET_COLLECTOR_AGENT_NAME;
-        }
 
         public static final String TICKET_COLLECTOR_START_MESSAGE = """
                 Merge and consolidate the following ticket execution results:
@@ -330,33 +340,40 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                 - Failed tickets (with brief reasons)
                 - Outstanding follow-ups
 
-                Include a routing decision:
-                - ROUTE_BACK to rerun ticket execution
-                - ADVANCE_PHASE to continue to finalization
-                - STOP to halt the workflow
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
+                - orchestratorRequest: { goal, phase }
+                - discoveryRequest: { goal }
+                - planningRequest: { goal }
+                - ticketRequest: { goal, tickets, discoveryContext, planningContext }
+                - contextRequest: { goal, phase }
+                - reviewRequest: { content, criteria, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
+                - mergerRequest: { mergeContext, mergeSummary, conflictFiles, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
                 """;
 
-        @Action
-        @AchievesGoal(description = "Consolidate ticket results")
-        public com.hayden.multiagentidelib.agent.AgentModels.TicketCollectorResult consolidateTicketResults(
-                TicketCollectorInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    TICKET_COLLECTOR_START_MESSAGE,
-                    Map.of("goal", input.goal(), "ticketResults", input.ticketResults())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.TicketCollectorResult.class);
-        }
-    }
+        public static final String REVIEW_AGENT_START_MESSAGE = """
+                Review the following content against these criteria:
 
-    @Agent(name = MERGER_AGENT_NAME, description = "Resolves merge conflicts based on strategy and context")
-    record MergerAgent() implements AgentInterfaces {
+                Content:
+                {{content}}
 
-        @Override
-        public String multiAgentAgentName() {
-            return MERGER_AGENT_NAME;
-        }
+                Criteria: {{criteria}}
+
+                Return route: {{returnRoute}}
+
+                Provide evaluation with:
+                - Overall assessment (APPROVED/NEEDS_REVISION)
+                - Specific feedback on quality
+                - Suggestions for improvement
+
+                Return a routing object with:
+                - interruptRequest: { type, reason }
+                - reviewResult: { output }
+                - one return route matching the provided returnTo*Collector field:
+                  orchestratorCollectorRequest | discoveryCollectorRequest | planningCollectorRequest |
+                  ticketCollectorRequest | contextCollectorRequest
+                """;
 
         public static final String MERGER_AGENT_START_MESSAGE = """
                 Review the merge outcome and validate it is correct.
@@ -370,355 +387,579 @@ public sealed interface AgentInterfaces permits AgentInterfaces.ContextAgent, Ag
                 Conflicting files:
                 {{conflictFiles}}
 
+                Return route: {{returnRoute}}
+
                 Confirm whether the merge is acceptable. If conflicts exist, outline resolution guidance.
+
+                Return a routing object with:
+                - interruptRequest: { type, reason }
+                - mergerResult: { output }
+                - one return route matching the provided returnTo*Collector field:
+                  orchestratorCollectorRequest | discoveryCollectorRequest | planningCollectorRequest |
+                  ticketCollectorRequest | contextCollectorRequest
+                """;
+
+        public static final String CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE = """
+                Coordinate context operations for the workflow.
+
+                Goal: {{goal}}
+                Phase: {{phase}}
+
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - agentRequests: { requests: [ { goal, phase } ] }
+                - collectorRequest: { goal, phase }
+                """;
+
+        public static final String CONTEXT_AGENT_START_MESSAGE = """
+                Apply context operations for the workflow.
+
+                Goal: {{goal}}
+                Phase: {{phase}}
+
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - agentResult: { output }
+                """;
+
+        public static final String CONTEXT_COLLECTOR_START_MESSAGE = """
+                Consolidate context operations into a single context.
+
+                Goal: {{goal}}
+                Phase: {{phase}}
+
+                Return a routing object with exactly one of:
+                - interruptRequest: { type, reason }
+                - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
+                - orchestratorRequest: { goal, phase }
+                - discoveryRequest: { goal }
+                - planningRequest: { goal }
+                - ticketRequest: { goal, tickets, discoveryContext, planningContext }
+                - contextRequest: { goal, phase }
+                - reviewRequest: { content, criteria, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
+                - mergerRequest: { mergeContext, mergeSummary, conflictFiles, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
                 """;
 
         @Action
-        @AchievesGoal(description = "Review merge result")
-        public com.hayden.multiagentidelib.agent.AgentModels.MergerAgentResult performMerge(
-                MergerAgentInput input,
+        @AchievesGoal(description = "Coordinate workflow for the current phase")
+        public AgentModels.OrchestratorRouting coordinateWorkflow(
+                AgentModels.OrchestratorRequest input,
                 OperationContext context
         ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "orchestrator", context);
+            String prompt = renderTemplate(
+                    ORCHESTRATOR_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "phase", input.phase())
+            );
+            AgentModels.OrchestratorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.OrchestratorRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Consolidate orchestrator workflow outputs")
+        public AgentModels.OrchestratorCollectorRouting consolidateWorkflowOutputs(
+                AgentModels.OrchestratorCollectorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "orchestrator-collector", context);
+            String prompt = renderTemplate(
+                    ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "phase", input.phase())
+            );
+            AgentModels.OrchestratorCollectorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.OrchestratorCollectorRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator-collector", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Handle orchestrator interrupts")
+        public AgentModels.OrchestratorRouting handleOrchestratorInterrupt(
+                AgentModels.InterruptRequest request,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "orchestrator-interrupt", context);
+            AgentModels.OrchestratorRouting routing = new AgentModels.OrchestratorRouting(
+                    request,
+                    null
+            );
+            emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator-interrupt", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Create a discovery delegation plan")
+        public AgentModels.DiscoveryOrchestratorRouting kickOffAnyNumberOfAgentsForCodeSearch(
+                AgentModels.DiscoveryOrchestratorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "discovery-orchestrator", context);
+            String prompt = renderTemplate(
+                    DISCOVERY_ORCHESTRATOR_START_MESSAGE,
+                    Map.of("goal", input.goal())
+            );
+            AgentModels.DiscoveryOrchestratorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.DiscoveryOrchestratorRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-orchestrator", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Dispatch discovery agent requests")
+        public AgentModels.DiscoveryAgentDispatchRouting dispatchDiscoveryAgentRequests(
+                AgentModels.DiscoveryAgentRequests input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "discovery-dispatch", context);
+            addRequestsToBlackboard(context, input != null ? input.requests() : List.of());
+            AgentModels.DiscoveryAgentDispatchRouting routing =
+                    new AgentModels.DiscoveryAgentDispatchRouting(null);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-dispatch", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Discover codebase section")
+        public AgentModels.DiscoveryAgentRouting discoverCodebaseSection(
+                AgentModels.DiscoveryAgentRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "discovery-agent", context);
+            String prompt = renderTemplate(
+                    DISCOVERY_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
+            );
+            AgentModels.DiscoveryAgentRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.DiscoveryAgentRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-agent", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Consolidate discovery findings")
+        public AgentModels.DiscoveryCollectorRouting consolidateDiscoveryFindings(
+                AgentModels.DiscoveryCollectorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "discovery-collector", context);
+            String prompt = renderTemplate(
+                    DISCOVERY_COLLECTOR_START_MESSAGE,
+                    Map.of("goal", input.goal(), "discoveryResults", input.discoveryResults())
+            );
+            AgentModels.DiscoveryCollectorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.DiscoveryCollectorRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-collector", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Handle discovery interrupts")
+        public AgentModels.DiscoveryOrchestratorRouting handleDiscoveryInterrupt(
+                AgentModels.InterruptRequest request,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "discovery-interrupt", context);
+            AgentModels.DiscoveryOrchestratorRouting routing =
+                    new AgentModels.DiscoveryOrchestratorRouting(
+                            request,
+                            null,
+                            null
+                    );
+            emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-interrupt", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Create planning delegation plan")
+        public AgentModels.PlanningOrchestratorRouting decomposePlanAndCreateWorkItems(
+                AgentModels.PlanningOrchestratorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "planning-orchestrator", context);
+            String prompt = renderTemplate(
+                    PLANNING_ORCHESTRATOR_MESSAGE,
+                    Map.of("goal", input.goal())
+            );
+            AgentModels.PlanningOrchestratorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.PlanningOrchestratorRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "planning-orchestrator", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Dispatch planning agent requests")
+        public AgentModels.PlanningAgentDispatchRouting dispatchPlanningAgentRequests(
+                AgentModels.PlanningAgentRequests input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "planning-dispatch", context);
+            addRequestsToBlackboard(context, input != null ? input.requests() : List.of());
+            AgentModels.PlanningAgentDispatchRouting routing =
+                    new AgentModels.PlanningAgentDispatchRouting(null);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "planning-dispatch", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Create structured plan")
+        public AgentModels.PlanningAgentRouting planWorkItems(
+                AgentModels.PlanningAgentRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "planning-agent", context);
+            String prompt = renderTemplate(
+                    PLANNING_AGENT_USER_MESSAGE,
+                    Map.of("goal", input.goal())
+            );
+            AgentModels.PlanningAgentRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.PlanningAgentRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "planning-agent", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Consolidate planning results into tickets")
+        public AgentModels.PlanningCollectorRouting consolidatePlansIntoTickets(
+                AgentModels.PlanningCollectorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "planning-collector", context);
+            String prompt = renderTemplate(
+                    PLANNING_COLLECTOR_MESSAGE,
+                    Map.of("goal", input.goal(), "planningResults", input.planningResults())
+            );
+            AgentModels.PlanningCollectorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.PlanningCollectorRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "planning-collector", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Handle planning interrupts")
+        public AgentModels.PlanningOrchestratorRouting handlePlanningInterrupt(
+                AgentModels.InterruptRequest request,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "planning-interrupt", context);
+            AgentModels.PlanningOrchestratorRouting routing =
+                    new AgentModels.PlanningOrchestratorRouting(
+                            request,
+                            null,
+                            null
+                    );
+            emitActionCompleted(eventBus, multiAgentAgentName(), "planning-interrupt", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Orchestrate ticket execution")
+        public AgentModels.TicketOrchestratorRouting orchestrateTicketExecution(
+                AgentModels.TicketOrchestratorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "ticket-orchestrator", context);
+            String prompt = renderTemplate(
+                    TICKET_ORCHESTRATOR_START_MESSAGE,
+                    Map.of(
+                            "goal", input.goal(),
+                            "tickets", input.tickets(),
+                            "discoveryContext", input.discoveryContext(),
+                            "planningContext", input.planningContext()
+                    )
+            );
+            AgentModels.TicketOrchestratorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.TicketOrchestratorRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-orchestrator", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Dispatch ticket agent requests")
+        public AgentModels.TicketAgentDispatchRouting dispatchTicketAgentRequests(
+                AgentModels.TicketAgentRequests input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "ticket-dispatch", context);
+            addRequestsToBlackboard(context, input != null ? input.requests() : List.of());
+            AgentModels.TicketAgentDispatchRouting routing =
+                    new AgentModels.TicketAgentDispatchRouting(null);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-dispatch", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Implement a ticket")
+        public AgentModels.TicketAgentRouting implementTicket(
+                AgentModels.TicketAgentRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "ticket-agent", context);
+            String prompt = renderTemplate(
+                    TICKET_AGENT_START_MESSAGE,
+                    Map.of(
+                            "ticketDetails", input.ticketDetails(),
+                            "ticketDetailsFilePath", input.ticketDetailsFilePath(),
+                            "discoveryContext", input.discoveryContext(),
+                            "planningContext", input.planningContext()
+                    )
+            );
+            AgentModels.TicketAgentRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.TicketAgentRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-agent", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Consolidate ticket results")
+        public AgentModels.TicketCollectorRouting consolidateTicketResults(
+                AgentModels.TicketCollectorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "ticket-collector", context);
+            String prompt = renderTemplate(
+                    TICKET_COLLECTOR_START_MESSAGE,
+                    Map.of("goal", input.goal(), "ticketResults", input.ticketResults())
+            );
+            AgentModels.TicketCollectorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.TicketCollectorRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-collector", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Handle ticket interrupts")
+        public AgentModels.TicketOrchestratorRouting handleTicketInterrupt(
+                AgentModels.InterruptRequest request,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "ticket-interrupt", context);
+            AgentModels.TicketOrchestratorRouting routing =
+                    new AgentModels.TicketOrchestratorRouting(
+                            request,
+                            null,
+                            null
+                    );
+            emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-interrupt", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Evaluate content quality")
+        public AgentModels.ReviewRouting evaluateContent(
+                AgentModels.ReviewRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "review-agent", context);
+            String returnRoute = renderReturnRoute(
+                    input.returnToOrchestratorCollector(),
+                    input.returnToDiscoveryCollector(),
+                    input.returnToPlanningCollector(),
+                    input.returnToTicketCollector(),
+                    input.returnToContextCollector()
+            );
+            String prompt = renderTemplate(
+                    REVIEW_AGENT_START_MESSAGE,
+                    Map.of(
+                            "content", input.content(),
+                            "criteria", input.criteria(),
+                            "returnRoute", returnRoute
+                    )
+            );
+            AgentModels.ReviewRouting response = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.ReviewRouting.class);
+            boolean interrupted = response.interruptRequest() != null;
+            AgentModels.ReviewRouting routing = new AgentModels.ReviewRouting(
+                    response.interruptRequest(),
+                    response.reviewResult(),
+                    interrupted ? null : input.returnToOrchestratorCollector(),
+                    interrupted ? null : input.returnToDiscoveryCollector(),
+                    interrupted ? null : input.returnToPlanningCollector(),
+                    interrupted ? null : input.returnToTicketCollector(),
+                    interrupted ? null : input.returnToContextCollector()
+            );
+            emitActionCompleted(eventBus, multiAgentAgentName(), "review-agent", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Handle review interrupts")
+        public AgentModels.ReviewRouting handleReviewInterrupt(
+                AgentModels.InterruptRequest request,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "review-interrupt", context);
+            AgentModels.ReviewRouting routing =
+                    new AgentModels.ReviewRouting(
+                            request,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null
+                    );
+            emitActionCompleted(eventBus, multiAgentAgentName(), "review-interrupt", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Review merge result")
+        public AgentModels.MergerRouting performMerge(
+                AgentModels.MergerRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "merger-agent", context);
+            String returnRoute = renderReturnRoute(
+                    input.returnToOrchestratorCollector(),
+                    input.returnToDiscoveryCollector(),
+                    input.returnToPlanningCollector(),
+                    input.returnToTicketCollector(),
+                    input.returnToContextCollector()
+            );
             String prompt = renderTemplate(
                     MERGER_AGENT_START_MESSAGE,
                     Map.of(
                             "mergeContext", input.mergeContext(),
                             "mergeSummary", input.mergeSummary(),
-                            "conflictFiles", input.conflictFiles()
+                            "conflictFiles", input.conflictFiles(),
+                            "returnRoute", returnRoute
                     )
             );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.MergerAgentResult.class);
+            AgentModels.MergerRouting response = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.MergerRouting.class);
+            boolean interrupted = response.interruptRequest() != null;
+            AgentModels.MergerRouting routing = new AgentModels.MergerRouting(
+                    response.interruptRequest(),
+                    response.mergerResult(),
+                    interrupted ? null : input.returnToOrchestratorCollector(),
+                    interrupted ? null : input.returnToDiscoveryCollector(),
+                    interrupted ? null : input.returnToPlanningCollector(),
+                    interrupted ? null : input.returnToTicketCollector(),
+                    interrupted ? null : input.returnToContextCollector()
+            );
+            emitActionCompleted(eventBus, multiAgentAgentName(), "merger-agent", context, routing);
+            return routing;
         }
-    }
-
-    @Agent(name = REVIEW_AGENT_NAME, description = "Evaluates content quality, completeness, and adherence to requirements")
-    record ReviewAgent() implements AgentInterfaces {
-
-        @Override
-        public String multiAgentAgentName() {
-            return REVIEW_AGENT_NAME;
-        }
-
-        public static final String REVIEW_AGENT_START_MESSAGE = """
-                Review the following content against these criteria:
-
-                Content:
-                {{content}}
-
-                Criteria: {{criteria}}
-
-                Provide evaluation with:
-                - Overall assessment (APPROVED/NEEDS_REVISION)
-                - Specific feedback on quality
-                - Suggestions for improvement
-
-                Additionally, if you have further questions, return an indicator for whether a human should review.
-                """;
 
         @Action
-        @AchievesGoal(description = "Evaluate content quality")
-        public com.hayden.multiagentidelib.agent.AgentModels.ReviewAgentResult evaluateContent(
-                ReviewAgentInput input,
+        @AchievesGoal(description = "Handle merge interrupts")
+        public AgentModels.MergerRouting handleMergerInterrupt(
+                AgentModels.InterruptRequest request,
                 OperationContext context
         ) {
-            String prompt = renderTemplate(
-                    REVIEW_AGENT_START_MESSAGE,
-                    Map.of("content", input.content(), "criteria", input.criteria())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.ReviewAgentResult.class);
+            emitActionStarted(eventBus, multiAgentAgentName(), "merger-interrupt", context);
+            AgentModels.MergerRouting routing =
+                    new AgentModels.MergerRouting(
+                            request,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null
+                    );
+            emitActionCompleted(eventBus, multiAgentAgentName(), "merger-interrupt", context, routing);
+            return routing;
         }
-    }
-
-    @Agent(
-            name = ORCHESTRATOR_COLLECTOR_AGENT_NAME,
-            description = "Validates the work of the orchestrator, collecting all the artifacts, reviews, and ensuring that it is correct."
-    )
-    record OrchestratorCollectorAgent() implements AgentInterfaces {
-
-        @Override
-        public String multiAgentAgentName() {
-            return ORCHESTRATOR_COLLECTOR_AGENT_NAME;
-        }
-
-        public static final String ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE = """
-                Consolidate the workflow results and provide a routing decision:
-                - ROUTE_BACK to rerun the final collection
-                - ADVANCE_PHASE to finalize and complete the goal
-                - STOP to halt the workflow
-                """;
-
-        @Action
-        @AchievesGoal(description = "Consolidate orchestrator workflow outputs")
-        public com.hayden.multiagentidelib.agent.AgentModels.OrchestratorCollectorResult coordinateWorkflow(
-                OrchestratorCollectorInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE,
-                    Map.of("goal", input.goal(), "phase", input.phase())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.OrchestratorCollectorResult.class);
-        }
-    }
-
-    @Agent(
-            name = CONTEXT_ORCHESTRATOR_AGENT_NAME,
-            description = "Orchestrates context operations for the workflow."
-    )
-    record ContextOrchestratorAgent() implements AgentInterfaces {
-
-        @Override
-        public String multiAgentAgentName() {
-            return CONTEXT_ORCHESTRATOR_AGENT_NAME;
-        }
-
-        public static final String CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE = """
-//                TODO:
-                """;
 
         @Action
         @AchievesGoal(description = "Coordinate context operations")
-        public com.hayden.multiagentidelib.agent.AgentModels.OrchestratorAgentResult coordinateWorkflow(
-                ContextOrchestratorInput input,
+        public AgentModels.ContextOrchestratorRouting coordinateWorkflow(
+                AgentModels.ContextOrchestratorRequest input,
                 OperationContext context
         ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "context-orchestrator", context);
             String prompt = renderTemplate(
                     CONTEXT_ORCHESTRATOR_AGENT_START_MESSAGE,
                     Map.of("goal", input.goal(), "phase", input.phase())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.OrchestratorAgentResult.class);
-        }
-    }
-
-    @Agent(
-            name = CONTEXT_AGENT_NAME,
-            description = "Handles reviewing and pruning context."
-    )
-    record ContextAgent() implements AgentInterfaces {
-
-        @Override
-        public String multiAgentAgentName() {
-            return CONTEXT_AGENT_NAME;
+            AgentModels.ContextOrchestratorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.ContextOrchestratorRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "context-orchestrator", context, routing);
+            return routing;
         }
 
-        public static final String CONTEXT_AGENT_START_MESSAGE = """
-//                TODO:
-                """;
+        @Action
+        @AchievesGoal(description = "Dispatch context agent requests")
+        public AgentModels.ContextAgentDispatchRouting dispatchContextAgentRequests(
+                AgentModels.ContextAgentRequests input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "context-dispatch", context);
+            addRequestsToBlackboard(context, input != null ? input.requests() : List.of());
+            AgentModels.ContextAgentDispatchRouting routing =
+                    new AgentModels.ContextAgentDispatchRouting(null);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "context-dispatch", context, routing);
+            return routing;
+        }
 
         @Action
         @AchievesGoal(description = "Apply context operations")
-        public com.hayden.multiagentidelib.agent.AgentModels.ContextAgentResult applyContextOperations(
-                ContextAgentInput input,
+        public AgentModels.ContextAgentRouting applyContextOperations(
+                AgentModels.ContextAgentRequest input,
                 OperationContext context
         ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "context-agent", context);
             String prompt = renderTemplate(
                     CONTEXT_AGENT_START_MESSAGE,
                     Map.of("goal", input.goal(), "phase", input.phase())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.ContextAgentResult.class);
+            AgentModels.ContextAgentRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.ContextAgentRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "context-agent", context, routing);
+            return routing;
         }
-    }
-
-    @Agent(
-            name = CONTEXT_COLLECTOR_AGENT_NAME,
-            description = "Merges context operations into a consolidated context."
-    )
-    record ContextCollectorAgent() implements AgentInterfaces {
-
-        @Override
-        public String multiAgentAgentName() {
-            return CONTEXT_COLLECTOR_AGENT_NAME;
-        }
-
-        public static final String CONTEXT_COLLECTOR_START_MESSAGE = """
-//                TODO:
-                """;
 
         @Action
         @AchievesGoal(description = "Consolidate context operations")
-        public com.hayden.multiagentidelib.agent.AgentModels.ContextCollectorResult coordinateWorkflow(
-                ContextCollectorInput input,
+        public AgentModels.ContextCollectorRouting consolidateContextOperations(
+                AgentModels.ContextCollectorRequest input,
                 OperationContext context
         ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "context-collector", context);
             String prompt = renderTemplate(
                     CONTEXT_COLLECTOR_START_MESSAGE,
                     Map.of("goal", input.goal(), "phase", input.phase())
             );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.ContextCollectorResult.class);
+            AgentModels.ContextCollectorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.ContextCollectorRouting.class);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "context-collector", context, routing);
+            return routing;
+        }
+
+        @Action
+        @AchievesGoal(description = "Handle context interrupts")
+        public AgentModels.ContextOrchestratorRouting handleContextInterrupt(
+                AgentModels.InterruptRequest request,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "context-interrupt", context);
+            AgentModels.ContextOrchestratorRouting routing =
+                    new AgentModels.ContextOrchestratorRouting(
+                            request,
+                            null,
+                            null
+                    );
+            emitActionCompleted(eventBus, multiAgentAgentName(), "context-interrupt", context, routing);
+            return routing;
         }
     }
-
-    @Agent(name = DISCOVERY_AGENT_NAME, description = "Discovers and analyzes codebase structure for specific domains")
-    record DiscoveryAgent() implements AgentInterfaces {
-        public String multiAgentAgentName() {
-            return DISCOVERY_AGENT_NAME;
-        }
-
-        public static final String DISCOVERY_AGENT_START_MESSAGE = """
-                Discover and analyze the codebase for the following subdomain:
-                
-                Overall Goal: {{goal}}
-                Subdomain Focus: {{subdomainFocus}}
-                
-                Use your tools to:
-                1. Search for relevant files and modules
-                2. Analyze key source files
-                3. Understand dependencies and imports
-                4. Identify architectural patterns
-                5. Document test patterns
-                
-                Generate comprehensive discovery findings including:
-                - Module overview
-                - Key classes and responsibilities
-                - Data flow patterns
-                - Integration points
-                - Technology stack
-                - Test patterns
-                
-                Return findings as structured document suitable for merging.
-                """;
-
-        @Action
-        @AchievesGoal(description = "Discover codebase section")
-        public com.hayden.multiagentidelib.agent.AgentModels.DiscoveryAgentResult discoverCodebaseSection(
-                DiscoveryAgentInput input,
-                OperationContext context
-        ) {
-            String prompt = AgentInterfaces.renderTemplate(
-                    DISCOVERY_AGENT_START_MESSAGE,
-                    Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.DiscoveryAgentResult.class);
-        }
-    }
-
-    @Agent(name = DISCOVERY_ORCHESTRATOR_AGENT_NAME, description = "Coordinates discovery work across agents")
-    record DiscoveryOrchestrator() implements AgentInterfaces {
-
-        public String multiAgentAgentName() {
-            return DISCOVERY_ORCHESTRATOR_AGENT_NAME;
-        }
-
-        public static final String DISCOVERY_ORCHESTRATOR_START_MESSAGE = """
-                Coordinate the following multi-agent workflow:
-                
-                Goal: {{goal}}
-                
-                Based on this information and files you find on the repository, or information about the ticket,
-                decide how to divide up the discovery phase of the workflow.
-                
-                For example, based on the ticket, you may need to divide up to retrieve information about multiple
-                libraries, or modules, or the repository may be too big for one agent, so you decide how to divide
-                up this work.
-                
-                Return how many agents to use to perform the discovery, and how to divide up the work, including an
-                an addition to the goal to send that agent.
-                """;
-
-        @Action
-        @AchievesGoal(description = "Create a discovery delegation plan")
-        public com.hayden.multiagentidelib.agent.AgentModels.DiscoveryOrchestratorResult kickOffAnyNumberOfAgentsForCodeSearch(
-                DiscoveryOrchestratorInput input,
-                OperationContext context
-        ) {
-            String prompt = AgentInterfaces.renderTemplate(
-                    DISCOVERY_ORCHESTRATOR_START_MESSAGE,
-                    Map.of("goal", input.goal())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.DiscoveryOrchestratorResult.class);
-        }
-    }
-
-    @Agent(name = PLANNING_ORCHESTRATOR_AGENT_NAME,
-            description = "Split the goal into tickets according to the discovery context")
-    @Component(PLANNING_ORCHESTRATOR_AGENT_NAME)
-    record PlanningOrchestrator() implements AgentInterfaces {
-
-
-        public static final String PLANNING_ORCHESTRATOR_MESSAGE = """
-                Decompose the planning for the goal according to the results from discovery.
-                Define tickets and update the spec file in .specify/.../spec.md.
-                
-                Then, for each ticket, return the information to be provided to the planning agent to
-                plan for this ticket.
-                
-                Goal: {{goal}}
-                """;
-
-        public static final String PLANNING_AGENT_USER_MESSAGE = """
-                Analyze the following goal and break it down into 3 work items:
-                1. Architecture & Setup - Design foundational structure
-                2. Implementation - Core functionality
-                3. Testing & Validation - Tests and validation
-
-                Goal: {{goal}}
-
-                Provide a structured plan with clear sections for each work item.
-                """;
-
-        public static final String PLANNING_COLLECTOR_MESSAGE = """
-                Merge and consolidate the following planning results from multiple agents:
-
-                Goal: {{goal}}
-                Planning Results: {{planningResults}}
-
-                Create structured tickets with:
-                - Ticket ID and title
-                - Clear implementation tasks
-                - Dependencies between tickets
-                - Acceptance criteria
-                - Estimated effort
-
-                Return merged tickets in structured format, and include a routing decision:
-                - ROUTE_BACK to rerun planning
-                - ADVANCE_PHASE to continue to ticket execution
-                - STOP to halt the workflow
-                """;
-
-
-        @Action
-        @AchievesGoal(description = "Create structured plan")
-        public com.hayden.multiagentidelib.agent.AgentModels.PlanningAgentResult decomposePlanAndCreateWorkItems(
-                PlanningAgentInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    PLANNING_AGENT_USER_MESSAGE,
-                    Map.of("goal", input.goal())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningAgentResult.class);
-        }
-
-        @Action
-        @AchievesGoal(description = "Create planning delegation plan")
-        public com.hayden.multiagentidelib.agent.AgentModels.PlanningOrchestratorResult decomposePlanAndCreateWorkItems(
-                PlanningOrchestratorInput input,
-                OperationContext context
-        ) {
-            String prompt = AgentInterfaces.renderTemplate(
-                    PLANNING_ORCHESTRATOR_MESSAGE,
-                    Map.of("goal", input.goal())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningOrchestratorResult.class);
-        }
-
-        @Action
-        @AchievesGoal(description = "Consolidate planning results into tickets")
-        public com.hayden.multiagentidelib.agent.AgentModels.PlanningCollectorResult consolidatePlansIntoTickets(
-                PlanningCollectorInput input,
-                OperationContext context
-        ) {
-            String prompt = renderTemplate(
-                    PLANNING_COLLECTOR_MESSAGE,
-                    Map.of("goal", input.goal(), "planningResults", input.planningResults())
-            );
-            return context.ai().withDefaultLlm().createObject(prompt, com.hayden.multiagentidelib.agent.AgentModels.PlanningCollectorResult.class);
-        }
-
-        @Override
-        public String multiAgentAgentName() {
-            return PLANNING_ORCHESTRATOR_AGENT_NAME;
-        }
-    }
-
 }
