@@ -3,6 +3,7 @@ package com.hayden.multiagentide.config;
 import com.embabel.agent.api.annotation.support.AgentMetadataReader;
 import com.embabel.agent.api.channel.*;
 import com.embabel.agent.core.AgentPlatform;
+import com.embabel.agent.core.AgentScope;
 import com.embabel.agent.spi.AgentProcessIdGenerator;
 import com.embabel.agent.spi.support.springai.ChatClientLlmOperations;
 import com.embabel.common.ai.model.Llm;
@@ -39,20 +40,26 @@ public class MultiAgentEmbabelConfig {
     @Bean
     public ApplicationRunner deployAgents(List<Object> agents,
                                           AgentPlatform agentPlatform,
-                                          AgentMetadataReader agentMetadataReader) {
+                                          AgentMetadataReader agentMetadataReader,
+                                          AgentInterfaces.WorkflowAgent workflowAgent) {
         for (Object agent : agents) {
             if (!agent.getClass().isAnnotationPresent(com.embabel.agent.api.annotation.Agent.class)) {
                 continue;
             }
-            Optional.ofNullable(agentMetadataReader.createAgentMetadata(agent))
-                    .ifPresentOrElse(agentPlatform::deploy, () -> log.error(
-                            "Error deploying {} - could not create agent metadata.",
-                            agent.getClass().getName()
-                    ));
+            deployAgent(agentMetadataReader.createAgentMetadata(agent), agentPlatform, agent.getClass().getName());
 
         }
+
         return args -> {
         };
+    }
+
+    private static void deployAgent(AgentScope agentMetadataReader, AgentPlatform agentPlatform, String workflowAgent) {
+        Optional.ofNullable(agentMetadataReader)
+                .ifPresentOrElse(agentPlatform::deploy, () -> log.error(
+                        "Error deploying {} - could not create agent metadata.",
+                        workflowAgent
+                ));
     }
 
     @Bean

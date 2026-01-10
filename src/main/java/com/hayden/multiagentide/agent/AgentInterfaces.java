@@ -118,7 +118,7 @@ public interface AgentInterfaces {
 
     @Agent(name = WORKFLOW_AGENT_NAME, description = "Coordinates multi-agent workflow")
     @RequiredArgsConstructor
-    final class WorkflowAgent implements AgentInterfaces {
+    class WorkflowAgent implements AgentInterfaces {
 
         private final EventBus eventBus;
         private final WorkflowGraphService workflowGraphService;
@@ -468,10 +468,9 @@ public interface AgentInterfaces {
                 - mergerRequest: { mergeContext, mergeSummary, conflictFiles, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
                 """;
 
-
         @Action
         @AchievesGoal(description = "Finished orchestrator collector")
-        public AgentModels.OrchestratorCollectorResult consolidateWorkflowOutputs(
+        public AgentModels.OrchestratorCollectorResult finalCollectorResult(
                 AgentModels.OrchestratorCollectorResult input,
                 OperationContext context
         ) {
@@ -480,26 +479,7 @@ public interface AgentInterfaces {
             return input;
         }
 
-        @Action
-        public AgentModels.OrchestratorRouting coordinateWorkflow(
-                AgentModels.OrchestratorRequest input,
-                OperationContext context
-        ) {
-            emitActionStarted(eventBus, multiAgentAgentName(), "orchestrator", context);
-            OrchestratorNode running = workflowGraphService.startOrchestrator(context);
-            String prompt = renderTemplate(
-                    ORCHESTRATOR_AGENT_START_MESSAGE,
-                    Map.of("goal", input.goal(), "phase", input.phase())
-            );
-            AgentModels.OrchestratorRouting routing = context.ai()
-                    .withDefaultLlm()
-                    .createObject(prompt, AgentModels.OrchestratorRouting.class);
-            workflowGraphService.completeOrchestrator(running, routing);
-            emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator", context, routing);
-            return routing;
-        }
-
-        @Action
+        @Action(canRerun = true)
         public AgentModels.OrchestratorCollectorRouting consolidateWorkflowOutputs(
                 AgentModels.OrchestratorCollectorRequest input,
                 OperationContext context
@@ -518,7 +498,27 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true)
+        public AgentModels.OrchestratorRouting coordinateWorkflow(
+                AgentModels.OrchestratorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "orchestrator", context);
+            OrchestratorNode running = workflowGraphService.startOrchestrator(context);
+            String prompt = renderTemplate(
+                    ORCHESTRATOR_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "phase", input.phase())
+            );
+            AgentModels.OrchestratorRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.OrchestratorRouting.class);
+            workflowGraphService.completeOrchestrator(running, routing);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator", context, routing);
+            return routing;
+        }
+
+
+        @Action(canRerun = true, cost = 1)
         public AgentModels.OrchestratorRouting handleOrchestratorInterrupt(
                 AgentModels.OrchestratorInterruptRequest request,
                 OperationContext context
@@ -564,7 +564,8 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+
+        @Action(canRerun = true)
         public AgentModels.DiscoveryOrchestratorRouting kickOffAnyNumberOfAgentsForCodeSearch(
                 AgentModels.DiscoveryOrchestratorRequest input,
                 OperationContext context
@@ -583,7 +584,8 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+
+        @Action(canRerun = true)
         public AgentModels.DiscoveryAgentDispatchRouting dispatchDiscoveryAgentRequests(
                 AgentModels.DiscoveryAgentRequests input,
                 ActionContext context
@@ -640,7 +642,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true)
         public AgentModels.DiscoveryCollectorRouting consolidateDiscoveryFindings(
                 AgentModels.DiscoveryCollectorRequest input,
                 OperationContext context
@@ -659,7 +661,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true, cost = 1.0)
         public AgentModels.DiscoveryOrchestratorRouting handleDiscoveryInterrupt(
                 AgentModels.DiscoveryOrchestratorInterruptRequest request,
                 OperationContext context
@@ -709,7 +711,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true)
         public AgentModels.PlanningOrchestratorRouting decomposePlanAndCreateWorkItems(
                 AgentModels.PlanningOrchestratorRequest input,
                 OperationContext context
@@ -728,7 +730,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true)
         public AgentModels.PlanningAgentDispatchRouting dispatchPlanningAgentRequests(
                 AgentModels.PlanningAgentRequests input,
                 ActionContext context
@@ -787,7 +789,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true)
         public AgentModels.PlanningCollectorRouting consolidatePlansIntoTickets(
                 AgentModels.PlanningCollectorRequest input,
                 OperationContext context
@@ -806,7 +808,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true, cost = 1.0)
         public AgentModels.PlanningOrchestratorRouting handlePlanningInterrupt(
                 AgentModels.PlanningOrchestratorInterruptRequest request,
                 OperationContext context
@@ -856,7 +858,17 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true)
+        public AgentModels.OrchestratorCollectorResult finalizeTicketOrchestrator(
+                AgentModels.TicketOrchestratorResult input,
+                OperationContext context
+        ) {
+            return new AgentModels.OrchestratorCollectorResult(
+                    input.output(),
+                    new AgentModels.CollectorDecision(AgentModels.CollectorDecisionType.ADVANCE_PHASE, "", ""));
+        }
+
+        @Action(canRerun = true)
         public AgentModels.TicketOrchestratorRouting orchestrateTicketExecution(
                 AgentModels.TicketOrchestratorRequest input,
                 OperationContext context
@@ -880,7 +892,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true)
         public AgentModels.TicketAgentDispatchRouting dispatchTicketAgentRequests(
                 AgentModels.TicketAgentRequests input,
                 ActionContext context
@@ -934,7 +946,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true)
         public AgentModels.TicketCollectorRouting consolidateTicketResults(
                 AgentModels.TicketCollectorRequest input,
                 OperationContext context
@@ -954,7 +966,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true, cost = 1.0)
         public AgentModels.TicketOrchestratorRouting handleTicketInterrupt(
                 AgentModels.TicketOrchestratorInterruptRequest request,
                 OperationContext context
@@ -1009,7 +1021,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true)
         public AgentModels.ReviewRouting evaluateContent(
                 AgentModels.ReviewRequest input,
                 OperationContext context
@@ -1047,7 +1059,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true, cost = 1.0)
         public AgentModels.ReviewRouting handleReviewInterrupt(
                 AgentModels.ReviewInterruptRequest request,
                 OperationContext context
@@ -1116,7 +1128,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true)
         public AgentModels.MergerRouting performMerge(
                 AgentModels.MergerRequest input,
                 OperationContext context
@@ -1158,7 +1170,7 @@ public interface AgentInterfaces {
             return routing;
         }
 
-        @Action
+        @Action(canRerun = true, cost = 1.0)
         public AgentModels.MergerRouting handleMergerInterrupt(
                 AgentModels.MergerInterruptRequest request,
                 OperationContext context
@@ -1430,152 +1442,12 @@ public interface AgentInterfaces {
             builder.append(body.trim()).append("\n");
         }
 
-        @Agent(
-                name = WORKFLOW_DISCOVERY_DISPATCH_SUBAGENT,
-                description = "Runs discovery agent request in a subprocess"
-        )
-        @RequiredArgsConstructor
-        public static final class DiscoveryDispatchSubagent {
-
-            private final EventBus eventBus;
-
-            @Action
-            @AchievesGoal(description = "Handle context agent request")
-            public AgentModels.DiscoveryAgentResult run(
-                    AgentModels.DiscoveryAgentResult input,
-                    OperationContext context
-            ) {
-                return input;
-            }
-
-            @Action
-            public AgentModels.DiscoveryAgentRouting transitionToInterruptState(
-                    AgentModels.DiscoveryAgentInterruptRequest interruptRequest,
-                    OperationContext context
-            ) {
-//                TODO: handles review, agent and human, waiting for human, agent
-                throw new RuntimeException();
-            }
-
-            @Action
-            @AchievesGoal(description = "Handle discovery agent request")
-            public AgentModels.DiscoveryAgentRouting run(
-                    AgentModels.DiscoveryAgentRequest input,
-                    OperationContext context
-            ) {
-                emitActionStarted(eventBus, "", "discovery-agent", context);
-                String prompt = renderTemplate(
-                        DISCOVERY_AGENT_START_MESSAGE,
-                        Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
-                );
-                AgentModels.DiscoveryAgentRouting routing = context.ai()
-                        .withDefaultLlm()
-                        .createObject(prompt, AgentModels.DiscoveryAgentRouting.class);
-                emitActionCompleted(eventBus, "", "discovery-agent", context, routing);
-                return routing;
-            }
-        }
-
-        @Agent(
-                name = WORKFLOW_PLANNING_DISPATCH_SUBAGENT,
-                description = "Runs planning agent request in a subprocess"
-        )
-        @RequiredArgsConstructor
-        public static final class PlanningDispatchSubagent {
-
-            private final EventBus eventBus;
-
-            @Action
-            @AchievesGoal(description = "Handle context agent request")
-            public AgentModels.PlanningAgentResult run(
-                    AgentModels.PlanningAgentResult input,
-                    OperationContext context
-            ) {
-                return input;
-            }
-
-            @Action
-            public AgentModels.PlanningAgentRouting transitionToInterruptState(
-                    AgentModels.PlanningAgentInterruptRequest interruptRequest,
-                    OperationContext context
-            ) {
-//                TODO: handles review, agent and human, waiting for human, agent
-                throw new RuntimeException();
-            }
-
-            @Action
-            public AgentModels.PlanningAgentRouting run(
-                    AgentModels.PlanningAgentRequest input,
-                    OperationContext context
-            ) {
-                emitActionStarted(eventBus, "", "planning-agent", context);
-                String prompt = renderTemplate(
-                        PLANNING_AGENT_USER_MESSAGE,
-                        Map.of("goal", input.goal())
-                );
-                AgentModels.PlanningAgentRouting routing = context.ai()
-                        .withDefaultLlm()
-                        .createObject(prompt, AgentModels.PlanningAgentRouting.class);
-                emitActionCompleted(eventBus, "", "planning-agent", context, routing);
-                return routing;
-            }
-        }
-
-        @Agent(
-                name = WORKFLOW_TICKET_DISPATCH_SUBAGENT,
-                description = "Runs ticket agent request in a subprocess"
-        )
-        @RequiredArgsConstructor
-        public static final class TicketDispatchSubagent {
-            private final EventBus eventBus;
-
-            @Action
-            @AchievesGoal(description = "Handle context agent request")
-            public AgentModels.TicketAgentResult run(
-                    AgentModels.TicketAgentResult input,
-                    OperationContext context
-            ) {
-                return input;
-            }
-
-            @Action
-            public AgentModels.TicketAgentRouting transitionToInterruptState(
-                    AgentModels.TicketAgentInterruptRequest interruptRequest,
-                    OperationContext context
-            ) {
-//                TODO: handles review, agent and human, waiting for human, agent
-                throw new RuntimeException();
-            }
-
-            @Action
-            public AgentModels.TicketAgentRouting run(
-                    AgentModels.TicketAgentRequest input,
-                    OperationContext context
-            ) {
-                emitActionStarted(eventBus, "", "ticket-agent", context);
-                String prompt = renderTemplate(
-                        TICKET_AGENT_START_MESSAGE,
-                        Map.of(
-                                "ticketDetails", input.ticketDetails(),
-                                "ticketDetailsFilePath", input.ticketDetailsFilePath(),
-                                "discoveryContext", input.discoveryContext(),
-                                "planningContext", input.planningContext()
-                        )
-                );
-                AgentModels.TicketAgentRouting routing = context.ai()
-                        .withDefaultLlm()
-                        .createObject(prompt, AgentModels.TicketAgentRouting.class);
-                emitActionCompleted(eventBus, "", "ticket-agent", context, routing);
-                return routing;
-            }
-        }
-
-//        @Agent(
+        //        @Agent(
 //                name = WORKFLOW_CONTEXT_DISPATCH_SUBAGENT,
 //                description = "Runs context agent request in a subprocess"
 //        )
 //        @RequiredArgsConstructor
-//        public static final class ContextDispatchSubagent {
+//        public static class ContextDispatchSubagent {
 //
 //            private final EventBus eventBus;
 //
@@ -1614,5 +1486,144 @@ public interface AgentInterfaces {
 //            }
 //        }
 
+    }
+
+    @Agent(
+            name = WORKFLOW_TICKET_DISPATCH_SUBAGENT,
+            description = "Runs ticket agent request in a subprocess"
+    )
+    @RequiredArgsConstructor
+    class TicketDispatchSubagent {
+        private final EventBus eventBus;
+
+        @Action
+        @AchievesGoal(description = "Handle context agent request")
+        public AgentModels.TicketAgentResult run(
+                AgentModels.TicketAgentResult input,
+                OperationContext context
+        ) {
+            return input;
+        }
+
+        @Action
+        public AgentModels.TicketAgentRouting transitionToInterruptState(
+                AgentModels.TicketAgentInterruptRequest interruptRequest,
+                OperationContext context
+        ) {
+//                TODO: handles review, agent and human, waiting for human, agent
+            throw new RuntimeException();
+        }
+
+        @Action
+        public AgentModels.TicketAgentRouting run(
+                AgentModels.TicketAgentRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, "", "ticket-agent", context);
+            String prompt = renderTemplate(
+                    WorkflowAgent.TICKET_AGENT_START_MESSAGE,
+                    Map.of(
+                            "ticketDetails", input.ticketDetails(),
+                            "ticketDetailsFilePath", input.ticketDetailsFilePath(),
+                            "discoveryContext", input.discoveryContext(),
+                            "planningContext", input.planningContext()
+                    )
+            );
+            AgentModels.TicketAgentRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.TicketAgentRouting.class);
+            emitActionCompleted(eventBus, "", "ticket-agent", context, routing);
+            return routing;
+        }
+    }
+
+    @Agent(
+            name = WORKFLOW_PLANNING_DISPATCH_SUBAGENT,
+            description = "Runs planning agent request in a subprocess"
+    )
+    @RequiredArgsConstructor
+    class PlanningDispatchSubagent {
+
+        private final EventBus eventBus;
+
+        @Action
+        @AchievesGoal(description = "Handle context agent request")
+        public AgentModels.PlanningAgentResult run(
+                AgentModels.PlanningAgentResult input,
+                OperationContext context
+        ) {
+            return input;
+        }
+
+        @Action
+        public AgentModels.PlanningAgentRouting transitionToInterruptState(
+                AgentModels.PlanningAgentInterruptRequest interruptRequest,
+                OperationContext context
+        ) {
+//                TODO: handles review, agent and human, waiting for human, agent
+            throw new RuntimeException();
+        }
+
+        @Action
+        public AgentModels.PlanningAgentRouting run(
+                AgentModels.PlanningAgentRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, "", "planning-agent", context);
+            String prompt = renderTemplate(
+                    WorkflowAgent.PLANNING_AGENT_USER_MESSAGE,
+                    Map.of("goal", input.goal())
+            );
+            AgentModels.PlanningAgentRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.PlanningAgentRouting.class);
+            emitActionCompleted(eventBus, "", "planning-agent", context, routing);
+            return routing;
+        }
+    }
+
+    @Agent(
+            name = WORKFLOW_DISCOVERY_DISPATCH_SUBAGENT,
+            description = "Runs discovery agent request in a subprocess"
+    )
+    @RequiredArgsConstructor
+    class DiscoveryDispatchSubagent {
+
+        private final EventBus eventBus;
+
+        @Action
+        @AchievesGoal(description = "Handle context agent request")
+        public AgentModels.DiscoveryAgentResult run(
+                AgentModels.DiscoveryAgentResult input,
+                OperationContext context
+        ) {
+            return input;
+        }
+
+        @Action
+        public AgentModels.DiscoveryAgentRouting transitionToInterruptState(
+                AgentModels.DiscoveryAgentInterruptRequest interruptRequest,
+                OperationContext context
+        ) {
+//                TODO: handles review, agent and human, waiting for human, agent
+            throw new RuntimeException();
+        }
+
+        @Action
+        public AgentModels.DiscoveryAgentRouting run(
+                AgentModels.DiscoveryAgentRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, "", "discovery-agent", context);
+            String prompt = renderTemplate(
+                    WorkflowAgent.DISCOVERY_AGENT_START_MESSAGE,
+                    Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
+            );
+            AgentModels.DiscoveryAgentRouting routing = context.ai()
+                    .withDefaultLlm()
+                    .createObject(prompt, AgentModels.DiscoveryAgentRouting.class);
+            emitActionCompleted(eventBus, "", "discovery-agent", context, routing);
+            return routing;
+        }
     }
 }
