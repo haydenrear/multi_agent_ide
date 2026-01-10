@@ -160,6 +160,7 @@ public interface AgentInterfaces {
                 - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
                 - orchestratorRequest: { goal, phase }
                 - discoveryRequest: { goal }
+                - discoveryState: { request: { goal } }
                 - planningRequest: { goal }
                 - ticketRequest: { goal, tickets, discoveryContext, planningContext }
                 - contextRequest: { goal, phase }
@@ -205,6 +206,7 @@ public interface AgentInterfaces {
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
                 - agentResult: { output }
+                - interruptState: { request: { type, reason } }
                 """;
 
         public static final String DISCOVERY_COLLECTOR_START_MESSAGE = """
@@ -228,6 +230,7 @@ public interface AgentInterfaces {
                 - orchestratorRequest: { goal, phase }
                 - discoveryRequest: { goal }
                 - planningRequest: { goal }
+                - planningState: { request: { goal } }
                 - ticketRequest: { goal, tickets, discoveryContext, planningContext }
                 - contextRequest: { goal, phase }
                 - reviewRequest: { content, criteria, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
@@ -259,6 +262,7 @@ public interface AgentInterfaces {
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
                 - agentResult: { output }
+                - interruptState: { request: { type, reason } }
                 """;
 
         public static final String PLANNING_COLLECTOR_MESSAGE = """
@@ -281,6 +285,7 @@ public interface AgentInterfaces {
                 - discoveryRequest: { goal }
                 - planningRequest: { goal }
                 - ticketRequest: { goal, tickets, discoveryContext, planningContext }
+                - ticketState: { request: { goal, tickets, discoveryContext, planningContext } }
                 - contextRequest: { goal, phase }
                 - reviewRequest: { content, criteria, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
                 - mergerRequest: { mergeContext, mergeSummary, conflictFiles, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
@@ -327,6 +332,7 @@ public interface AgentInterfaces {
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
                 - agentResult: { output }
+                - interruptState: { request: { type, reason } }
                 """;
 
         public static final String TICKET_COLLECTOR_START_MESSAGE = """
@@ -344,6 +350,7 @@ public interface AgentInterfaces {
                 - interruptRequest: { type, reason }
                 - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
                 - orchestratorRequest: { goal, phase }
+                - orchestratorState: { request: { goal, phase } }
                 - discoveryRequest: { goal }
                 - planningRequest: { goal }
                 - ticketRequest: { goal, tickets, discoveryContext, planningContext }
@@ -441,7 +448,94 @@ public interface AgentInterfaces {
                 """;
 
         @Action
-        @AchievesGoal(description = "Coordinate workflow for the current phase")
+        public AgentModels.OrchestratorState transitionToOrchestratorState(
+                AgentModels.OrchestratorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "transition-orchestrator", context);
+            AgentModels.OrchestratorState state = new AgentModels.OrchestratorState(input);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-orchestrator", context, state);
+            return state;
+        }
+
+        @Action
+        public AgentModels.DiscoveryState transitionToDiscoveryState(
+                AgentModels.DiscoveryOrchestratorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "transition-discovery", context);
+            AgentModels.DiscoveryState state = new AgentModels.DiscoveryState(input);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-discovery", context, state);
+            return state;
+        }
+
+        @Action
+        public AgentModels.PlanningState transitionToPlanningState(
+                AgentModels.PlanningOrchestratorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "transition-planning", context);
+            AgentModels.PlanningState state = new AgentModels.PlanningState(input);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-planning", context, state);
+            return state;
+        }
+
+        @Action
+        public AgentModels.TicketState transitionToTicketState(
+                AgentModels.TicketOrchestratorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "transition-ticket", context);
+            AgentModels.TicketState state = new AgentModels.TicketState(input);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-ticket", context, state);
+            return state;
+        }
+
+        @Action
+        public AgentModels.ReviewState transitionToReviewState(
+                AgentModels.ReviewRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "transition-review", context);
+            AgentModels.ReviewState state = new AgentModels.ReviewState(input);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-review", context, state);
+            return state;
+        }
+
+        @Action
+        public AgentModels.MergerState transitionToMergerState(
+                AgentModels.MergerRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "transition-merger", context);
+            AgentModels.MergerState state = new AgentModels.MergerState(input);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-merger", context, state);
+            return state;
+        }
+
+        @Action
+        public AgentModels.ContextState transitionToContextState(
+                AgentModels.ContextOrchestratorRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "transition-context", context);
+            AgentModels.ContextState state = new AgentModels.ContextState(input);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-context", context, state);
+            return state;
+        }
+
+        @Action
+        public AgentModels.InterruptState transitionToInterruptState(
+                AgentModels.InterruptRequest input,
+                OperationContext context
+        ) {
+            emitActionStarted(eventBus, multiAgentAgentName(), "transition-interrupt", context);
+            AgentModels.InterruptState state = new AgentModels.InterruptState(input);
+            emitActionCompleted(eventBus, multiAgentAgentName(), "transition-interrupt", context, state);
+            return state;
+        }
+
+        @Action
         public AgentModels.OrchestratorRouting coordinateWorkflow(
                 AgentModels.OrchestratorRequest input,
                 OperationContext context
@@ -459,7 +553,16 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Consolidate orchestrator workflow outputs")
+        @AchievesGoal(description = "Finished orchestrator collector")
+        public AgentModels.OrchestratorCollectorResult consolidateWorkflowOutputs(
+                AgentModels.OrchestratorCollectorResult input,
+                OperationContext context
+        ) {
+            emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator-collector", context, "finished");
+            return input;
+        }
+
+        @Action
         public AgentModels.OrchestratorCollectorRouting consolidateWorkflowOutputs(
                 AgentModels.OrchestratorCollectorRequest input,
                 OperationContext context
@@ -477,7 +580,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Handle orchestrator interrupts")
         public AgentModels.OrchestratorRouting handleOrchestratorInterrupt(
                 AgentModels.InterruptRequest request,
                 OperationContext context
@@ -492,7 +594,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Create a discovery delegation plan")
         public AgentModels.DiscoveryOrchestratorRouting kickOffAnyNumberOfAgentsForCodeSearch(
                 AgentModels.DiscoveryOrchestratorRequest input,
                 OperationContext context
@@ -510,7 +611,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Dispatch discovery agent requests")
         public AgentModels.DiscoveryAgentDispatchRouting dispatchDiscoveryAgentRequests(
                 AgentModels.DiscoveryAgentRequests input,
                 OperationContext context
@@ -524,7 +624,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Discover codebase section")
         public AgentModels.DiscoveryAgentRouting discoverCodebaseSection(
                 AgentModels.DiscoveryAgentRequest input,
                 OperationContext context
@@ -542,7 +641,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Consolidate discovery findings")
         public AgentModels.DiscoveryCollectorRouting consolidateDiscoveryFindings(
                 AgentModels.DiscoveryCollectorRequest input,
                 OperationContext context
@@ -560,7 +658,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Handle discovery interrupts")
         public AgentModels.DiscoveryOrchestratorRouting handleDiscoveryInterrupt(
                 AgentModels.InterruptRequest request,
                 OperationContext context
@@ -577,7 +674,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Create planning delegation plan")
         public AgentModels.PlanningOrchestratorRouting decomposePlanAndCreateWorkItems(
                 AgentModels.PlanningOrchestratorRequest input,
                 OperationContext context
@@ -595,7 +691,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Dispatch planning agent requests")
         public AgentModels.PlanningAgentDispatchRouting dispatchPlanningAgentRequests(
                 AgentModels.PlanningAgentRequests input,
                 OperationContext context
@@ -609,7 +704,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Create structured plan")
         public AgentModels.PlanningAgentRouting planWorkItems(
                 AgentModels.PlanningAgentRequest input,
                 OperationContext context
@@ -627,7 +721,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Consolidate planning results into tickets")
         public AgentModels.PlanningCollectorRouting consolidatePlansIntoTickets(
                 AgentModels.PlanningCollectorRequest input,
                 OperationContext context
@@ -645,7 +738,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Handle planning interrupts")
         public AgentModels.PlanningOrchestratorRouting handlePlanningInterrupt(
                 AgentModels.InterruptRequest request,
                 OperationContext context
@@ -662,7 +754,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Orchestrate ticket execution")
         public AgentModels.TicketOrchestratorRouting orchestrateTicketExecution(
                 AgentModels.TicketOrchestratorRequest input,
                 OperationContext context
@@ -685,7 +776,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Dispatch ticket agent requests")
         public AgentModels.TicketAgentDispatchRouting dispatchTicketAgentRequests(
                 AgentModels.TicketAgentRequests input,
                 OperationContext context
@@ -699,7 +789,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Implement a ticket")
         public AgentModels.TicketAgentRouting implementTicket(
                 AgentModels.TicketAgentRequest input,
                 OperationContext context
@@ -722,7 +811,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Consolidate ticket results")
         public AgentModels.TicketCollectorRouting consolidateTicketResults(
                 AgentModels.TicketCollectorRequest input,
                 OperationContext context
@@ -740,7 +828,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Handle ticket interrupts")
         public AgentModels.TicketOrchestratorRouting handleTicketInterrupt(
                 AgentModels.InterruptRequest request,
                 OperationContext context
@@ -757,7 +844,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Evaluate content quality")
         public AgentModels.ReviewRouting evaluateContent(
                 AgentModels.ReviewRequest input,
                 OperationContext context
@@ -796,7 +882,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Handle review interrupts")
         public AgentModels.ReviewRouting handleReviewInterrupt(
                 AgentModels.InterruptRequest request,
                 OperationContext context
@@ -817,7 +902,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Review merge result")
         public AgentModels.MergerRouting performMerge(
                 AgentModels.MergerRequest input,
                 OperationContext context
@@ -857,7 +941,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Handle merge interrupts")
         public AgentModels.MergerRouting handleMergerInterrupt(
                 AgentModels.InterruptRequest request,
                 OperationContext context
@@ -878,7 +961,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Coordinate context operations")
         public AgentModels.ContextOrchestratorRouting coordinateWorkflow(
                 AgentModels.ContextOrchestratorRequest input,
                 OperationContext context
@@ -896,7 +978,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Dispatch context agent requests")
         public AgentModels.ContextAgentDispatchRouting dispatchContextAgentRequests(
                 AgentModels.ContextAgentRequests input,
                 OperationContext context
@@ -910,7 +991,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Apply context operations")
         public AgentModels.ContextAgentRouting applyContextOperations(
                 AgentModels.ContextAgentRequest input,
                 OperationContext context
@@ -928,7 +1008,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Consolidate context operations")
         public AgentModels.ContextCollectorRouting consolidateContextOperations(
                 AgentModels.ContextCollectorRequest input,
                 OperationContext context
@@ -946,7 +1025,6 @@ public interface AgentInterfaces {
         }
 
         @Action
-        @AchievesGoal(description = "Handle context interrupts")
         public AgentModels.ContextOrchestratorRouting handleContextInterrupt(
                 AgentModels.InterruptRequest request,
                 OperationContext context
