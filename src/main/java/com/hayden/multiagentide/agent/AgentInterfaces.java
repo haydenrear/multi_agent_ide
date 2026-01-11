@@ -145,7 +145,7 @@ public interface AgentInterfaces {
 
         // Hide the input from the blackboard using context.hide()
         if (input != null) {
-            context.hide(input);
+            context.getAgentProcess().getBlackboard().clear();
         }
 
         return updatedHistory;

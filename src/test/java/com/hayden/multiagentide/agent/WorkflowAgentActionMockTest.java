@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.agent;
 
+import com.embabel.agent.api.common.OperationContext;
 import com.embabel.agent.api.common.PlannerType;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.ProcessOptions;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -22,12 +24,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
+import static com.hayden.multiagentide.agent.AgentInterfaces.registerAndHideInput;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -1159,15 +1160,18 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         @Test
         void planningCollector_loopsBackToDiscovery_needsMoreContext() {
             // Orchestrator routes to collector with PLANNING phase
-            doAnswer(inv -> AgentModels.OrchestratorRouting.builder()
-                    .collectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
-                            .goal("Incomplete context")
-                            .phase("PLANNING")
-                            .build())
-                    .build())
+            doAnswer(inv -> {
+                registerAndHide(inv);
+                return AgentModels.OrchestratorRouting.builder()
+                        .orchestratorRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
+                                .goal("Incomplete context")
+                                .build())
+                        .build();
+            })
                     .when(workflowAgent).coordinateWorkflow(any(), any());
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.OrchestratorCollectorRouting.builder()
                         .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
                                 .consolidatedOutput("Incomplete context")
@@ -1184,6 +1188,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             );
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.OrchestratorCollectorRouting.builder()
                         .discoveryRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
                                 .goal("Incomplete context")
@@ -1196,6 +1201,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Planning phase
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.PlanningOrchestratorRouting.builder()
                         .agentRequests(AgentModels.PlanningAgentRequests.builder()
                                 .requests(List.of(
@@ -1208,6 +1214,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             }).when(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.PlanningAgentRouting.builder()
                         .agentResult(AgentModels.PlanningAgentResult.builder()
                                 .output("Plan missing context")
@@ -1216,6 +1223,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             }).when(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.PlanningAgentDispatchRouting.builder()
                         .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
                                 .goal("Incomplete context")
@@ -1225,6 +1233,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             }).when(workflowAgent).dispatchPlanningAgentRequests(any(AgentModels.PlanningAgentRequests.class), any());
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.DiscoveryCollectorRouting.builder()
                         .collectorResult(AgentModels.DiscoveryCollectorResult.builder()
                                 .consolidatedOutput("Incomplete context")
@@ -1236,22 +1245,24 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                                 .build())
                         .build();
             }).when(workflowAgent).consolidateDiscoveryFindings(
-                    any(AgentModels.DiscoveryCollectorRequest.class),
+                    any(),
                     any()
             );
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.DiscoveryCollectorRouting.builder()
                         .planningRequest(AgentModels.PlanningOrchestratorRequest.builder()
                                 .goal("Incomplete context")
                                 .build())
                         .build();
             }).when(workflowAgent).handleDiscoveryCollectorBranch(
-                    Mockito.argThat(req -> "DISCOVERY".equals(req.collectorDecision().requestedPhase())),
+                    Mockito.argThat(req -> "PLANNING".equals(req.collectorDecision().requestedPhase())),
                     any()
             );
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.TicketCollectorRouting.builder()
                         .collectorResult(AgentModels.TicketCollectorResult.builder()
                                 .consolidatedOutput("Incomplete context")
@@ -1268,6 +1279,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             );
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.TicketCollectorRouting.builder()
                         .orchestratorCollectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
                                 .goal("orchestrator")
@@ -1281,6 +1293,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Planning collector decides to loop back to DISCOVERY for more context (first call with "plan")
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.PlanningCollectorRouting.builder()
                         .discoveryOrchestratorRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
                                 .goal("Incomplete context")
@@ -1293,12 +1306,13 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             AtomicInteger j = new AtomicInteger(0);
             doAnswer(inv -> {
+                registerAndHide(inv);
                 if (j.getAndIncrement() >= 1)  {
                     return AgentModels.DiscoveryOrchestratorRouting.builder()
                             .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
                                     .requests(List.of(
                                             AgentModels.DiscoveryAgentRequest.builder()
-                                                    .goal("Incomplete context")
+                                                    .goal("Another thing")
                                                     .subdomainFocus("Additional")
                                                     .build()
                                     ))
@@ -1320,6 +1334,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             }).when(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.DiscoveryAgentRouting.builder()
                         .agentResult(AgentModels.DiscoveryAgentResult.builder()
                                 .output("Additional context found")
@@ -1328,6 +1343,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             }).when(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.DiscoveryAgentDispatchRouting.builder()
                         .collectorRequest(AgentModels.DiscoveryCollectorRequest.builder()
                                 .goal("Incomplete context")
@@ -1341,6 +1357,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Planning orchestrator (second time, after getting more context from discovery)
             doAnswer(inv -> {
+                registerAndHide(inv);
                return AgentModels.PlanningOrchestratorRouting.builder()
                         .agentRequests(AgentModels.PlanningAgentRequests.builder()
                                 .requests(List.of(AgentModels.PlanningAgentRequest.builder()
@@ -1355,6 +1372,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Planning agent (second attempt with more context)
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.PlanningAgentRouting.builder()
                         .agentResult(AgentModels.PlanningAgentResult.builder()
                                 .output("Plan with full context")
@@ -1366,6 +1384,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             );
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.PlanningCollectorRouting.builder()
                         .ticketOrchestratorRequest(AgentModels.TicketOrchestratorRequest.builder()
                                 .goal("")
@@ -1379,6 +1398,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             );
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.PlanningAgentDispatchRouting.builder()
                         .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
                                 .goal("Incomplete context")
@@ -1392,6 +1412,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             );
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 if (i.getAndIncrement() >= 1) {
                     return AgentModels.PlanningCollectorRouting.builder()
                             .collectorResult(AgentModels.PlanningCollectorResult.builder()
@@ -1417,19 +1438,22 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             );
 
             // Orchestrator collector completes
-            doAnswer(ivn -> AgentModels.OrchestratorCollectorRouting.builder()
-                    .collectorResult(new AgentModels.OrchestratorCollectorResult(
-                            "Complete",
-                            new AgentModels.CollectorDecision(
-                                    Events.CollectorDecisionType.ADVANCE_PHASE,
-                                    "Done",
-                                    "COMPLETE"
-                            )
-                    ))
-                    .build()
-            ).when(workflowAgent).consolidateWorkflowOutputs(Mockito.argThat(req -> "COMPLETE".equals(req.phase())), any());
+            doAnswer(inv -> {
+                registerAndHide(inv);
+                return AgentModels.OrchestratorCollectorRouting.builder()
+                                .collectorResult(new AgentModels.OrchestratorCollectorResult(
+                                        "Complete",
+                                        new AgentModels.CollectorDecision(
+                                                Events.CollectorDecisionType.ADVANCE_PHASE,
+                                                "Done",
+                                                "COMPLETE"
+                                        )
+                                ))
+                                .build();
+            }).when(workflowAgent).consolidateWorkflowOutputs(Mockito.argThat(req -> "COMPLETE".equals(req.phase())), any());
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.TicketOrchestratorRouting.builder()
                         .collectorRequest(new AgentModels.TicketCollectorRequest("goal", "output"))
                         .build();
@@ -1440,6 +1464,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             );
 
             doAnswer(inv -> {
+                registerAndHide(inv);
                 return AgentModels.TicketCollectorRouting.builder()
                         .orchestratorCollectorRequest(AgentModels.OrchestratorCollectorRequest.builder()
                                 .goal("orchestrator collector goal")
@@ -1450,8 +1475,6 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     any(),
                     any()
             );
-
-
 
             doAnswer(inv -> {
                 return inv.getArgument(0);
@@ -1593,6 +1616,16 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             verify(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
             verify(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
         }
+    }
+
+    private static void registerAndHide(InvocationOnMock inv) {
+        Arrays.stream(inv.getArguments())
+                .flatMap(obj -> obj instanceof OperationContext c ? Stream.of(c) : Stream.empty())
+                .findFirst()
+                .ifPresent(op -> Arrays.stream(inv.getArguments())
+                        .flatMap(obj -> obj instanceof OperationContext ? Stream.empty() : Stream.of(obj))
+                        .forEach(n -> AgentInterfaces.registerAndHideInput(op, "", n)));
+
     }
 
     @Nested
