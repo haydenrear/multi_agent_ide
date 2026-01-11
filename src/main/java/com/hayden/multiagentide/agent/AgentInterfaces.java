@@ -8,8 +8,8 @@ import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentide.service.InterruptService;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.agent.BlackboardHistory;
-import com.hayden.multiagentidelib.infrastructure.EventBus;
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import lombok.RequiredArgsConstructor;
 
@@ -988,7 +988,7 @@ public interface AgentInterfaces {
             registerAndHideInput(context, "finalizeTicketOrchestrator", input);
             return new AgentModels.OrchestratorCollectorResult(
                     input.output(),
-                    new AgentModels.CollectorDecision(AgentModels.CollectorDecisionType.ADVANCE_PHASE, "", ""));
+                    new AgentModels.CollectorDecision(Events.CollectorDecisionType.ADVANCE_PHASE, "", ""));
         }
 
         @Action(canRerun = true)

@@ -5,6 +5,7 @@ import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.service.WorktreeService;
 import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
 import java.time.Instant;
@@ -585,19 +586,19 @@ public class WorkflowGraphService {
         if (humanNeeded && !approved) {
             ReviewNode waiting = updateNodeStatus(
                     withResult,
-                    GraphNode.NodeStatus.WAITING_INPUT
+                    Events.NodeStatus.WAITING_INPUT
             );
             graphRepository.save(waiting);
             computationGraphOrchestrator.emitStatusChangeEvent(
                     waiting.nodeId(),
-                    GraphNode.NodeStatus.RUNNING,
-                    GraphNode.NodeStatus.WAITING_INPUT,
+                    Events.NodeStatus.RUNNING,
+                    Events.NodeStatus.WAITING_INPUT,
                     "Human feedback requested"
             );
             computationGraphOrchestrator.emitReviewRequestedEvent(
                     waiting.nodeId(),
                     waiting.nodeId(),
-                    ReviewNode.ReviewType.HUMAN,
+                    Events.ReviewType.HUMAN,
                     waiting.reviewContent()
             );
         } else {
@@ -679,13 +680,13 @@ public class WorkflowGraphService {
     private <T extends GraphNode> T markNodeRunning(T node) {
         GraphNode runningNode = updateNodeStatus(
                 node,
-                GraphNode.NodeStatus.RUNNING
+                Events.NodeStatus.RUNNING
         );
         graphRepository.save(runningNode);
         computationGraphOrchestrator.emitStatusChangeEvent(
                 node.nodeId(),
                 node.status(),
-                GraphNode.NodeStatus.RUNNING,
+                Events.NodeStatus.RUNNING,
                 "Agent execution started"
         );
         return (T) runningNode;
@@ -694,13 +695,13 @@ public class WorkflowGraphService {
     private <T extends GraphNode> T markNodeCompleted(T node) {
         GraphNode completedNode = updateNodeStatus(
                 node,
-                GraphNode.NodeStatus.COMPLETED
+                Events.NodeStatus.COMPLETED
         );
         graphRepository.save(completedNode);
         computationGraphOrchestrator.emitStatusChangeEvent(
                 node.nodeId(),
                 node.status(),
-                GraphNode.NodeStatus.COMPLETED,
+                Events.NodeStatus.COMPLETED,
                 "Agent execution completed successfully"
         );
         return (T) completedNode;
@@ -708,7 +709,7 @@ public class WorkflowGraphService {
 
     private <T extends GraphNode> T updateNodeStatus(
             T node,
-            GraphNode.NodeStatus newStatus
+            Events.NodeStatus newStatus
     ) {
         return (T) node.withStatus(newStatus);
     }
@@ -740,11 +741,11 @@ public class WorkflowGraphService {
                 interruptContext.resumeNodeId()
         );
 
-        GraphNode.NodeStatus newStatus = switch (interruptRequest.type()) {
-            case PAUSE, HUMAN_REVIEW, BRANCH -> GraphNode.NodeStatus.WAITING_INPUT;
-            case AGENT_REVIEW -> GraphNode.NodeStatus.WAITING_REVIEW;
-            case STOP -> GraphNode.NodeStatus.CANCELED;
-            case PRUNE -> GraphNode.NodeStatus.PRUNED;
+        Events.NodeStatus newStatus = switch (interruptRequest.type()) {
+            case PAUSE, HUMAN_REVIEW, BRANCH -> Events.NodeStatus.WAITING_INPUT;
+            case AGENT_REVIEW -> Events.NodeStatus.WAITING_REVIEW;
+            case STOP -> Events.NodeStatus.CANCELED;
+            case PRUNE -> Events.NodeStatus.PRUNED;
         };
         GraphNode updated = updateNodeStatus(withInterrupt, newStatus);
         graphRepository.save(updated);
@@ -803,7 +804,7 @@ public class WorkflowGraphService {
                 context.interruptNodeId(),
                 "Interrupt",
                 node.goal(),
-                GraphNode.NodeStatus.READY,
+                Events.NodeStatus.READY,
                 node.nodeId(),
                 new ArrayList<>(),
                 new ConcurrentHashMap<>(),
@@ -814,7 +815,7 @@ public class WorkflowGraphService {
     }
 
     private ReviewNode buildReviewInterruptNode(GraphNode node, InterruptContext context) {
-        String reviewerType = context.type() == AgentModels.InterruptType.HUMAN_REVIEW
+        String reviewerType = context.type() == Events.InterruptType.HUMAN_REVIEW
                 ? "human"
                 : "agent-review";
         Instant now = Instant.now();
@@ -822,9 +823,9 @@ public class WorkflowGraphService {
                 context.interruptNodeId(),
                 "Review: " + node.title(),
                 node.goal(),
-                context.type() == AgentModels.InterruptType.HUMAN_REVIEW
-                        ? GraphNode.NodeStatus.WAITING_INPUT
-                        : GraphNode.NodeStatus.READY,
+                context.type() == Events.InterruptType.HUMAN_REVIEW
+                        ? Events.NodeStatus.WAITING_INPUT
+                        : Events.NodeStatus.READY,
                 node.nodeId(),
                 new ArrayList<>(),
                 new ConcurrentHashMap<>(),

@@ -2,7 +2,8 @@ package com.hayden.multiagentide.agent;
 
 import com.embabel.agent.api.event.*;
 import com.embabel.agent.core.*;
-import com.hayden.multiagentidelib.infrastructure.EventBus;
+import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentidelib.model.worktree.SubmoduleWorktreeContext;
@@ -102,7 +103,7 @@ public class AgentLifecycleHandler {
                 resolvedNodeId,
                 Optional.ofNullable(title).orElse("Orchestrator"),
                 goal,
-                GraphNode.NodeStatus.READY,
+                Events.NodeStatus.READY,
                 null,
                 new ArrayList<>(),
                 new HashMap<>(),

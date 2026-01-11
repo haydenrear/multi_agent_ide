@@ -2,10 +2,9 @@ package com.hayden.multiagentide.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hayden.multiagentidelib.infrastructure.EventBus;
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.ui.UiDiffResult;
-import com.hayden.multiagentidelib.model.ui.UiStateSnapshot;
 import com.hayden.multiagentidelib.service.UiStateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,7 +27,7 @@ public class UiController {
     @PostMapping("/feedback")
     public UiFeedbackResponse submitFeedback(@RequestBody UiFeedbackRequest request) {
         String nodeId = request.nodeId() != null ? request.nodeId() : "unknown";
-        UiStateSnapshot snapshot = request.snapshot();
+        Events.UiStateSnapshot snapshot = request.snapshot();
         if (snapshot == null && request.nodeId() != null) {
             snapshot = uiStateService.getSnapshot(request.nodeId());
         }
@@ -66,7 +65,7 @@ public class UiController {
     public UiDiffResult revertDiff(@RequestBody UiRevertRequest request) {
         String sessionId = request.nodeId() != null ? request.nodeId() : "unknown";
         UiDiffResult result = uiStateService.revert(sessionId);
-        UiStateSnapshot snapshot = uiStateService.getSnapshot(sessionId);
+        Events.UiStateSnapshot snapshot = uiStateService.getSnapshot(sessionId);
 
         if ("reverted".equalsIgnoreCase(result.status()) && snapshot != null) {
             eventBus.publish(new Events.UiDiffRevertedEvent(
@@ -111,7 +110,7 @@ public class UiController {
             String eventId,
             String nodeId,
             String message,
-            UiStateSnapshot snapshot
+            Events.UiStateSnapshot snapshot
     ) {
     }
 

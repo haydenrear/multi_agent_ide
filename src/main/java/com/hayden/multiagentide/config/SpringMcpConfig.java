@@ -5,7 +5,6 @@ import com.hayden.commitdiffcontext.cdc_config.SkipInSchemaFilter;
 import com.hayden.commitdiffcontext.cdc_config.SkipSessionSchema;
 import com.hayden.commitdiffcontext.mcp.ToolCarrier;
 import com.hayden.commitdiffmodel.config.DisableGraphQl;
-import com.hayden.multiagentidelib.acp.AcpChatModel;
 import com.hayden.utilitymodule.schema.DelegatingSchemaReplacer;
 import com.hayden.utilitymodule.schema.SpecialJsonSchemaGenerator;
 import com.hayden.utilitymodule.schema.SpecialMethodToolCallbackProviderFactory;
@@ -55,7 +54,7 @@ import java.util.stream.Collectors;
 @Configuration
 @Import({DelegatingSchemaReplacer.class, SpecialJsonSchemaGenerator.class, SpecialMethodToolCallbackProviderFactory.class,
          SkipSessionSchema.class, SkipInSchemaFilter.class,
-        DisableGraphQl.class})
+         DisableGraphQl.class})
 @Slf4j
 @EnableAutoConfiguration(exclude = {
         DataSourceAutoConfiguration.class,

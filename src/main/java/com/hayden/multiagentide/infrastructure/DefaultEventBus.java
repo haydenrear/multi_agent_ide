@@ -1,8 +1,8 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.hayden.multiagentidelib.infrastructure.EventBus;
-import com.hayden.multiagentidelib.infrastructure.EventListener;
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.utilitymodule.acp.events.EventListener;
+import com.hayden.utilitymodule.acp.events.Events;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

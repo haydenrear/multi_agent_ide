@@ -1,38 +1,20 @@
 package com.hayden.multiagentide.agent;
 
 import com.embabel.agent.core.AgentPlatform;
-import com.embabel.agent.core.ProcessOptions;
-import com.hayden.multiagentide.agent.WorkflowGraphService;
 import com.hayden.multiagentide.service.InterruptService;
 import com.hayden.multiagentide.support.AgentTestBase;
 import com.hayden.multiagentide.support.TestEventListener;
-import com.hayden.multiagentidelib.acp.AcpChatModel;
-import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentidelib.infrastructure.EventBus;
-import com.hayden.multiagentidelib.model.nodes.*;
+import com.hayden.utilitymodule.acp.AcpChatModel;
+import com.hayden.utilitymodule.acp.events.EventBus;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 /**

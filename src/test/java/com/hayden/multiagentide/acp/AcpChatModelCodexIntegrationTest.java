@@ -9,7 +9,6 @@ import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.annotation.support.AgentMetadataReader;
 import com.embabel.agent.api.common.OperationContext;
 import com.embabel.agent.api.common.PlannerType;
-import com.embabel.agent.api.event.*;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.IoBinding;
@@ -17,7 +16,7 @@ import com.embabel.agent.core.ProcessOptions;
 import com.embabel.chat.support.InMemoryConversation;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.controller.OrchestrationController;
-import com.hayden.multiagentidelib.acp.AcpChatModel;
+import com.hayden.utilitymodule.acp.AcpChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -116,14 +115,14 @@ class AcpChatModelCodexIntegrationTest {
                 .ifPresentOrElse(agentPlatform::deploy, () -> log.error("Error deploying {} - could not create agent metadata.", agentInterface));
     }
 
-//    @Test
+    @Test
     void testCreateGoal() {
         orchestrationController.startGoal(new OrchestrationController.StartGoalRequest(
                 "hello!", "/Users/hayde/IdeaProjects/multi_agent_ide_parent/libs-resolver",
                 "main", "hello", UUID.randomUUID().toString()));
     }
 
-//    @Test
+    @Test
     void chatModelUsesAcpProtocol() {
         assertThat(chatModel).isInstanceOf(AcpChatModel.class);
 

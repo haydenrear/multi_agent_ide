@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.hayden.multiagentidelib.infrastructure.EventListener;
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.EventListener;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import java.util.Optional;
@@ -149,7 +149,7 @@ public class AgentEventListener implements EventListener {
         }
 
         GraphNode node = nodeOpt.get();
-        if (event.newStatus() == GraphNode.NodeStatus.COMPLETED && node instanceof Collector) {
+        if (event.newStatus() == Events.NodeStatus.COMPLETED && node instanceof Collector) {
             log.info(
                     "Collector completed: {} ({})",
                     node.title(),

@@ -5,12 +5,11 @@ import com.embabel.agent.api.channel.*;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.AgentScope;
 import com.embabel.agent.spi.AgentProcessIdGenerator;
-import com.embabel.agent.spi.support.springai.ChatClientLlmOperations;
 import com.embabel.common.ai.model.Llm;
 import com.hayden.multiagentide.agent.AgentInterfaces;
-import com.hayden.multiagentidelib.config.AcpModelProperties;
-import com.hayden.multiagentidelib.infrastructure.EventBus;
-import com.hayden.multiagentidelib.acp.AcpChatModel;
+import com.hayden.utilitymodule.acp.config.AcpModelProperties;
+import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.utilitymodule.acp.AcpChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -32,6 +31,7 @@ import java.util.Optional;
 @Slf4j
 @Configuration
 @EnableConfigurationProperties(AcpModelProperties.class)
+@ComponentScan(basePackages = "com.hayden.utilitymodule.acp")
 public class MultiAgentEmbabelConfig {
 
     @Value("${multi-agent-embabel.chat-model.provider:acp}")

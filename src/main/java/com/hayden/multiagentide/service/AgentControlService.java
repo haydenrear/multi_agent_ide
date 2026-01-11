@@ -1,8 +1,7 @@
 package com.hayden.multiagentide.service;
 
-import com.hayden.multiagentidelib.infrastructure.EventBus;
-import com.hayden.multiagentidelib.model.events.Events;
-import com.hayden.multiagentidelib.model.nodes.ReviewNode;
+import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.utilitymodule.acp.events.Events;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -45,7 +44,7 @@ public class AgentControlService {
                 Instant.now(),
                 nodeId,
                 nodeId,
-                ReviewNode.ReviewType.HUMAN,
+                Events.ReviewType.HUMAN,
                 note
         ));
         return eventId;

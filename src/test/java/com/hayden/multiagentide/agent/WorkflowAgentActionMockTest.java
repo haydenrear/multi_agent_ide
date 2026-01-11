@@ -1,6 +1,5 @@
 package com.hayden.multiagentide.agent;
 
-import com.embabel.agent.api.common.OperationContext;
 import com.embabel.agent.api.common.PlannerType;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.ProcessOptions;
@@ -8,7 +7,8 @@ import com.hayden.multiagentide.service.InterruptService;
 import com.hayden.multiagentide.support.AgentTestBase;
 import com.hayden.multiagentide.support.TestEventListener;
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentidelib.infrastructure.EventBus;
+import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -106,7 +106,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
         doReturn(AgentModels.OrchestratorCollectorResult.builder()
                         .consolidatedOutput("All done")
                         .collectorDecision(AgentModels.CollectorDecision.builder()
-                                .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                 .rationale("Complete")
                                 .requestedPhase("COMPLETE")
                                 .build())
@@ -213,7 +213,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.PlanningCollectorResult.builder()
                             .consolidatedOutput("Plans consolidated")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Planning complete")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -226,7 +226,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
                             .consolidatedOutput("Workflow complete")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("All phases done")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -328,7 +328,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.PlanningCollectorResult.builder()
                             .consolidatedOutput("Done")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Complete")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -341,7 +341,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
                             .consolidatedOutput("Complete")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Done")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -422,7 +422,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.TicketCollectorResult.builder()
                             .consolidatedOutput("Tickets done")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Complete")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -435,7 +435,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
                             .consolidatedOutput("Complete")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Done")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -557,7 +557,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.DiscoveryCollectorResult.builder()
                             .consolidatedOutput("Discovery complete")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Done")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -570,7 +570,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
                             .consolidatedOutput("Complete")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Done")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -650,7 +650,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.PlanningCollectorResult.builder()
                             .consolidatedOutput("Plans ready")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Done")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -662,7 +662,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
                             .consolidatedOutput("Complete")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Done")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -695,7 +695,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             // Orchestrator immediately pauses
             doReturn(AgentModels.OrchestratorRouting.builder()
                     .interruptRequest(AgentModels.OrchestratorInterruptRequest.builder()
-                            .type(AgentModels.InterruptType.PAUSE)
+                            .type(Events.InterruptType.PAUSE)
                             .reason("User requested pause")
                             .build())
                     .build()
@@ -710,7 +710,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Assert - workflow should be interrupted
             verify(workflowGraphService).handleOrchestratorInterrupt(any(),
-                    argThat(req -> req.type() == AgentModels.InterruptType.PAUSE));
+                    argThat(req -> req.type() == Events.InterruptType.PAUSE));
             verify(workflowAgent, never()).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
         }
 
@@ -719,7 +719,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             // Orchestrator stops the workflow
             doReturn(AgentModels.OrchestratorRouting.builder()
                     .interruptRequest(AgentModels.OrchestratorInterruptRequest.builder()
-                            .type(AgentModels.InterruptType.STOP)
+                            .type(Events.InterruptType.STOP)
                             .reason("Critical error detected")
                             .build())
                     .build()
@@ -734,7 +734,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Assert
             verify(workflowGraphService).handleOrchestratorInterrupt(any(),
-                    argThat(req -> req.type() == AgentModels.InterruptType.STOP));
+                    argThat(req -> req.type() == Events.InterruptType.STOP));
             verify(workflowAgent, never()).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
         }
 
@@ -787,7 +787,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             // Discovery collector PAUSES instead of continuing
             doReturn(AgentModels.DiscoveryCollectorRouting.builder()
                     .interruptRequest(AgentModels.DiscoveryCollectorInterruptRequest.builder()
-                            .type(AgentModels.InterruptType.PAUSE)
+                            .type(Events.InterruptType.PAUSE)
                             .reason("Need human review")
                             .build())
                     .build()
@@ -858,7 +858,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             // Agent 2 PAUSES
             doReturn(AgentModels.DiscoveryAgentRouting.builder()
                     .interruptRequest(AgentModels.DiscoveryAgentInterruptRequest.builder()
-                            .type(AgentModels.InterruptType.PAUSE)
+                            .type(Events.InterruptType.PAUSE)
                             .reason("Agent 2 needs input")
                             .build())
                     .build()
@@ -910,7 +910,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             // Planning orchestrator requests HUMAN_REVIEW
             doReturn(AgentModels.PlanningOrchestratorRouting.builder()
                     .interruptRequest(AgentModels.PlanningOrchestratorInterruptRequest.builder()
-                            .type(AgentModels.InterruptType.HUMAN_REVIEW)
+                            .type(Events.InterruptType.HUMAN_REVIEW)
                             .reason("Plan needs approval before proceeding")
                             .build())
                     .build()
@@ -957,7 +957,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             // Ticket agent encounters critical error and STOPS
             doReturn(AgentModels.TicketAgentRouting.builder()
                     .interruptRequest(AgentModels.TicketAgentInterruptRequest.builder()
-                            .type(AgentModels.InterruptType.STOP)
+                            .type(Events.InterruptType.STOP)
                             .reason("Build failed, cannot continue")
                             .build())
                     .build()
@@ -1114,7 +1114,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.PlanningCollectorResult.builder()
                             .consolidatedOutput("Done")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Complete")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -1126,7 +1126,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
                             .consolidatedOutput("Complete")
                             .collectorDecision(AgentModels.CollectorDecision.builder()
-                                    .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                    .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                     .rationale("Done")
                                     .requestedPhase("COMPLETE")
                                     .build())
@@ -1172,7 +1172,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                         .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
                                 .consolidatedOutput("Incomplete context")
                                 .collectorDecision(AgentModels.CollectorDecision.builder()
-                                        .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                        .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                         .rationale("")
                                         .requestedPhase("PLANNING")
                                         .build())
@@ -1229,7 +1229,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                         .collectorResult(AgentModels.DiscoveryCollectorResult.builder()
                                 .consolidatedOutput("Incomplete context")
                                 .collectorDecision(AgentModels.CollectorDecision.builder()
-                                        .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                        .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                         .rationale("")
                                         .requestedPhase("PLANNING")
                                         .build())
@@ -1256,7 +1256,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                         .collectorResult(AgentModels.TicketCollectorResult.builder()
                                 .consolidatedOutput("Incomplete context")
                                 .collectorDecision(AgentModels.CollectorDecision.builder()
-                                        .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                        .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                         .rationale("")
                                         .requestedPhase("DISCOVERY")
                                         .build())
@@ -1397,7 +1397,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                             .collectorResult(AgentModels.PlanningCollectorResult.builder()
                                     .consolidatedOutput("Planning complete with context")
                                     .collectorDecision(AgentModels.CollectorDecision.builder()
-                                            .decisionType(AgentModels.CollectorDecisionType.ADVANCE_PHASE)
+                                            .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
                                             .rationale("Complete")
                                             .requestedPhase("COMPLETE")
                                             .build())
@@ -1421,7 +1421,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(new AgentModels.OrchestratorCollectorResult(
                             "Complete",
                             new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
+                                    Events.CollectorDecisionType.ADVANCE_PHASE,
                                     "Done",
                                     "COMPLETE"
                             )
@@ -1567,7 +1567,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(new AgentModels.OrchestratorCollectorResult(
                             "Finally complete",
                             new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
+                                    Events.CollectorDecisionType.ADVANCE_PHASE,
                                     "Done",
                                     "COMPLETE"
                             )
@@ -1644,7 +1644,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(new AgentModels.OrchestratorCollectorResult(
                             "All done",
                             new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
+                                    Events.CollectorDecisionType.ADVANCE_PHASE,
                                     "Complete",
                                     "COMPLETE"
                             )
@@ -1772,7 +1772,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .collectorResult(new AgentModels.OrchestratorCollectorResult(
                             "Done",
                             new AgentModels.CollectorDecision(
-                                    AgentModels.CollectorDecisionType.ADVANCE_PHASE,
+                                    Events.CollectorDecisionType.ADVANCE_PHASE,
                                     "Complete",
                                     "COMPLETE"
                             )
@@ -1814,7 +1814,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("orch-1")
                 .title("Orch")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .repositoryUrl("repo-url")
@@ -1829,7 +1829,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("coll-1")
                 .title("Collector")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .repositoryUrl("repo-url")
@@ -1844,7 +1844,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("disc-orch")
                 .title("DiscOrch")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .build();
@@ -1855,7 +1855,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("disc-coll")
                 .title("DiscColl")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .build();
@@ -1866,7 +1866,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("disc")
                 .title("Disc")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .build();
@@ -1877,7 +1877,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("plan-orch")
                 .title("PlanOrch")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .build();
@@ -1888,7 +1888,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("plan-coll")
                 .title("PlanColl")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .build();
@@ -1899,7 +1899,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("plan")
                 .title("Plan")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .build();
@@ -1910,7 +1910,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("tick-orch")
                 .title("TickOrch")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .worktree(new HasWorktree.WorkTree("wt", null, new ArrayList<>()))
@@ -1922,7 +1922,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("tick-coll")
                 .title("TickColl")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .build();
@@ -1933,7 +1933,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .nodeId("tick")
                 .title("Tick")
                 .goal("goal")
-                .status(GraphNode.NodeStatus.RUNNING)
+                .status(Events.NodeStatus.RUNNING)
                 .metadata(new HashMap<>())
                 .createdAt(Instant.now())
                 .lastUpdatedAt(Instant.now())

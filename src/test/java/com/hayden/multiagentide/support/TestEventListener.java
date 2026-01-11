@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.support;
 
-import com.hayden.multiagentidelib.infrastructure.EventListener;
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.EventListener;
+import com.hayden.utilitymodule.acp.events.Events;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;

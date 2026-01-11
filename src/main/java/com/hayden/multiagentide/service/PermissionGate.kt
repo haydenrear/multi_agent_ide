@@ -6,8 +6,6 @@ import com.agentclientprotocol.model.RequestPermissionResponse
 import com.agentclientprotocol.model.SessionUpdate
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator
 import com.hayden.multiagentide.repository.GraphRepository
-import com.hayden.multiagentidelib.infrastructure.EventBus
-import com.hayden.multiagentidelib.model.events.Events
 import com.hayden.multiagentidelib.agent.AgentModels
 import com.hayden.multiagentidelib.model.nodes.AskPermissionNode
 import com.hayden.multiagentidelib.model.nodes.GraphNode
@@ -15,7 +13,9 @@ import com.hayden.multiagentidelib.model.nodes.InterruptContext
 import com.hayden.multiagentidelib.model.nodes.InterruptNode
 import com.hayden.multiagentidelib.model.nodes.Interruptible
 import com.hayden.multiagentidelib.model.nodes.ReviewNode
-import com.hayden.multiagentidelib.service.IPermissionGate
+import com.hayden.utilitymodule.acp.events.EventBus
+import com.hayden.utilitymodule.acp.events.Events
+import com.hayden.utilitymodule.permission.IPermissionGate
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
@@ -34,7 +34,7 @@ class PermissionGate(
     data class PendingInterruptRequest(
         val interruptId: String,
         val originNodeId: String,
-        val type: AgentModels.InterruptType,
+        val type: Events.InterruptType,
         val reason: String?,
         val deferred: CompletableDeferred<InterruptResolution>
     )
@@ -170,12 +170,12 @@ class PermissionGate(
         if (nodeId != null) {
             val node = graphRepository.findById(nodeId).orElse(null)
             if (node is AskPermissionNode) {
-                val updated = node.withStatus(GraphNode.NodeStatus.COMPLETED)
+                val updated = node.withStatus(Events.NodeStatus.COMPLETED)
                 graphRepository.save(updated)
                 orchestrator.emitStatusChangeEvent(
                     nodeId,
                     node.status(),
-                    GraphNode.NodeStatus.COMPLETED,
+                    Events.NodeStatus.COMPLETED,
                     "Permission resolved"
                 )
             }
@@ -198,7 +198,7 @@ class PermissionGate(
     fun publishInterrupt(
         interruptId: String,
         originNodeId: String,
-        type: AgentModels.InterruptType,
+        type: Events.InterruptType,
         reason: String?
     ): PendingInterruptRequest {
         val existing = pendingInterrupts[interruptId]
@@ -215,45 +215,45 @@ class PermissionGate(
         )
         pendingInterrupts[interruptId] = pending
 
-        if (type == AgentModels.InterruptType.HUMAN_REVIEW) {
+        if (type == Events.InterruptType.HUMAN_REVIEW) {
             val node = graphRepository.findById(interruptId).orElse(null)
             val reviewNode = node as? ReviewNode
             val reviewContent = reason ?: reviewNode?.reviewContent ?: ""
-            if (reviewNode != null && reviewNode.status() != GraphNode.NodeStatus.WAITING_INPUT) {
+            if (reviewNode != null && reviewNode.status() != Events.NodeStatus.WAITING_INPUT) {
                 val updated = reviewNode
                     .toBuilder()
-                    .status(GraphNode.NodeStatus.WAITING_INPUT)
+                    .status(Events.NodeStatus.WAITING_INPUT)
                     .lastUpdatedAt(Instant.now())
                     .build()
                 graphRepository.save(updated)
                 orchestrator.emitStatusChangeEvent(
                     reviewNode.nodeId(),
                     reviewNode.status(),
-                    GraphNode.NodeStatus.WAITING_INPUT,
+                    Events.NodeStatus.WAITING_INPUT,
                     "Human review requested"
                 )
             }
             orchestrator.emitReviewRequestedEvent(
                 originNodeId,
                 interruptId,
-                ReviewNode.ReviewType.HUMAN,
+                Events.ReviewType.HUMAN,
                 reviewContent
             )
         }
-        if (type == AgentModels.InterruptType.AGENT_REVIEW) {
+        if (type == Events.InterruptType.AGENT_REVIEW) {
             val node = graphRepository.findById(interruptId).orElse(null)
             val reviewNode = node as? ReviewNode
-            if (reviewNode != null && reviewNode.status() == GraphNode.NodeStatus.READY) {
+            if (reviewNode != null && reviewNode.status() == Events.NodeStatus.READY) {
                 val updated = reviewNode
                     .toBuilder()
-                    .status(GraphNode.NodeStatus.RUNNING)
+                    .status(Events.NodeStatus.RUNNING)
                     .lastUpdatedAt(Instant.now())
                     .build()
                 graphRepository.save(updated)
                 orchestrator.emitStatusChangeEvent(
                     reviewNode.nodeId(),
                     reviewNode.status(),
-                    GraphNode.NodeStatus.RUNNING,
+                    Events.NodeStatus.RUNNING,
                     "Agent review started"
                 )
             }
@@ -308,14 +308,14 @@ class PermissionGate(
                     .reviewCompletedAt(Instant.now())
                     .reviewResult(reviewResult)
                     .interruptContext(updatedContext ?: interruptNode.interruptContext())
-                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .status(Events.NodeStatus.COMPLETED)
                     .lastUpdatedAt(Instant.now())
                     .build()
                 graphRepository.save(updated)
                 orchestrator.emitStatusChangeEvent(
                     interruptNode.nodeId(),
                     interruptNode.status(),
-                    GraphNode.NodeStatus.COMPLETED,
+                    Events.NodeStatus.COMPLETED,
                     "Review resolved"
                 )
             }
@@ -326,14 +326,14 @@ class PermissionGate(
                 val updated = interruptNode
                     .toBuilder()
                     .interruptContext(updatedContext ?: interruptNode.interruptContext())
-                    .status(GraphNode.NodeStatus.COMPLETED)
+                    .status(Events.NodeStatus.COMPLETED)
                     .lastUpdatedAt(Instant.now())
                     .build()
                 graphRepository.save(updated)
                 orchestrator.emitStatusChangeEvent(
                     interruptNode.nodeId(),
                     interruptNode.status(),
-                    GraphNode.NodeStatus.COMPLETED,
+                    Events.NodeStatus.COMPLETED,
                     "Interrupt resolved"
                 )
             }
@@ -350,15 +350,15 @@ class PermissionGate(
                     .withResultPayload(resolutionNotes)
                 val updatedOrigin = updateInterruptContext(originNode, updatedContext)
                 graphRepository.save(updatedOrigin)
-                if (originNode.status() == GraphNode.NodeStatus.WAITING_INPUT ||
-                    originNode.status() == GraphNode.NodeStatus.WAITING_REVIEW
+                if (originNode.status() == Events.NodeStatus.WAITING_INPUT ||
+                    originNode.status() == Events.NodeStatus.WAITING_REVIEW
                 ) {
-                    val resumed = updatedOrigin.withStatus(GraphNode.NodeStatus.RUNNING)
+                    val resumed = updatedOrigin.withStatus(Events.NodeStatus.RUNNING)
                     graphRepository.save(resumed)
                     orchestrator.emitStatusChangeEvent(
                         originNode.nodeId(),
                         originNode.status(),
-                        GraphNode.NodeStatus.RUNNING,
+                        Events.NodeStatus.RUNNING,
                         "Interrupt resolved"
                     )
                 }

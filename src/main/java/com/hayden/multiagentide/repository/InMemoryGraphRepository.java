@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.repository;
 
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.GraphNode;
 import org.springframework.stereotype.Repository;
 
@@ -39,7 +39,7 @@ public class InMemoryGraphRepository implements GraphRepository {
     }
 
     @Override
-    public List<GraphNode> findByType(GraphNode.NodeType nodeType) {
+    public List<GraphNode> findByType(Events.NodeType nodeType) {
         return nodes.values().stream()
                 .filter(node -> node.nodeType() == nodeType)
                 .collect(Collectors.toList());

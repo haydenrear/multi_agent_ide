@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.repository;
 
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.GraphNode;
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +41,7 @@ public interface GraphRepository {
      * @param nodeType the node type
      * @return list of nodes of that type
      */
-    List<GraphNode> findByType(GraphNode.NodeType nodeType);
+    List<GraphNode> findByType(Events.NodeType nodeType);
 
     /**
      * Delete a node.

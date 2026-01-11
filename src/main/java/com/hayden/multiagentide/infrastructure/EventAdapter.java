@@ -1,8 +1,8 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.hayden.multiagentidelib.infrastructure.EventBus;
-import com.hayden.multiagentidelib.infrastructure.EventListener;
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.utilitymodule.acp.events.EventListener;
+import com.hayden.utilitymodule.acp.events.Events;
 
 /**
  * Abstract base class for event adapters that transform events for specific targets

@@ -3,6 +3,7 @@ package com.hayden.multiagentide.service;
 import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.GraphNode;
 import com.hayden.multiagentidelib.model.nodes.InterruptContext;
 import com.hayden.multiagentidelib.model.nodes.InterruptNode;
@@ -75,7 +76,7 @@ public class InterruptService {
                 request.type(),
                 reviewContent
         );
-        if (request.type() == AgentModels.InterruptType.HUMAN_REVIEW) {
+        if (request.type() == Events.InterruptType.HUMAN_REVIEW) {
             PermissionGate.InterruptResolution resolution =
                     permissionGate.awaitInterruptBlocking(interruptId);
             String feedback = resolution != null ? resolution.getResolutionNotes() : null;

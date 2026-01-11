@@ -1,8 +1,7 @@
 package com.hayden.multiagentide.controller;
 
-import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentidelib.infrastructure.EventBus;
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentide.service.AgentControlService;
 import com.hayden.multiagentide.service.PermissionGate;
 import java.time.Instant;
@@ -32,7 +31,7 @@ public class InterruptController {
     public InterruptStatusResponse requestInterrupt(@RequestBody InterruptRequest request) {
         String interruptId = UUID.randomUUID().toString();
         String reason = request.reason() != null ? request.reason() : "Interrupt requested";
-        AgentModels.InterruptType type = request.type();
+        Events.InterruptType type = request.type();
         switch (type) {
             case PAUSE -> agentControlService.requestPause(request.originNodeId(), reason);
             case STOP -> agentControlService.requestStop(request.originNodeId());
@@ -86,7 +85,7 @@ public class InterruptController {
     }
 
     public record InterruptRequest(
-            AgentModels.InterruptType type,
+            Events.InterruptType type,
             String originNodeId,
             String reason
     ) {

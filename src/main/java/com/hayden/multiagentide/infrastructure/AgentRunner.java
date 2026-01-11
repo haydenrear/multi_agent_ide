@@ -6,7 +6,7 @@ import com.embabel.chat.UserMessage;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.GraphNode;
 import com.hayden.multiagentidelib.model.nodes.OrchestratorNode;
 import java.util.List;
@@ -55,7 +55,7 @@ public class AgentRunner {
         if (!(node instanceof OrchestratorNode orchestratorNode)) {
             return;
         }
-        if (orchestratorNode.status() != GraphNode.NodeStatus.READY) {
+        if (orchestratorNode.status() != Events.NodeStatus.READY) {
             return;
         }
         try {

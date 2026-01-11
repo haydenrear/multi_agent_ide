@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.orchestration;
 
-import com.hayden.multiagentidelib.infrastructure.EventBus;
-import com.hayden.multiagentidelib.model.events.Events;
+import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
 import com.hayden.multiagentide.repository.GraphRepository;
@@ -115,10 +115,10 @@ public class ComputationGraphOrchestrator {
         // Check all nodes in graph
         for (GraphNode node : graphRepository.findAll()) {
             if (
-                    node.status() == GraphNode.NodeStatus.RUNNING ||
-                            node.status() == GraphNode.NodeStatus.WAITING_REVIEW ||
-                            node.status() == GraphNode.NodeStatus.WAITING_INPUT ||
-                            node.status() == GraphNode.NodeStatus.PENDING
+                    node.status() == Events.NodeStatus.RUNNING ||
+                            node.status() == Events.NodeStatus.WAITING_REVIEW ||
+                            node.status() == Events.NodeStatus.WAITING_INPUT ||
+                            node.status() == Events.NodeStatus.PENDING
             ) {
                 return false;
             }
@@ -133,7 +133,7 @@ public class ComputationGraphOrchestrator {
     public void emitNodeAddedEvent(
             String nodeId,
             String title,
-            GraphNode.NodeType nodeType,
+            Events.NodeType nodeType,
             String parentId
     ) {
         Events.NodeAddedEvent event = new Events.NodeAddedEvent(
@@ -152,8 +152,8 @@ public class ComputationGraphOrchestrator {
      */
     public void emitStatusChangeEvent(
             String nodeId,
-            GraphNode.NodeStatus oldStatus,
-            GraphNode.NodeStatus newStatus,
+            Events.NodeStatus oldStatus,
+            Events.NodeStatus newStatus,
             String reason
     ) {
         Events.NodeStatusChangedEvent event = new Events.NodeStatusChangedEvent(
@@ -170,7 +170,7 @@ public class ComputationGraphOrchestrator {
     public void emitErrorEvent(
             String nodeId,
             String nodeTitle,
-            GraphNode.NodeType nodeType,
+            Events.NodeType nodeType,
             String errorMessage
     ) {
         Events.NodeErrorEvent event = new Events.NodeErrorEvent(
@@ -209,7 +209,7 @@ public class ComputationGraphOrchestrator {
     public void emitReviewRequestedEvent(
             String nodeId,
             String reviewNodeId,
-            ReviewNode.ReviewType reviewType,
+            Events.ReviewType reviewType,
             String contentToReview
     ) {
         Events.NodeReviewRequestedEvent event = new Events.NodeReviewRequestedEvent(

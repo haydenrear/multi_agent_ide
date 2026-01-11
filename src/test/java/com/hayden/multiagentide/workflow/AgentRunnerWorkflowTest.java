@@ -7,6 +7,7 @@ import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentide.agent.WorkflowGraphService;
 import com.hayden.multiagentide.agent.WorkflowGraphState;
 import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
@@ -96,7 +97,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
 
         Optional<GraphNode> updatedReview = graphRepository.findById(reviewNode.nodeId());
         assertThat(updatedReview).isPresent();
-        assertThat(updatedReview.get().status()).isEqualTo(GraphNode.NodeStatus.COMPLETED);
+        assertThat(updatedReview.get().status()).isEqualTo(Events.NodeStatus.COMPLETED);
 
         List<GraphNode> children = graphRepository.findByParentId(reviewNode.nodeId());
         assertThat(children).hasSize(1);
@@ -129,7 +130,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         );
 
         GraphNode updatedReview = graphRepository.findById(reviewNode.nodeId()).orElseThrow();
-        assertThat(updatedReview.status()).isEqualTo(GraphNode.NodeStatus.WAITING_INPUT);
+        assertThat(updatedReview.status()).isEqualTo(Events.NodeStatus.WAITING_INPUT);
     }
 
     @Test
@@ -158,7 +159,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
             "merge-1",
             "Merge: Ticket 1",
             "Merge ticket",
-            GraphNode.NodeStatus.READY,
+            Events.NodeStatus.READY,
             "review-1",
             new ArrayList<>(),
             Map.of(
@@ -178,7 +179,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
                 mergeNode,
                 new AgentModels.MergerRouting(
                         new AgentModels.MergerInterruptRequest(
-                                AgentModels.InterruptType.HUMAN_REVIEW,
+                                Events.InterruptType.HUMAN_REVIEW,
                                 "conflicts"
                         ),
                         null,
@@ -191,7 +192,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         );
 
         GraphNode updated = graphRepository.findById(mergeNode.nodeId()).orElseThrow();
-        assertThat(updated.status()).isEqualTo(GraphNode.NodeStatus.WAITING_INPUT);
+        assertThat(updated.status()).isEqualTo(Events.NodeStatus.WAITING_INPUT);
 
         WorktreeContext reloaded = worktreeRepository.findById(childWorktreeId).orElseThrow();
         assertThat(reloaded.status()).isEqualTo(WorktreeContext.WorktreeStatus.ACTIVE);
@@ -202,7 +203,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
             nodeId,
             "Ticket Orchestrator",
             "Implement goal",
-            GraphNode.NodeStatus.READY,
+            Events.NodeStatus.READY,
             null,
             new ArrayList<>(),
             new HashMap<>(),
@@ -223,7 +224,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
             nodeId,
             "Ticket 1",
             "Implement ticket",
-            GraphNode.NodeStatus.READY,
+            Events.NodeStatus.READY,
             parentId,
             new ArrayList<>(),
             new HashMap<>(),
@@ -244,7 +245,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
             nodeId,
             "Review",
             "Review ticket",
-            GraphNode.NodeStatus.READY,
+            Events.NodeStatus.READY,
             reviewedNodeId,
             new ArrayList<>(),
             new HashMap<>(),
