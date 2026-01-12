@@ -142,11 +142,11 @@ public interface AgentInterfaces {
         BlackboardHistory.History updatedHistory = history.withEntry(actionName, input);
 
         if (input != null) {
-            context.getAgentProcess().getBlackboard().clear();
+            context.getAgentProcess().clear();
         }
 
         // Add updated history back to context
-        context.getAgentProcess().getBlackboard().addObject(updatedHistory);
+        context.getAgentProcess().addObject(updatedHistory);
 
         return updatedHistory;
     }
