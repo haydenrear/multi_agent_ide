@@ -54,3 +54,8 @@ then the new object will be hidden as well?
 Should it not be hidden, should it be un-hidden?
 
 Should it be based on more of an object equality idea?
+
+---
+
+Update PromptProvider for each type of context, update to always use prompt provider from blackboard
+history.

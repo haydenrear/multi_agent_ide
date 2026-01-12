@@ -1259,22 +1259,13 @@ public interface AgentInterfaces {
                             "returnRoute", returnRoute
                     )
             );
-            AgentModels.MergerRouting response = context.ai()
+            AgentModels.MergerRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.MergerRouting.class);
-            AgentModels.MergerAgentResult mergeResult = response != null ? response.mergerResult() : null;
+            AgentModels.MergerAgentResult mergeResult = routing != null ? routing.mergerResult() : null;
             String mergeOutput = mergeResult != null ? mergeResult.output() : "";
             String combinedSummary = firstNonBlank(input.mergeSummary(), mergeOutput);
-            workflowGraphService.completeMerge(running, response, combinedSummary);
-            boolean interrupted = response != null && response.interruptRequest() != null;
-            AgentModels.MergerRouting routing = new AgentModels.MergerRouting(
-                    response != null ? response.interruptRequest() : null,
-                    response != null ? response.mergerResult() : null,
-                    interrupted ? null : input.returnToOrchestratorCollector(),
-                    interrupted ? null : input.returnToDiscoveryCollector(),
-                    interrupted ? null : input.returnToPlanningCollector(),
-                    interrupted ? null : input.returnToTicketCollector()
-            );
+            workflowGraphService.completeMerge(running, routing, combinedSummary);
             emitActionCompleted(eventBus, multiAgentAgentName(), "merger-agent", context, routing);
             return routing;
         }
