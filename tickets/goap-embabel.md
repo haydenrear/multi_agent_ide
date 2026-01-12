@@ -44,3 +44,13 @@ In other words, the orchestrator, agent, and collector are currently each indivi
 The key here to make sure we're integrating everything with the UI is that we'll add event listeners and emit the events, which will be simple because we can inject the event bus into the agents and call it in the functions based on the routing key - then those events get translated to the ui events and pushed with the SSE event emitter automatically. 
 
 So currently we're putting interrupt type in every agent's response. Instead, what we'll do, is make a data class SomeOf, and make one of the items InterruptType. Additionally, where we currently have CollectorDecisionType, for each return type we'll want to add fields in the SomeOf for each of the options. Then it will automatically route to the given agent. So this is the sug-graph - we'll.
+
+
+---
+
+Ok so when you add a record object to the blackboard that has an object that's already hidden,
+then the new object will be hidden as well?
+
+Should it not be hidden, should it be un-hidden?
+
+Should it be based on more of an object equality idea?
