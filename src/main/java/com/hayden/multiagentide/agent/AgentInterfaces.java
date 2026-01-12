@@ -133,6 +133,7 @@ public interface AgentInterfaces {
     ) {
         // Get or create history from context
         BlackboardHistory.History history = context.last(BlackboardHistory.History.class);
+
         if (history == null) {
             history = new BlackboardHistory.History();
         }
@@ -140,13 +141,12 @@ public interface AgentInterfaces {
         // Add the input to history
         BlackboardHistory.History updatedHistory = history.withEntry(actionName, input);
 
-        // Add updated history back to context
-        context.addObject(updatedHistory);
-
-        // Hide the input from the blackboard using context.hide()
         if (input != null) {
             context.getAgentProcess().getBlackboard().clear();
         }
+
+        // Add updated history back to context
+        context.getAgentProcess().getBlackboard().addObject(updatedHistory);
 
         return updatedHistory;
     }
