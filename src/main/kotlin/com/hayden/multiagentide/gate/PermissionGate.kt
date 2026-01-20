@@ -16,9 +16,11 @@ import com.hayden.multiagentidelib.model.nodes.ReviewNode
 import com.hayden.utilitymodule.acp.events.EventBus
 import com.hayden.utilitymodule.acp.events.Events
 import com.hayden.utilitymodule.permission.IPermissionGate
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.UUID
@@ -30,6 +32,8 @@ class PermissionGate(
     private val orchestrator: ComputationGraphOrchestrator,
     private val eventBus: EventBus
 ) : IPermissionGate {
+
+    val log = LoggerFactory.getLogger(PermissionGate::class.java)
 
     data class PendingInterruptRequest(
         val interruptId: String,
@@ -63,30 +67,30 @@ class PermissionGate(
 
         val now = Instant.now()
         val permissionNodeId = UUID.randomUUID().toString()
-//        val permissionNode = AskPermissionNode.builder()
-//            .nodeId(permissionNodeId)
-//            .title("Permission: " + (toolCall.title ?: "request"))
-//            .goal("Permission requested for tool call " + toolCall.toolCallId.value)
-//            .status(GraphNode.NodeStatus.WAITING_INPUT)
-//            .parentNodeId(originNodeId)
-//            .childNodeIds(mutableListOf())
-//            .metadata(
-//                mutableMapOf(
-//                    "requestId" to requestId,
-//                    "toolCallId" to toolCall.toolCallId.value,
-//                    "originNodeId" to originNodeId
-//                )
-//            )
-//            .createdAt(now)
-//            .lastUpdatedAt(now)
-//            .toolCallId(toolCall.toolCallId.value)
-//            .optionIds(permissions.map { it.optionId.toString() })
-//            .build()
-        val permissionNode = null;
+        val permissionNode = AskPermissionNode.builder()
+            .nodeId(permissionNodeId)
+            .title("Permission: " + (toolCall.title ?: "request"))
+            .goal("Permission requested for tool call " + toolCall.toolCallId.value)
+            .status(Events.NodeStatus.WAITING_INPUT)
+            .parentNodeId(originNodeId)
+            .childNodeIds(mutableListOf())
+            .metadata(
+                mutableMapOf(
+                    "requestId" to requestId,
+                    "toolCallId" to toolCall.toolCallId.value,
+                    "originNodeId" to originNodeId
+                )
+            )
+            .createdAt(now)
+            .lastUpdatedAt(now)
+            .toolCallId(toolCall.toolCallId.value)
+            .optionIds(permissions.map { it.optionId.toString() })
+            .build()
 
         try {
             orchestrator.addChildNodeAndEmitEvent(originNodeId, permissionNode)
         } catch (ex: Exception) {
+            log.error("Could not add child node and emit event", ex)
             graphRepository.save(permissionNode)
         }
 
