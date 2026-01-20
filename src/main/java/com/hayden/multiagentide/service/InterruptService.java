@@ -2,6 +2,7 @@ package com.hayden.multiagentide.service;
 
 import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.gate.PermissionGate;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.GraphNode;

@@ -5,15 +5,24 @@ import com.embabel.agent.api.annotation.Action;
 import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.common.ActionContext;
 import com.embabel.agent.api.common.OperationContext;
+import com.hayden.multiagentidelib.prompt.ContextIdService;
 import com.hayden.multiagentide.service.InterruptService;
+import com.hayden.multiagentide.service.RequestEnrichment;
 import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.multiagentidelib.agent.AgentType;
 import com.hayden.multiagentidelib.agent.BlackboardHistory;
+import com.hayden.multiagentidelib.agent.ContextId;
+import com.hayden.multiagentidelib.agent.UpstreamContext;
+import com.hayden.multiagentidelib.prompt.PromptAssembly;
+import com.hayden.multiagentidelib.prompt.PromptContext;
+import com.hayden.multiagentidelib.prompt.PromptContextFactory;
 import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import lombok.RequiredArgsConstructor;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -131,6 +140,25 @@ public interface AgentInterfaces {
             String actionName,
             Object input
     ) {
+        return registerAndHideInput(context, actionName, input, null);
+    }
+
+    /**
+     * Register an input in the blackboard history and hide it from the blackboard.
+     * This overload allows enriching the input with ContextId and PreviousContext before storing.
+     *
+     * @param context The operation context
+     * @param actionName The name of the action being executed
+     * @param input The input object to register and hide
+     * @param requestEnrichment Optional enrichment service to set ContextId and PreviousContext
+     * @return Updated history with the new entry
+     */
+    static BlackboardHistory.History registerAndHideInput(
+            OperationContext context,
+            String actionName,
+            Object input,
+            RequestEnrichment requestEnrichment
+    ) {
         // Get or create history from context
         BlackboardHistory.History history = context.last(BlackboardHistory.History.class);
 
@@ -138,10 +166,16 @@ public interface AgentInterfaces {
             history = new BlackboardHistory.History();
         }
 
-        // Add the input to history
-        BlackboardHistory.History updatedHistory = history.withEntry(actionName, input);
+        // Enrich the input with ContextId and PreviousContext if enrichment service is provided
+        Object enrichedInput = input;
+        if (requestEnrichment != null && input != null) {
+            enrichedInput = requestEnrichment.enrich(input, context);
+        }
 
-        if (input != null) {
+        // Add the enriched input to history
+        BlackboardHistory.History updatedHistory = history.withEntry(actionName, enrichedInput);
+
+        if (enrichedInput != null) {
             context.getAgentProcess().clear();
         }
 
@@ -202,6 +236,10 @@ public interface AgentInterfaces {
         private final EventBus eventBus;
         private final WorkflowGraphService workflowGraphService;
         private final InterruptService interruptService;
+        private final ContextIdService contextIdService;
+        private final PromptAssembly promptAssembly;
+        private final PromptContextFactory promptContextFactory;
+        private final RequestEnrichment requestEnrichment;
 
         @Override
         public String multiAgentAgentName() {
@@ -217,6 +255,7 @@ public interface AgentInterfaces {
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
                 - collectorRequest: { goal, phase }
+                - delegation fields: { schemaVersion, resultId, upstreamContextId, goal, delegationRationale, assignments, contextSelections, metadata }
                 """;
 
         public static final String ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE = """
@@ -224,7 +263,7 @@ public interface AgentInterfaces {
 
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
-                - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
+                - collectorResult: { schemaVersion, resultId, inputs, mergeStrategy, conflictResolutions, aggregatedMetrics, consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase }, upstreamContextChain, metadata, discoveryCollectorResult?, planningCollectorResult?, ticketCollectorResult? }
                 - orchestratorRequest: { goal, phase }
                 - discoveryRequest: { goal }
                 - discoveryState: { request: { goal } }
@@ -247,6 +286,7 @@ public interface AgentInterfaces {
                 - interruptRequest: { type, reason }
                 - agentRequests: { requests: [ { goal, subdomainFocus } ] }
                 - collectorRequest: { goal, discoveryResults }
+                - delegation fields: { schemaVersion, resultId, upstreamContextId, goal, delegationRationale, assignments, contextSelections, metadata }
                 """;
 
         public static final String DISCOVERY_AGENT_START_MESSAGE = """
@@ -272,7 +312,7 @@ public interface AgentInterfaces {
 
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
-                - agentResult: { output }
+                - agentResult: { schemaVersion, resultId, upstreamContextId, report, output }
                 - interruptState: { request: { type, reason } }
                 """;
 
@@ -293,7 +333,7 @@ public interface AgentInterfaces {
 
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
-                - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
+                - collectorResult: { schemaVersion, resultId, inputs, mergeStrategy, conflictResolutions, aggregatedMetrics, consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase }, upstreamContextChain, metadata, unifiedCodeMap, recommendations, querySpecificFindings, discoveryCuration }
                 - orchestratorRequest: { goal, phase }
                 - discoveryRequest: { goal }
                 - planningRequest: { goal }
@@ -323,6 +363,7 @@ public interface AgentInterfaces {
                 - interruptRequest: { type, reason }
                 - agentRequests: { requests: [ { goal } ] }
                 - collectorRequest: { goal, planningResults }
+                - delegation fields: { schemaVersion, resultId, upstreamContextId, goal, delegationRationale, assignments, contextSelections, metadata }
 
                 Goal: {{goal}}
                 """;
@@ -339,7 +380,7 @@ public interface AgentInterfaces {
 
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
-                - agentResult: { output }
+                - agentResult: { schemaVersion, resultId, upstreamContextId, discoveryResultId, tickets, output }
                 - interruptState: { request: { type, reason } }
                 """;
 
@@ -358,7 +399,7 @@ public interface AgentInterfaces {
 
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
-                - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
+                - collectorResult: { schemaVersion, resultId, inputs, mergeStrategy, conflictResolutions, aggregatedMetrics, consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase }, upstreamContextChain, metadata, finalizedTickets, dependencyGraph, discoveryResultId, planningCuration }
                 - orchestratorRequest: { goal, phase }
                 - discoveryRequest: { goal }
                 - planningRequest: { goal }
@@ -398,6 +439,7 @@ public interface AgentInterfaces {
                 - interruptRequest: { type, reason }
                 - agentRequests: { requests: [ { ticketDetails, ticketDetailsFilePath, discoveryContext, planningContext } ] }
                 - collectorRequest: { goal, ticketResults }
+                - delegation fields: { schemaVersion, resultId, upstreamContextId, goal, delegationRationale, assignments, contextSelections, metadata }
                 """;
 
         public static final String TICKET_AGENT_START_MESSAGE = """
@@ -420,7 +462,7 @@ public interface AgentInterfaces {
 
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
-                - agentResult: { output }
+                - agentResult: { schemaVersion, resultId, upstreamContextId, ticketId, discoveryResultId, implementationSummary, filesModified, testResults, commits, verificationStatus, upstreamContextChain, output }
                 - interruptState: { request: { type, reason } }
                 """;
 
@@ -448,7 +490,7 @@ public interface AgentInterfaces {
 
                 Return a routing object with exactly one of:
                 - interruptRequest: { type, reason }
-                - collectorResult: { consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase } }
+                - collectorResult: { schemaVersion, resultId, inputs, mergeStrategy, conflictResolutions, aggregatedMetrics, consolidatedOutput, collectorDecision { decisionType, rationale, requestedPhase }, upstreamContextChain, metadata, completionStatus, followUps, ticketCuration }
                 - orchestratorRequest: { goal, phase }
                 - orchestratorState: { request: { goal, phase } }
                 - discoveryRequest: { goal }
@@ -476,12 +518,15 @@ public interface AgentInterfaces {
 
                 Return a routing object with:
                 - interruptRequest: { type, reason }
-                - reviewResult: { output }
+                - reviewResult: { schemaVersion, resultId, upstreamContextId, assessmentStatus, feedback, suggestions, contentLinks, output }
                 - one return route matching the provided returnTo*Collector field:
                   orchestratorCollectorRequest | discoveryCollectorRequest | planningCollectorRequest |
                   ticketCollectorRequest | contextCollectorRequest
                 """;
 
+//        TODO: the current contexts should be added to this as well - the merger agent must curate these over in the requests- and experiment with routing to the
+//                  context agent which retrieves from blackboard history the contexts and the merger, and builds out the next request as a form of summarization
+//                  and context curation
         public static final String MERGER_AGENT_START_MESSAGE = """
                 Review the merge outcome and validate it is correct.
 
@@ -500,7 +545,7 @@ public interface AgentInterfaces {
 
                 Return a routing object with:
                 - interruptRequest: { type, reason }
-                - mergerResult: { output }
+                - mergerResult: { schemaVersion, resultId, upstreamContextId, acceptability, conflictDetails, resolutionGuidance, output }
                 - one return route matching the provided returnTo*Collector field:
                   orchestratorCollectorRequest | discoveryCollectorRequest | planningCollectorRequest |
                   ticketCollectorRequest | contextCollectorRequest
@@ -547,6 +592,44 @@ public interface AgentInterfaces {
                 - mergerRequest: { mergeContext, mergeSummary, conflictFiles, returnToOrchestratorCollector?, returnToDiscoveryCollector?, returnToPlanningCollector?, returnToTicketCollector?, returnToContextCollector? }
                 """;
 
+        private String resolveWorkflowRunId(OperationContext context) {
+            String nodeId = resolveNodeId(context);
+            if (nodeId == null || nodeId.isBlank()) {
+                return "wf-unknown";
+            }
+            return nodeId.startsWith("wf-") ? nodeId : "wf-" + nodeId;
+        }
+
+        private ContextId resolveContextId(ContextId existing, OperationContext context, AgentType agentType) {
+            if (existing != null) {
+                return existing;
+            }
+            if (contextIdService == null) {
+                return null;
+            }
+            return contextIdService.generate(resolveWorkflowRunId(context), agentType);
+        }
+
+        /**
+         * Build prompt context by extracting upstream contexts from typed curation fields on the input.
+         * Delegates to PromptContextFactory for pattern matching logic.
+         */
+        private PromptContext buildPromptContext(
+                AgentType agentType,
+                Object input,
+                OperationContext context
+        ) {
+            BlackboardHistory.History history = context != null ? context.last(BlackboardHistory.History.class) : null;
+            return promptContextFactory.build(agentType, input, history);
+        }
+
+        private String assemblePrompt(String basePrompt, PromptContext promptContext) {
+            if (promptAssembly == null) {
+                return basePrompt;
+            }
+            return promptAssembly.assemble(basePrompt, promptContext);
+        }
+
         @Action
         @AchievesGoal(description = "Finished orchestrator collector")
         public AgentModels.OrchestratorCollectorResult finalCollectorResult(
@@ -563,13 +646,14 @@ public interface AgentInterfaces {
                 AgentModels.OrchestratorCollectorRequest input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "consolidateWorkflowOutputs", input);
+            registerAndHideInput(context, "consolidateWorkflowOutputs", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "orchestrator-collector", context);
             CollectorNode running = workflowGraphService.startOrchestratorCollector(context, input);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.ORCHESTRATOR_COLLECTOR, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     ORCHESTRATOR_COLLECTOR_AGENT_START_MESSAGE,
                     Map.of("goal", input.goal(), "phase", input.phase())
-            );
+            ), promptContext);
             AgentModels.OrchestratorCollectorRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.OrchestratorCollectorRouting.class);
@@ -583,13 +667,14 @@ public interface AgentInterfaces {
                 AgentModels.DiscoveryCollectorRequest input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "consolidateDiscoveryFindings", input);
+            registerAndHideInput(context, "consolidateDiscoveryFindings", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "discovery-collector", context);
             DiscoveryCollectorNode running = workflowGraphService.startDiscoveryCollector(context, input);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.DISCOVERY_COLLECTOR, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     DISCOVERY_COLLECTOR_START_MESSAGE,
                     Map.of("goal", input.goal(), "discoveryResults", input.discoveryResults())
-            );
+            ), promptContext);
             AgentModels.DiscoveryCollectorRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.DiscoveryCollectorRouting.class);
@@ -603,13 +688,14 @@ public interface AgentInterfaces {
                 AgentModels.PlanningCollectorRequest input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "consolidatePlansIntoTickets", input);
+            registerAndHideInput(context, "consolidatePlansIntoTickets", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "planning-collector", context);
             PlanningCollectorNode running = workflowGraphService.startPlanningCollector(context, input);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.PLANNING_COLLECTOR, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     PLANNING_COLLECTOR_MESSAGE,
                     Map.of("goal", input.goal(), "planningResults", input.planningResults())
-            );
+            ), promptContext);
             AgentModels.PlanningCollectorRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.PlanningCollectorRouting.class);
@@ -623,19 +709,19 @@ public interface AgentInterfaces {
                 AgentModels.TicketCollectorRequest input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "consolidateTicketResults", input);
+            registerAndHideInput(context, "consolidateTicketResults", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "ticket-collector", context);
             TicketCollectorNode running = workflowGraphService.startTicketCollector(context, input);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.TICKET_COLLECTOR, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     TICKET_COLLECTOR_START_MESSAGE,
                     Map.of("goal", input.goal(), "ticketResults", input.ticketResults())
-            );
+            ), promptContext);
             AgentModels.TicketCollectorRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.TicketCollectorRouting.class);
             workflowGraphService.completeTicketCollector(context, running, routing);
             emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-collector", context, routing);
-
             return routing;
         }
 
@@ -644,13 +730,14 @@ public interface AgentInterfaces {
                 AgentModels.OrchestratorRequest input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "coordinateWorkflow", input);
+            registerAndHideInput(context, "coordinateWorkflow", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "orchestrator", context);
             OrchestratorNode running = workflowGraphService.startOrchestrator(context);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.ORCHESTRATOR, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     ORCHESTRATOR_AGENT_START_MESSAGE,
                     Map.of("goal", input.goal(), "phase", input.phase())
-            );
+            ), promptContext);
             AgentModels.OrchestratorRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.OrchestratorRouting.class);
@@ -665,7 +752,7 @@ public interface AgentInterfaces {
                 AgentModels.OrchestratorInterruptRequest request,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "handleOrchestratorInterrupt", request);
+            registerAndHideInput(context, "handleOrchestratorInterrupt", request, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "orchestrator-interrupt", context);
             workflowGraphService.handleOrchestratorInterrupt(context, request);
             OrchestratorNode originNode = workflowGraphService.requireOrchestrator(context);
@@ -687,10 +774,13 @@ public interface AgentInterfaces {
                     context,
                     request,
                     originNode,
-                    () -> renderTemplate(
-                            ORCHESTRATOR_AGENT_START_MESSAGE,
-                            Map.of("goal", lastRequest.goal(), "phase", lastRequest.phase())
-                    ),
+                    () -> {
+                        PromptContext promptContext = buildPromptContext(AgentType.ORCHESTRATOR, lastRequest, context);
+                        return assemblePrompt(renderTemplate(
+                                ORCHESTRATOR_AGENT_START_MESSAGE,
+                                Map.of("goal", lastRequest.goal(), "phase", lastRequest.phase())
+                        ), promptContext);
+                    },
                     AgentModels.OrchestratorRouting.class,
                     REVIEW_AGENT_START_MESSAGE
             );
@@ -713,13 +803,14 @@ public interface AgentInterfaces {
                 AgentModels.DiscoveryOrchestratorRequest input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "kickOffAnyNumberOfAgentsForCodeSearch", input);
+            registerAndHideInput(context, "kickOffAnyNumberOfAgentsForCodeSearch", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "discovery-orchestrator", context);
             DiscoveryOrchestratorNode running = workflowGraphService.startDiscoveryOrchestrator(context, input);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.DISCOVERY_ORCHESTRATOR, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     DISCOVERY_ORCHESTRATOR_START_MESSAGE,
                     Map.of("goal", input.goal())
-            );
+            ), promptContext);
             AgentModels.DiscoveryOrchestratorRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.DiscoveryOrchestratorRouting.class);
@@ -734,7 +825,7 @@ public interface AgentInterfaces {
                 AgentModels.DiscoveryAgentRequests input,
                 ActionContext context
         ) {
-            registerAndHideInput(context, "dispatchDiscoveryAgentRequests", input);
+            registerAndHideInput(context, "dispatchDiscoveryAgentRequests", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "discovery-dispatch", context);
             List<AgentModels.DiscoveryAgentRequest> requests = input != null ? input.requests() : List.of();
             if (requests == null || requests.isEmpty()) {
@@ -743,6 +834,7 @@ public interface AgentInterfaces {
             }
             String goal = resolveDiscoveryGoal(context, requests);
             StringBuilder results = new StringBuilder();
+            List<AgentModels.DiscoveryAgentResult> discoveryResults = new ArrayList<>();
             DiscoveryOrchestratorNode discoveryParent = workflowGraphService.requireDiscoveryOrchestrator(context);
             var discoveryDispatchAgent = context.agentPlatform().agents()
                     .stream().filter(a -> Objects.equals(a.getName(), AgentInterfaces.WORKFLOW_DISCOVERY_DISPATCH_SUBAGENT))
@@ -752,6 +844,8 @@ public interface AgentInterfaces {
                     continue;
                 }
                 String focus = firstNonBlank(request.subdomainFocus(), "Discovery");
+                // Enrich the request with ContextId and PreviousContext
+                AgentModels.DiscoveryAgentRequest enrichedRequest = requestEnrichment.enrich(request, context);
                 DiscoveryNode running = workflowGraphService.startDiscoveryAgent(
                         discoveryParent,
                         goal,
@@ -759,13 +853,14 @@ public interface AgentInterfaces {
                 );
                 AgentModels.DiscoveryAgentRouting response = runSubProcess(
                         context,
-                        request,
+                        enrichedRequest,
                         discoveryDispatchAgent,
                         AgentModels.DiscoveryAgentRouting.class
                 );
                 AgentModels.DiscoveryAgentResult agentResult = response != null ? response.agentResult() : null;
                 workflowGraphService.completeDiscoveryAgent(running, agentResult);
                 if (agentResult != null) {
+                    discoveryResults.add(agentResult);
                     appendSection(
                             results,
                             focus,
@@ -773,13 +868,20 @@ public interface AgentInterfaces {
                     );
                 }
             }
+            // DiscoveryCollectorRequest no longer has upstreamContext field
             AgentModels.DiscoveryCollectorRequest collectorRequest =
-                    new AgentModels.DiscoveryCollectorRequest(goal, results.toString().trim());
+                    new AgentModels.DiscoveryCollectorRequest(
+                            resolveContextId(null, context, AgentType.DISCOVERY_COLLECTOR),
+                            goal,
+                            results.toString().trim(),
+                            null // previousContext
+                    );
             context.addObject(collectorRequest);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.DISCOVERY_COLLECTOR, collectorRequest, context);
+            String prompt = assemblePrompt(renderTemplate(
                     DISCOVERY_DISPATCH_MESSAGE,
                     Map.of("goal", collectorRequest.goal(), "discoveryResults", collectorRequest.discoveryResults())
-            );
+            ), promptContext);
             AgentModels.DiscoveryAgentDispatchRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.DiscoveryAgentDispatchRouting.class);
@@ -787,20 +889,12 @@ public interface AgentInterfaces {
             return routing;
         }
 
-//        AfterInterrupted ... for each, so these will be to add the context from the interruption and contain the original request
-//        BackTo ... for each item you can jump back to, adds the additional context, removes the inner request, then, when you go
-//                  back through the BackTo, then it can add the inner request back to the blackboard -- ContinuationWrapper, which
-//                  can then accept the blackboard as a sort of visitor idea after and before, and based on it's inner, it operates
-//                  specifically over the blackboard to remove, and then it saves those items, and then can be smart about adding them
-//                  back - and there's one per - so specific to each, or one and case class over (maybe in a fn instead of visitor in one
-//                  place).
-
         @Action(canRerun = true, cost = 1.0)
         public AgentModels.DiscoveryOrchestratorRouting handleDiscoveryInterrupt(
                 AgentModels.DiscoveryOrchestratorInterruptRequest request,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "handleDiscoveryInterrupt", request);
+            registerAndHideInput(context, "handleDiscoveryInterrupt", request, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "discovery-interrupt", context);
             workflowGraphService.handleDiscoveryInterrupt(context, request);
             DiscoveryOrchestratorNode originNode = workflowGraphService.requireDiscoveryOrchestrator(context);
@@ -824,10 +918,13 @@ public interface AgentInterfaces {
                     context,
                     request,
                     originNode,
-                    () -> renderTemplate(
-                            DISCOVERY_ORCHESTRATOR_START_MESSAGE,
-                            Map.of("goal", lastRequest.goal())
-                    ),
+                    () -> {
+                        PromptContext promptContext = buildPromptContext(AgentType.DISCOVERY_ORCHESTRATOR, lastRequest, context);
+                        return assemblePrompt(renderTemplate(
+                                DISCOVERY_ORCHESTRATOR_START_MESSAGE,
+                                Map.of("goal", lastRequest.goal())
+                        ), promptContext);
+                    },
                     AgentModels.DiscoveryOrchestratorRouting.class,
                     REVIEW_AGENT_START_MESSAGE
             );
@@ -846,21 +943,19 @@ public interface AgentInterfaces {
             return routing;
         }
 
-//        add a conversation data model, add the stuff from the process into this, then clear everything else from the blackboard
-//        add more args for finer matching
-//        only clear blackboard when going backwards, then remove only items previous and add those to conversation
         @Action(canRerun = true)
         public AgentModels.PlanningOrchestratorRouting decomposePlanAndCreateWorkItems(
                 AgentModels.PlanningOrchestratorRequest input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "decomposePlanAndCreateWorkItems", input);
+            registerAndHideInput(context, "decomposePlanAndCreateWorkItems", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "planning-orchestrator", context);
             PlanningOrchestratorNode running = workflowGraphService.startPlanningOrchestrator(context, input);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.PLANNING_ORCHESTRATOR, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     PLANNING_ORCHESTRATOR_MESSAGE,
                     Map.of("goal", input.goal())
-            );
+            ), promptContext);
             AgentModels.PlanningOrchestratorRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.PlanningOrchestratorRouting.class);
@@ -874,7 +969,7 @@ public interface AgentInterfaces {
                 AgentModels.PlanningAgentRequests input,
                 ActionContext context
         ) {
-            registerAndHideInput(context, "dispatchPlanningAgentRequests", input);
+            registerAndHideInput(context, "dispatchPlanningAgentRequests", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "planning-dispatch", context);
             List<AgentModels.PlanningAgentRequest> requests = input != null ? input.requests() : List.of();
             if (requests == null) {
@@ -882,8 +977,14 @@ public interface AgentInterfaces {
             }
             String goal = resolvePlanningGoal(context, requests);
             StringBuilder results = new StringBuilder();
+            List<AgentModels.PlanningAgentResult> planningResults = new ArrayList<>();
             int index = 0;
             PlanningOrchestratorNode planningParent = workflowGraphService.requirePlanningOrchestrator(context);
+            AgentModels.PlanningOrchestratorRequest orchestratorRequest = context.last(AgentModels.PlanningOrchestratorRequest.class);
+            // Get discoveryCuration from orchestrator request (typed field)
+            UpstreamContext.DiscoveryCollectorContext discoveryContext = orchestratorRequest != null 
+                    ? orchestratorRequest.discoveryCuration() 
+                    : null;
             var planningDispatchAgent = context.agentPlatform().agents()
                     .stream().filter(a -> Objects.equals(a.getName(), AgentInterfaces.WORKFLOW_PLANNING_DISPATCH_SUBAGENT))
                     .findAny().orElse(null);
@@ -894,6 +995,11 @@ public interface AgentInterfaces {
                 }
                 index++;
                 String title = "Plan segment " + index;
+                // Pass through discoveryCuration from orchestrator if not set, then enrich with ContextId and PreviousContext
+                AgentModels.PlanningAgentRequest requestWithCuration = request.discoveryCuration() == null && discoveryContext != null
+                        ? request.toBuilder().discoveryCuration(discoveryContext).build()
+                        : request;
+                AgentModels.PlanningAgentRequest enrichedRequest = requestEnrichment.enrich(requestWithCuration, context);
                 PlanningNode running = workflowGraphService.startPlanningAgent(
                         planningParent,
                         goal,
@@ -901,13 +1007,14 @@ public interface AgentInterfaces {
                 );
                 AgentModels.PlanningAgentRouting response = runSubProcess(
                         context,
-                        request,
+                        enrichedRequest,
                         planningDispatchAgent,
                         AgentModels.PlanningAgentRouting.class
                 );
                 AgentModels.PlanningAgentResult agentResult = response != null ? response.agentResult() : null;
                 workflowGraphService.completePlanningAgent(running, agentResult);
                 if (agentResult != null) {
+                    planningResults.add(agentResult);
                     appendSection(
                             results,
                             title,
@@ -915,13 +1022,21 @@ public interface AgentInterfaces {
                     );
                 }
             }
+            // PlanningCollectorRequest uses typed discoveryCuration field
             AgentModels.PlanningCollectorRequest collectorRequest =
-                    new AgentModels.PlanningCollectorRequest(goal, results.toString().trim());
+                    new AgentModels.PlanningCollectorRequest(
+                            resolveContextId(null, context, AgentType.PLANNING_COLLECTOR),
+                            goal,
+                            results.toString().trim(),
+                            discoveryContext,
+                            null // previousContext
+                    );
             context.addObject(collectorRequest);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.PLANNING_COLLECTOR, collectorRequest, context);
+            String prompt = assemblePrompt(renderTemplate(
                     PLANNING_DISPATCH_MESSAGE,
                     Map.of("goal", collectorRequest.goal(), "planningResults", collectorRequest.planningResults())
-            );
+            ), promptContext);
             AgentModels.PlanningAgentDispatchRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.PlanningAgentDispatchRouting.class);
@@ -934,7 +1049,7 @@ public interface AgentInterfaces {
                 AgentModels.PlanningOrchestratorInterruptRequest request,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "handlePlanningInterrupt", request);
+            registerAndHideInput(context, "handlePlanningInterrupt", request, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "planning-interrupt", context);
             workflowGraphService.handlePlanningInterrupt(context, request);
             PlanningOrchestratorNode originNode = workflowGraphService.requirePlanningOrchestrator(context);
@@ -958,10 +1073,13 @@ public interface AgentInterfaces {
                     context,
                     request,
                     originNode,
-                    () -> renderTemplate(
-                            PLANNING_ORCHESTRATOR_MESSAGE,
-                            Map.of("goal", lastRequest.goal())
-                    ),
+                    () -> {
+                        PromptContext promptContext = buildPromptContext(AgentType.PLANNING_ORCHESTRATOR, lastRequest, context);
+                        return assemblePrompt(renderTemplate(
+                                PLANNING_ORCHESTRATOR_MESSAGE,
+                                Map.of("goal", lastRequest.goal())
+                        ), promptContext);
+                    },
                     AgentModels.PlanningOrchestratorRouting.class,
                     REVIEW_AGENT_START_MESSAGE
             );
@@ -985,7 +1103,7 @@ public interface AgentInterfaces {
                 AgentModels.TicketOrchestratorResult input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "finalizeTicketOrchestrator", input);
+            registerAndHideInput(context, "finalizeTicketOrchestrator", input, requestEnrichment);
             return new AgentModels.OrchestratorCollectorResult(
                     input.output(),
                     new AgentModels.CollectorDecision(Events.CollectorDecisionType.ADVANCE_PHASE, "", ""));
@@ -996,18 +1114,19 @@ public interface AgentInterfaces {
                 AgentModels.TicketOrchestratorRequest input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "orchestrateTicketExecution", input);
+            registerAndHideInput(context, "orchestrateTicketExecution", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "ticket-orchestrator", context);
             TicketOrchestratorNode running = workflowGraphService.startTicketOrchestrator(context, input);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.TICKET_ORCHESTRATOR, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     TICKET_ORCHESTRATOR_START_MESSAGE,
                     Map.of(
                             "goal", input.goal(),
-                            "tickets", input.tickets(),
-                            "discoveryContext", input.discoveryContext(),
-                            "planningContext", input.planningContext()
+                            "tickets", input.planningCuration() != null ? input.planningCuration().prettyPrintTickets() : "",
+                            "discoveryContext", input.discoveryCuration() != null ? input.discoveryCuration().prettyPrint() : "",
+                            "planningContext", input.planningCuration() != null ? input.planningCuration().prettyPrint() : ""
                     )
-            );
+            ), promptContext);
             AgentModels.TicketOrchestratorRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.TicketOrchestratorRouting.class);
@@ -1021,7 +1140,7 @@ public interface AgentInterfaces {
                 AgentModels.TicketAgentRequests input,
                 ActionContext context
         ) {
-            registerAndHideInput(context, "dispatchTicketAgentRequests", input);
+            registerAndHideInput(context, "dispatchTicketAgentRequests", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "ticket-dispatch", context);
             List<AgentModels.TicketAgentRequest> requests = input != null ? input.requests() : List.of();
             if (requests == null) {
@@ -1029,8 +1148,18 @@ public interface AgentInterfaces {
             }
             String goal = resolveTicketGoal(context);
             StringBuilder results = new StringBuilder();
+            List<AgentModels.TicketAgentResult> ticketResults = new ArrayList<>();
             int index = 0;
             TicketOrchestratorNode ticketParent = workflowGraphService.requireTicketOrchestrator(context);
+            AgentModels.TicketOrchestratorRequest orchestratorRequest = context.last(AgentModels.TicketOrchestratorRequest.class);
+            // Get typed curation fields directly from orchestrator request
+            UpstreamContext.DiscoveryCollectorContext discoveryCuration = orchestratorRequest != null 
+                    ? orchestratorRequest.discoveryCuration() 
+                    : null;
+            UpstreamContext.PlanningCollectorContext planningCuration = orchestratorRequest != null 
+                    ? orchestratorRequest.planningCuration() 
+                    : null;
+            
             var ticketDispatchAgent = context.agentPlatform().agents()
                     .stream().filter(a -> Objects.equals(a.getName(), AgentInterfaces.WORKFLOW_TICKET_DISPATCH_SUBAGENT))
                     .findAny().orElse(null);
@@ -1040,30 +1169,48 @@ public interface AgentInterfaces {
                 }
                 index++;
                 String heading = firstNonBlank(request.ticketDetailsFilePath(), "Ticket " + index);
+                
+                // Pass through curation fields from orchestrator if not set, then enrich with ContextId and PreviousContext
+                AgentModels.TicketAgentRequest requestWithCurations = request.toBuilder()
+                        .discoveryCuration(request.discoveryCuration() != null ? request.discoveryCuration() : discoveryCuration)
+                        .planningCuration(request.planningCuration() != null ? request.planningCuration() : planningCuration)
+                        .build();
+                AgentModels.TicketAgentRequest enrichedRequest = requestEnrichment.enrich(requestWithCurations, context);
+
                 TicketNode running = workflowGraphService.startTicketAgent(
                         ticketParent,
-                        request,
+                        enrichedRequest,
                         index
                 );
                 AgentModels.TicketAgentRouting response = runSubProcess(
                         context,
-                        request,
+                        enrichedRequest,
                         ticketDispatchAgent,
                         AgentModels.TicketAgentRouting.class
                 );
                 AgentModels.TicketAgentResult agentResult = response != null ? response.agentResult() : null;
                 workflowGraphService.completeTicketAgent(running, agentResult);
                 if (agentResult != null) {
+                    ticketResults.add(agentResult);
                     appendSection(results, heading, agentResult.output());
                 }
             }
+            // Create collector request with typed curation fields
             AgentModels.TicketCollectorRequest collectorRequest =
-                    new AgentModels.TicketCollectorRequest(goal, results.toString().trim());
+                    new AgentModels.TicketCollectorRequest(
+                            resolveContextId(null, context, AgentType.TICKET_COLLECTOR),
+                            goal,
+                            results.toString().trim(),
+                            discoveryCuration,
+                            planningCuration,
+                            null
+                    );
             context.addObject(collectorRequest);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.TICKET_COLLECTOR, collectorRequest, context);
+            String prompt = assemblePrompt(renderTemplate(
                     TICKET_DISPATCH_MESSAGE,
                     Map.of("goal", collectorRequest.goal(), "ticketResults", collectorRequest.ticketResults())
-            );
+            ), promptContext);
             AgentModels.TicketAgentDispatchRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.TicketAgentDispatchRouting.class);
@@ -1076,7 +1223,7 @@ public interface AgentInterfaces {
                 AgentModels.TicketOrchestratorInterruptRequest request,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "handleTicketInterrupt", request);
+            registerAndHideInput(context, "handleTicketInterrupt", request, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "ticket-interrupt", context);
             workflowGraphService.handleTicketInterrupt(context, request);
             TicketOrchestratorNode originNode = workflowGraphService.requireTicketOrchestrator(context);
@@ -1100,15 +1247,18 @@ public interface AgentInterfaces {
                     context,
                     request,
                     originNode,
-                    () -> renderTemplate(
-                            TICKET_ORCHESTRATOR_START_MESSAGE,
-                            Map.of(
-                                    "goal", lastRequest.goal(),
-                                    "tickets", lastRequest.tickets(),
-                                    "discoveryContext", lastRequest.discoveryContext(),
-                                    "planningContext", lastRequest.planningContext()
-                            )
-                    ),
+                    () -> {
+                        PromptContext promptContext = buildPromptContext(AgentType.TICKET_ORCHESTRATOR, lastRequest, context);
+                        return assemblePrompt(renderTemplate(
+                                TICKET_ORCHESTRATOR_START_MESSAGE,
+                                Map.of(
+                                        "goal", lastRequest.goal(),
+                                        "tickets", lastRequest.planningCuration() != null ? lastRequest.planningCuration().prettyPrintTickets() : "",
+                                        "discoveryContext", lastRequest.discoveryCuration() != null ? lastRequest.discoveryCuration().prettyPrint() : "",
+                                        "planningContext", lastRequest.planningCuration() != null ? lastRequest.planningCuration().prettyPrint() : ""
+                                )
+                        ), promptContext);
+                    },
                     AgentModels.TicketOrchestratorRouting.class,
                     REVIEW_AGENT_START_MESSAGE
             );
@@ -1132,7 +1282,7 @@ public interface AgentInterfaces {
                 AgentModels.ReviewRequest input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "evaluateContent", input);
+            registerAndHideInput(context, "evaluateContent", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "review-agent", context);
             ReviewNode running = workflowGraphService.startReview(context, input);
             String returnRoute = renderReturnRoute(
@@ -1141,14 +1291,15 @@ public interface AgentInterfaces {
                     input.returnToPlanningCollector(),
                     input.returnToTicketCollector()
             );
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.REVIEW_AGENT, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     REVIEW_AGENT_START_MESSAGE,
                     Map.of(
                             "content", input.content(),
                             "criteria", input.criteria(),
                             "returnRoute", returnRoute
                     )
-            );
+            ), promptContext);
             AgentModels.ReviewRouting response = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.ReviewRouting.class);
@@ -1171,7 +1322,7 @@ public interface AgentInterfaces {
                 AgentModels.ReviewInterruptRequest request,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "handleReviewInterrupt", request);
+            registerAndHideInput(context, "handleReviewInterrupt", request, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "review-interrupt", context);
             workflowGraphService.handleReviewInterrupt(context, request);
             ReviewNode originNode = workflowGraphService.requireReviewNode(context);
@@ -1205,14 +1356,15 @@ public interface AgentInterfaces {
                                 lastRequest.returnToPlanningCollector(),
                                 lastRequest.returnToTicketCollector()
                         );
-                        return renderTemplate(
+                        PromptContext promptContext = buildPromptContext(AgentType.REVIEW_AGENT, lastRequest, context);
+                        return assemblePrompt(renderTemplate(
                                 REVIEW_AGENT_START_MESSAGE,
                                 Map.of(
                                         "content", lastRequest.content(),
                                         "criteria", lastRequest.criteria(),
                                         "returnRoute", returnRoute
                                 )
-                        );
+                        ), promptContext);
                     },
                     AgentModels.ReviewRouting.class,
                     REVIEW_AGENT_START_MESSAGE
@@ -1241,7 +1393,7 @@ public interface AgentInterfaces {
                 AgentModels.MergerRequest input,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "performMerge", input);
+            registerAndHideInput(context, "performMerge", input, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "merger-agent", context);
             MergeNode running = workflowGraphService.startMerge(context, input);
             String returnRoute = renderReturnRoute(
@@ -1250,7 +1402,8 @@ public interface AgentInterfaces {
                     input.returnToPlanningCollector(),
                     input.returnToTicketCollector()
             );
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.MERGER_AGENT, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     MERGER_AGENT_START_MESSAGE,
                     Map.of(
                             "mergeContext", input.mergeContext(),
@@ -1258,7 +1411,7 @@ public interface AgentInterfaces {
                             "conflictFiles", input.conflictFiles(),
                             "returnRoute", returnRoute
                     )
-            );
+            ), promptContext);
             AgentModels.MergerRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.MergerRouting.class);
@@ -1275,16 +1428,42 @@ public interface AgentInterfaces {
                 AgentModels.TicketCollectorResult request,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "handleTicketCollectorBranch", request);
+            registerAndHideInput(context, "handleTicketCollectorBranch", request, requestEnrichment);
+            // Get upstream curations from context for routing back
+            AgentModels.TicketOrchestratorRequest lastTicketOrchestratorRequest = 
+                    context.last(AgentModels.TicketOrchestratorRequest.class);
+            UpstreamContext.DiscoveryCollectorContext discoveryCuration = lastTicketOrchestratorRequest != null 
+                    ? lastTicketOrchestratorRequest.discoveryCuration() 
+                    : null;
+            UpstreamContext.PlanningCollectorContext planningCuration = lastTicketOrchestratorRequest != null 
+                    ? lastTicketOrchestratorRequest.planningCuration() 
+                    : null;
+            
             return switch(request.collectorDecision().decisionType()) {
                 case ROUTE_BACK -> {
+                    ContextId contextId = resolveContextId(null, context, AgentType.TICKET_ORCHESTRATOR);
                     yield AgentModels.TicketCollectorRouting.builder()
-                            .ticketRequest(new AgentModels.TicketOrchestratorRequest(request.consolidatedOutput(), "", "", ""))
+                            .ticketRequest(new AgentModels.TicketOrchestratorRequest(
+                                    contextId,
+                                    request.consolidatedOutput(),
+                                    discoveryCuration,
+                                    planningCuration,
+                                    null
+                            ))
                             .build();
                 }
                 case ADVANCE_PHASE -> {
+                    ContextId contextId = resolveContextId(null, context, AgentType.ORCHESTRATOR_COLLECTOR);
                     yield AgentModels.TicketCollectorRouting.builder()
-                            .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest(request.consolidatedOutput(), request.collectorDecision().requestedPhase()))
+                            .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest(
+                                    contextId,
+                                    request.consolidatedOutput(),
+                                    request.collectorDecision().requestedPhase(),
+                                    discoveryCuration,
+                                    planningCuration,
+                                    request.ticketCuration(),
+                                    null
+                            ))
                             .build();
                 }
                 case STOP -> {
@@ -1298,16 +1477,28 @@ public interface AgentInterfaces {
                 AgentModels.DiscoveryCollectorResult request,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "handleDiscoveryCollectorBranch", request);
+            registerAndHideInput(context, "handleDiscoveryCollectorBranch", request, requestEnrichment);
             return switch(request.collectorDecision().decisionType()) {
                 case ROUTE_BACK -> {
+                    ContextId contextId = resolveContextId(null, context, AgentType.DISCOVERY_ORCHESTRATOR);
                     yield AgentModels.DiscoveryCollectorRouting.builder()
-                            .discoveryRequest(new AgentModels.DiscoveryOrchestratorRequest(request.consolidatedOutput()))
+                            .discoveryRequest(new AgentModels.DiscoveryOrchestratorRequest(
+                                    contextId,
+                                    request.consolidatedOutput(),
+                                    null
+                            ))
                             .build();
                 }
                 case ADVANCE_PHASE -> {
+                    ContextId contextId = resolveContextId(null, context, AgentType.PLANNING_ORCHESTRATOR);
+                    // Pass the discovery curation directly to planning orchestrator
                     yield AgentModels.DiscoveryCollectorRouting.builder()
-                            .planningRequest(new AgentModels.PlanningOrchestratorRequest(request.consolidatedOutput()))
+                            .planningRequest(new AgentModels.PlanningOrchestratorRequest(
+                                    contextId,
+                                    request.consolidatedOutput(),
+                                    request.discoveryCuration(),
+                                    null
+                            ))
                             .build();
                 }
                 case STOP -> {
@@ -1321,11 +1512,27 @@ public interface AgentInterfaces {
                 AgentModels.OrchestratorCollectorResult request,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "handleOrchestratorCollectorBranch", request);
+            registerAndHideInput(context, "handleOrchestratorCollectorBranch", request, requestEnrichment);
             return switch(request.collectorDecision().decisionType()) {
                 case ROUTE_BACK -> {
+                    ContextId contextId = resolveContextId(null, context, AgentType.ORCHESTRATOR);
+                    // Pass through curations from the collector result
                     yield AgentModels.OrchestratorCollectorRouting.builder()
-                            .orchestratorRequest(new AgentModels.OrchestratorRequest(request.consolidatedOutput(), request.collectorDecision().requestedPhase()))
+                            .orchestratorRequest(new AgentModels.OrchestratorRequest(
+                                    contextId,
+                                    request.consolidatedOutput(),
+                                    request.collectorDecision().requestedPhase(),
+                                    request.discoveryCollectorResult() != null 
+                                            ? request.discoveryCollectorResult().discoveryCuration() 
+                                            : null,
+                                    request.planningCollectorResult() != null 
+                                            ? request.planningCollectorResult().planningCuration() 
+                                            : null,
+                                    request.ticketCollectorResult() != null 
+                                            ? request.ticketCollectorResult().ticketCuration() 
+                                            : null,
+                                    null
+                            ))
                             .build();
                 }
                 case ADVANCE_PHASE -> {
@@ -1344,16 +1551,38 @@ public interface AgentInterfaces {
                 AgentModels.PlanningCollectorResult request,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "handlePlanningCollectorBranch", request);
+            registerAndHideInput(context, "handlePlanningCollectorBranch", request, requestEnrichment);
+            // Get discovery curation from prior planning orchestrator request
+            AgentModels.PlanningOrchestratorRequest lastPlanningOrchestratorRequest = 
+                    context.last(AgentModels.PlanningOrchestratorRequest.class);
+            UpstreamContext.DiscoveryCollectorContext discoveryCuration = lastPlanningOrchestratorRequest != null 
+                    ? lastPlanningOrchestratorRequest.discoveryCuration() 
+                    : null;
+            
             return switch(request.collectorDecision().decisionType()) {
                 case ROUTE_BACK -> {
+                    ContextId contextId = resolveContextId(null, context, AgentType.PLANNING_ORCHESTRATOR);
+                    // Pass discovery curation back when routing back
                     yield AgentModels.PlanningCollectorRouting.builder()
-                            .planningRequest(new AgentModels.PlanningOrchestratorRequest(request.consolidatedOutput()))
+                            .planningRequest(new AgentModels.PlanningOrchestratorRequest(
+                                    contextId,
+                                    request.consolidatedOutput(),
+                                    discoveryCuration,
+                                    null
+                            ))
                             .build();
                 }
                 case ADVANCE_PHASE -> {
+                    ContextId contextId = resolveContextId(null, context, AgentType.TICKET_ORCHESTRATOR);
+                    // Pass both discovery and planning curations to ticket orchestrator
                     yield AgentModels.PlanningCollectorRouting.builder()
-                            .ticketOrchestratorRequest(new AgentModels.TicketOrchestratorRequest("", "", "", ""))
+                            .ticketOrchestratorRequest(new AgentModels.TicketOrchestratorRequest(
+                                    contextId,
+                                    request.consolidatedOutput(),
+                                    discoveryCuration,
+                                    request.planningCuration(),
+                                    null
+                            ))
                             .build();
                 }
                 case STOP -> {
@@ -1367,7 +1596,7 @@ public interface AgentInterfaces {
                 AgentModels.MergerInterruptRequest request,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "handleMergerInterrupt", request);
+            registerAndHideInput(context, "handleMergerInterrupt", request, requestEnrichment);
             emitActionStarted(eventBus, multiAgentAgentName(), "merger-interrupt", context);
             workflowGraphService.handleMergerInterrupt(context, request);
             MergeNode originNode = workflowGraphService.requireMergeNode(context);
@@ -1401,7 +1630,8 @@ public interface AgentInterfaces {
                                 lastRequest.returnToPlanningCollector(),
                                 lastRequest.returnToTicketCollector()
                         );
-                        return renderTemplate(
+                        PromptContext promptContext = buildPromptContext(AgentType.MERGER_AGENT, lastRequest, context);
+                        return assemblePrompt(renderTemplate(
                                 MERGER_AGENT_START_MESSAGE,
                                 Map.of(
                                         "mergeContext", lastRequest.mergeContext(),
@@ -1409,7 +1639,7 @@ public interface AgentInterfaces {
                                         "conflictFiles", lastRequest.conflictFiles(),
                                         "returnRoute", returnRoute
                                 )
-                        );
+                        ), promptContext);
                     },
                     AgentModels.MergerRouting.class,
                     REVIEW_AGENT_START_MESSAGE
@@ -1688,6 +1918,22 @@ public interface AgentInterfaces {
     @RequiredArgsConstructor
     class TicketDispatchSubagent {
         private final EventBus eventBus;
+        private final ContextIdService contextIdService;
+        private final PromptAssembly promptAssembly;
+        private final PromptContextFactory promptContextFactory;
+        private final RequestEnrichment requestEnrichment;
+
+        private String assemblePrompt(String basePrompt, PromptContext promptContext) {
+            if (promptAssembly == null) {
+                return basePrompt;
+            }
+            return promptAssembly.assemble(basePrompt, promptContext);
+        }
+
+        private PromptContext buildPromptContext(AgentType agentType, Object input, OperationContext context) {
+            BlackboardHistory.History history = context != null ? context.last(BlackboardHistory.History.class) : null;
+            return promptContextFactory.build(agentType, input, history);
+        }
 
         @Action
         @AchievesGoal(description = "Handle context agent request")
@@ -1713,15 +1959,16 @@ public interface AgentInterfaces {
                 OperationContext context
         ) {
             emitActionStarted(eventBus, "", "ticket-agent", context);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.TICKET_AGENT, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     WorkflowAgent.TICKET_AGENT_START_MESSAGE,
                     Map.of(
-                            "ticketDetails", input.ticketDetails(),
-                            "ticketDetailsFilePath", input.ticketDetailsFilePath(),
-                            "discoveryContext", input.discoveryContext(),
-                            "planningContext", input.planningContext()
+                            "ticketDetails", input.ticketDetails() != null ? input.ticketDetails() : "",
+                            "ticketDetailsFilePath", input.ticketDetailsFilePath() != null ? input.ticketDetailsFilePath() : "",
+                            "discoveryContext", input.discoveryCuration() != null ? input.discoveryCuration().prettyPrint() : "",
+                            "planningContext", input.planningCuration() != null ? input.planningCuration().prettyPrint() : ""
                     )
-            );
+            ), promptContext);
             AgentModels.TicketAgentRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.TicketAgentRouting.class);
@@ -1738,6 +1985,22 @@ public interface AgentInterfaces {
     class PlanningDispatchSubagent {
 
         private final EventBus eventBus;
+        private final ContextIdService contextIdService;
+        private final PromptAssembly promptAssembly;
+        private final PromptContextFactory promptContextFactory;
+        private final RequestEnrichment requestEnrichment;
+
+        private String assemblePrompt(String basePrompt, PromptContext promptContext) {
+            if (promptAssembly == null) {
+                return basePrompt;
+            }
+            return promptAssembly.assemble(basePrompt, promptContext);
+        }
+
+        private PromptContext buildPromptContext(AgentType agentType, Object input, OperationContext context) {
+            BlackboardHistory.History history = context != null ? context.last(BlackboardHistory.History.class) : null;
+            return promptContextFactory.build(agentType, input, history);
+        }
 
         @Action
         @AchievesGoal(description = "Handle context agent request")
@@ -1753,7 +2016,7 @@ public interface AgentInterfaces {
                 AgentModels.PlanningAgentInterruptRequest interruptRequest,
                 OperationContext context
         ) {
-            registerAndHideInput(context, "transitionToInterruptState", interruptRequest);
+            registerAndHideInput(context, "transitionToInterruptState", interruptRequest, requestEnrichment);
 //                TODO: handles review, agent and human, waiting for human, agent
             throw new RuntimeException();
         }
@@ -1764,10 +2027,11 @@ public interface AgentInterfaces {
                 OperationContext context
         ) {
             emitActionStarted(eventBus, "", "planning-agent", context);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.PLANNING_AGENT, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     WorkflowAgent.PLANNING_AGENT_USER_MESSAGE,
                     Map.of("goal", input.goal())
-            );
+            ), promptContext);
             AgentModels.PlanningAgentRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.PlanningAgentRouting.class);
@@ -1784,6 +2048,22 @@ public interface AgentInterfaces {
     class DiscoveryDispatchSubagent {
 
         private final EventBus eventBus;
+        private final ContextIdService contextIdService;
+        private final PromptAssembly promptAssembly;
+        private final PromptContextFactory promptContextFactory;
+        private final RequestEnrichment requestEnrichment;
+
+        private String assemblePrompt(String basePrompt, PromptContext promptContext) {
+            if (promptAssembly == null) {
+                return basePrompt;
+            }
+            return promptAssembly.assemble(basePrompt, promptContext);
+        }
+
+        private PromptContext buildPromptContext(AgentType agentType, Object input, OperationContext context) {
+            BlackboardHistory.History history = context != null ? context.last(BlackboardHistory.History.class) : null;
+            return promptContextFactory.build(agentType, input, history);
+        }
 
         @Action
         @AchievesGoal(description = "Handle context agent request")
@@ -1809,10 +2089,11 @@ public interface AgentInterfaces {
                 OperationContext context
         ) {
             emitActionStarted(eventBus, "", "discovery-agent", context);
-            String prompt = renderTemplate(
+            PromptContext promptContext = buildPromptContext(AgentType.DISCOVERY_AGENT, input, context);
+            String prompt = assemblePrompt(renderTemplate(
                     WorkflowAgent.DISCOVERY_AGENT_START_MESSAGE,
                     Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus())
-            );
+            ), promptContext);
             AgentModels.DiscoveryAgentRouting routing = context.ai()
                     .withDefaultLlm()
                     .createObject(prompt, AgentModels.DiscoveryAgentRouting.class);

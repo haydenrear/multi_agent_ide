@@ -9,6 +9,12 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ComponentScan(basePackageClasses = {AgUiSerdes.class, McpProperties.class, UiStateService.class, AcpChatModel.class, DefaultChatMemoryContext.class})
+@ComponentScan(
+        basePackageClasses = {
+                AgUiSerdes.class, McpProperties.class, AcpChatModel.class
+        },
+        basePackages = {
+                "com.hayden.multiagentidelib"
+        })
 public class MultiAgentIdeConfig {
 }

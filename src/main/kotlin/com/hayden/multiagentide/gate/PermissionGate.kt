@@ -1,4 +1,4 @@
-package com.hayden.multiagentide.service
+package com.hayden.multiagentide.gate
 
 import com.agentclientprotocol.model.PermissionOption
 import com.agentclientprotocol.model.RequestPermissionOutcome

@@ -3,7 +3,7 @@ package com.hayden.multiagentide.controller;
 import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentide.service.AgentControlService;
-import com.hayden.multiagentide.service.PermissionGate;
+import com.hayden.multiagentide.gate.PermissionGate;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

@@ -420,8 +420,8 @@ public class WorkflowGraphService {
             ticketMainWorktreeId = root.mainWorktreeId();
         }
         Map<String, String> metadata = new ConcurrentHashMap<>();
-        metadata.put(META_DISCOVERY_CONTEXT, Objects.toString(input.discoveryContext(), ""));
-        metadata.put(META_PLANNING_CONTEXT, Objects.toString(input.planningContext(), ""));
+        metadata.put(META_DISCOVERY_CONTEXT, input.discoveryCuration() != null ? input.discoveryCuration().prettyPrint() : "");
+        metadata.put(META_PLANNING_CONTEXT, input.planningCuration() != null ? input.planningCuration().prettyPrint() : "");
         metadata.put(META_PARENT_WORKTREE, Optional.ofNullable(parentWorktreeId).orElse(""));
         TicketOrchestratorNode ticketNode = nodeFactory.ticketOrchestratorNode(
                 parentId,

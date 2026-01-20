@@ -6,6 +6,8 @@ import com.embabel.chat.UserMessage;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.multiagentidelib.agent.AgentType;
+import com.hayden.multiagentidelib.prompt.ContextIdService;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.GraphNode;
 import com.hayden.multiagentidelib.model.nodes.OrchestratorNode;
@@ -25,6 +27,7 @@ public class AgentRunner {
 
     private final AgentLifecycleHandler agentLifecycleHandler;
     private final OutputChannel llmOutputChannel;
+    private final ContextIdService contextIdService;
 
     public record AgentDispatchArgs(
             GraphNode self,
@@ -59,9 +62,10 @@ public class AgentRunner {
             return;
         }
         try {
+            var contextId = contextIdService.generate("wf-" + orchestratorNode.nodeId(), AgentType.ORCHESTRATOR);
             agentLifecycleHandler.runAgent(
                     AgentInterfaces.ORCHESTRATOR_AGENT,
-                    new AgentModels.OrchestratorRequest(orchestratorNode.goal(), "DISCOVERY"),
+                    new AgentModels.OrchestratorRequest(contextId, orchestratorNode.goal(), "ORCHESTRATOR_ONBOARDING"),
                     AgentModels.OrchestratorCollectorResult.class,
                     orchestratorNode.nodeId()
             );

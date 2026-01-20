@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.controller;
 
-import com.hayden.multiagentide.service.PermissionGate;
+import com.hayden.multiagentide.gate.PermissionGate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;

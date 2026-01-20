@@ -2,7 +2,6 @@ package com.hayden.multiagentide.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.commitdiffcontext.cdc_config.SkipInSchemaFilter;
-import com.hayden.commitdiffcontext.cdc_config.SkipSessionSchema;
 import com.hayden.commitdiffcontext.mcp.ToolCarrier;
 import com.hayden.commitdiffmodel.config.DisableGraphQl;
 import com.hayden.utilitymodule.schema.DelegatingSchemaReplacer;
@@ -52,8 +51,7 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 @Configuration
-@Import({DelegatingSchemaReplacer.class, SpecialJsonSchemaGenerator.class, SpecialMethodToolCallbackProviderFactory.class,
-         SkipSessionSchema.class, SkipInSchemaFilter.class,
+@Import({DelegatingSchemaReplacer.class, SpecialJsonSchemaGenerator.class, SpecialMethodToolCallbackProviderFactory.class, SkipInSchemaFilter.class,
          DisableGraphQl.class})
 @Slf4j
 @EnableAutoConfiguration(exclude = {
