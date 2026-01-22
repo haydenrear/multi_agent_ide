@@ -1,0 +1,50 @@
+package com.hayden.multiagentide.tool;
+
+import com.embabel.agent.api.common.ToolObject;
+import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+
+@Component
+public class EmbabelToolObjectRegistry implements EmbabelToolObjectProvider {
+
+    Map<String, ToolObjectRegistration> toolObjectMap = new ConcurrentHashMap<>();
+
+    public interface ToolRegistration {
+        Optional<List<ToolObject>> computeToolObject();
+    }
+
+    public interface ToolObjectRegistration extends ToolRegistration {
+
+        Optional<List<ToolObject>> prev();
+
+        void set(List<ToolObject> values);
+
+        default Optional<List<ToolObject>> compute() {
+            if (prev().isPresent())
+               return prev();
+
+            var g = computeToolObject();
+            g.ifPresent(this::set);
+            return g;
+        }
+    }
+
+    public void register(String name, ToolObjectRegistration toolObject) {
+        toolObjectMap.put(name, toolObject);
+    }
+
+    @Override
+    public Optional<List<ToolObject>> tool(String name) {
+        var t = Optional.ofNullable(toolObjectMap.get(name))
+                .flatMap(ToolObjectRegistration::compute)
+                .filter(Predicate.not(CollectionUtils::isEmpty));
+
+        return t;
+    }
+}

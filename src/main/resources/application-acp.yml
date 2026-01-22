@@ -9,3 +9,8 @@ multi-agent-embabel:
 spring:
   lifecycle:
     timeout-per-shutdown-phase: 1s
+acp.mcp:
+  http:
+    - name: deepwiki
+      url: https://mcp.deepwiki.com/mcp
+      headers:

@@ -8,6 +8,7 @@ import com.hayden.multiagentide.service.InterruptService;
 import com.hayden.multiagentide.support.AgentTestBase;
 import com.hayden.multiagentide.support.TestEventListener;
 import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.multiagentidelib.agent.BlackboardHistory;
 import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
@@ -28,7 +29,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-import static com.hayden.multiagentide.agent.AgentInterfaces.registerAndHideInput;
+import static com.hayden.multiagentidelib.agent.BlackboardHistory.registerAndHideInput;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -468,7 +469,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             doAnswer(inv -> {
                 registerAndHide(inv);
                 return AgentModels.OrchestratorCollectorRouting.builder()
-                        .ticketRequest(new AgentModels.TicketOrchestratorRequest("Direct to tickets", "", "", ""))
+                        .ticketRequest(new AgentModels.TicketOrchestratorRequest("Direct to tickets"))
                         .build();
             }).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "TICKETS".equals(req.phase())),
@@ -479,9 +480,9 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             doAnswer(inv -> {
                 registerAndHide(inv);
                 return AgentModels.TicketOrchestratorRouting.builder()
-                        .agentRequests(new AgentModels.TicketAgentRequests(List.of(
-                                new AgentModels.TicketAgentRequest("Direct to tickets", "", "", "")
-                        )))
+                        .agentRequests(AgentModels.TicketAgentRequests.builder()
+                                .requests(List.of(new AgentModels.TicketAgentRequest("Direct to tickets", "")))
+                                .build())
                         .build();
             }).when(workflowAgent).orchestrateTicketExecution(any(AgentModels.TicketOrchestratorRequest.class), any());
 
@@ -1176,20 +1177,16 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             doAnswer(inv -> {
                 registerAndHide(inv);
                 return AgentModels.OrchestratorCollectorRouting.builder()
-                        .ticketRequest(AgentModels.TicketOrchestratorRequest.builder()
-                                .goal("Direct to tickets")
-                                .discoveryContext("")
-                                .planningContext("")
-                                .build())
+                        .ticketRequest(new AgentModels.TicketOrchestratorRequest("Direct to tickets"))
                         .build();
             }).when(workflowAgent).consolidateWorkflowOutputs(any(AgentModels.OrchestratorCollectorRequest.class), any());
 
             doAnswer(inv -> {
                 registerAndHide(inv);
                 return AgentModels.TicketOrchestratorRouting.builder()
-                        .agentRequests(new AgentModels.TicketAgentRequests(List.of(
-                                new AgentModels.TicketAgentRequest("Ticket error", "", "", "")
-                        )))
+                        .agentRequests(AgentModels.TicketAgentRequests.builder()
+                                .requests(List.of(new AgentModels.TicketAgentRequest("Ticket error", "")))
+                                .build())
                         .build();
             }).when(workflowAgent).orchestrateTicketExecution(any(), any());
 
@@ -1652,11 +1649,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             doAnswer(inv -> {
                 registerAndHide(inv);
                 return AgentModels.PlanningCollectorRouting.builder()
-                        .ticketOrchestratorRequest(AgentModels.TicketOrchestratorRequest.builder()
-                                .goal("")
-                                .discoveryContext("")
-                                .planningContext("")
-                                .build())
+                        .ticketOrchestratorRequest(new AgentModels.TicketOrchestratorRequest(""))
                         .build();
             }).when(workflowAgent).handlePlanningCollectorBranch(
                     any(),
@@ -1794,7 +1787,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                         .reviewResult(new AgentModels.ReviewAgentResult("approved"))
                         .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest("Multi-loop", "TICKETS"))
                         .build();
-            }).when(workflowAgent).evaluateContent(any(), any());
+            }).when(workflowAgent).performReview(any(), any());
 
             // Mock ticket orchestration
             doAnswer(inv -> {
@@ -1956,7 +1949,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                 .findFirst()
                 .ifPresent(op -> Arrays.stream(inv.getArguments())
                         .flatMap(obj -> obj instanceof OperationContext ? Stream.empty() : Stream.of(obj))
-                        .forEach(n -> AgentInterfaces.registerAndHideInput(op, "", n)));
+                        .forEach(n -> BlackboardHistory.registerAndHideInput(op, inv.getMethod().getName(), n)));
 
     }
 
@@ -1995,7 +1988,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .reviewResult(new AgentModels.ReviewAgentResult("Review passed"))
                     .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest("Review flow", "MERGE"))
                     .build()
-            ).when(workflowAgent).evaluateContent(any(), any());
+            ).when(workflowAgent).performReview(any(), any());
 
             // Merger completes
             doReturn(AgentModels.MergerRouting.builder()
@@ -2059,11 +2052,11 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .reviewResult(new AgentModels.ReviewAgentResult("Review failed - tests broken"))
                     .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest("Review fail", "TICKETS")) // Back to tickets!
                     .build()
-            ).when(workflowAgent).evaluateContent(any(), any());
+            ).when(workflowAgent).performReview(any(), any());
 
             // Now back to tickets phase
             doReturn(AgentModels.OrchestratorCollectorRouting.builder()
-                    .ticketRequest(new AgentModels.TicketOrchestratorRequest("Direct to tickets", "", "", ""))
+                    .ticketRequest(new AgentModels.TicketOrchestratorRequest("Direct to tickets"))
                     .build()
             ).when(workflowAgent).consolidateWorkflowOutputs(
                     Mockito.<AgentModels.OrchestratorCollectorRequest>argThat(req -> "TICKETS".equals(req.phase())),
@@ -2072,9 +2065,9 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
 
             // Tickets execute
             doReturn(AgentModels.TicketOrchestratorRouting.builder()
-                    .agentRequests(new AgentModels.TicketAgentRequests(List.of(
-                            new AgentModels.TicketAgentRequest("Review fail", "", "", "")
-                    )))
+                    .agentRequests(AgentModels.TicketAgentRequests.builder()
+                            .requests(List.of(new AgentModels.TicketAgentRequest("Review fail", "")))
+                            .build())
                     .build()
             ).when(workflowAgent).orchestrateTicketExecution(any(), any());
 
@@ -2122,7 +2115,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
                     .reviewResult(new AgentModels.ReviewAgentResult("Review passed"))
                     .orchestratorCollectorRequest(new AgentModels.OrchestratorCollectorRequest("Review fail", "MERGE"))
                     .build()
-            ).when(workflowAgent).evaluateContent(
+            ).when(workflowAgent).performReview(
                     Mockito.<AgentModels.ReviewRequest>argThat(req -> "Review fail".equals(req.content())),
                     any()
             );
@@ -2159,7 +2152,7 @@ class WorkflowAgentActionMockTest extends AgentTestBase {
             assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
 
             // Review called twice (failed once, passed second time)
-            verify(workflowAgent, times(2)).evaluateContent(any(), any());
+            verify(workflowAgent, times(2)).performReview(any(), any());
             // Tickets executed in the loop
             verify(workflowAgent).orchestrateTicketExecution(any(), any());
         }

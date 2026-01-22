@@ -4,6 +4,7 @@ import com.hayden.multiagentidelib.prompt.EpisodicMemoryPromptContributor;
 import com.hayden.multiagentidelib.prompt.PromptAssembly;
 import com.hayden.multiagentidelib.prompt.PromptContributor;
 import com.hayden.multiagentidelib.prompt.PromptContributorRegistry;
+import com.hayden.multiagentidelib.prompt.WeAreHerePromptContributor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +17,11 @@ public class PromptContributorConfig {
     @Bean
     public EpisodicMemoryPromptContributor episodicMemoryPromptContributor() {
         return new EpisodicMemoryPromptContributor();
+    }
+
+    @Bean
+    public WeAreHerePromptContributor weAreHerePromptContributor() {
+        return new WeAreHerePromptContributor();
     }
 
     @Bean

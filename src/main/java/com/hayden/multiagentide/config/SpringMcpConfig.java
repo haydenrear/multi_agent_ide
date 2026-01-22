@@ -2,10 +2,15 @@ package com.hayden.multiagentide.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.commitdiffcontext.cdc_config.SkipInSchemaFilter;
+import com.hayden.commitdiffcontext.cdc_config.SkipMcpToolContextFilter;
+import com.hayden.commitdiffcontext.cdc_config.SkipSetFromSessionHeader;
+import com.hayden.commitdiffcontext.cdc_utils.SetFromHeader;
 import com.hayden.commitdiffcontext.mcp.ToolCarrier;
 import com.hayden.commitdiffmodel.config.DisableGraphQl;
+import com.hayden.utilitymodule.mcp.ctx.McpRequestContext;
 import com.hayden.utilitymodule.schema.DelegatingSchemaReplacer;
 import com.hayden.utilitymodule.schema.SpecialJsonSchemaGenerator;
+import com.hayden.utilitymodule.schema.SpecialMethodToolCallbackProvider;
 import com.hayden.utilitymodule.schema.SpecialMethodToolCallbackProviderFactory;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.*;
@@ -18,6 +23,7 @@ import io.modelcontextprotocol.spec.McpServerTransportProviderBase;
 import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerChangeNotificationProperties;
 import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerProperties;
@@ -43,16 +49,14 @@ import org.springframework.web.context.support.StandardServletEnvironment;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerResponse;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 @Configuration
 @Import({DelegatingSchemaReplacer.class, SpecialJsonSchemaGenerator.class, SpecialMethodToolCallbackProviderFactory.class, SkipInSchemaFilter.class,
-         DisableGraphQl.class})
+         DisableGraphQl.class, SkipMcpToolContextFilter.class, SkipSetFromSessionHeader.class})
 @Slf4j
 @EnableAutoConfiguration(exclude = {
         DataSourceAutoConfiguration.class,
@@ -221,11 +225,38 @@ public class SpringMcpConfig {
 
         McpSyncServer built = serverBuilder.build();
 
-        toolCallbackProvider.stream()
-                .flatMap(t -> Arrays.stream(t.getToolCallbacks()))
-                .forEach(tcp -> built.addTool(McpToolUtils.toSyncToolSpecification(tcp)));
+        toolCallbackProvider
+                .forEach(t -> Arrays.stream(t.getToolCallbacks())
+                        .forEach(tcp -> {
+                            McpServerFeatures.SyncToolSpecification syncToolSpecification = McpToolUtils.toSyncToolSpecification(tcp);
+                            built.addTool(new McpServerFeatures.SyncToolSpecification(
+                                    syncToolSpecification.tool(),
+                                    syncToolSpecification.call(),
+                                    wrapToolCallWithInjection(t, syncToolSpecification)));
+                        }));
 
         return built;
+    }
+
+    private static @NonNull BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult> wrapToolCallWithInjection(ToolCallbackProvider t, McpServerFeatures.SyncToolSpecification syncToolSpecification) {
+        return (s, tcr) -> {
+            if (t instanceof SpecialMethodToolCallbackProvider smtc) {
+                smtc.toolCallbackMethods().forEach((key, value) -> {
+                    Arrays.stream(value.getParameters())
+                            .forEach(p -> {
+                                if (p.getType().equals(McpRequestContext.McpToolContext.class)) {
+                                    tcr.arguments().put(p.getName(), new McpRequestContext.McpToolContext(McpRequestContext.getHeaders()));
+                                }
+                                if (p.isAnnotationPresent(SetFromHeader.class)) {
+                                    var header = p.getAnnotation(SetFromHeader.class).value();
+                                    tcr.arguments().put(p.getName(), McpRequestContext.getHeader(header));
+                                }
+                            });
+                });
+            }
+
+            return syncToolSpecification.callHandler().apply(s, tcr);
+        };
     }
 
     @Bean

@@ -8,6 +8,7 @@ import com.embabel.agent.spi.AgentProcessIdGenerator;
 import com.embabel.common.ai.model.Llm;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.utilitymodule.acp.config.AcpModelProperties;
+import com.hayden.utilitymodule.acp.config.McpProperties;
 import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.AcpChatModel;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +31,7 @@ import java.util.Optional;
  */
 @Slf4j
 @Configuration
-@EnableConfigurationProperties(AcpModelProperties.class)
+@EnableConfigurationProperties({AcpModelProperties.class, McpProperties.class})
 @ComponentScan(basePackages = "com.hayden.utilitymodule.acp")
 public class MultiAgentEmbabelConfig {
 

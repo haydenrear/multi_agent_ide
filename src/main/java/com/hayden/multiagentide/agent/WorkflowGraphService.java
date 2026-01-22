@@ -716,7 +716,7 @@ public class WorkflowGraphService {
 
     private boolean handleRoutingInterrupt(
             GraphNode node,
-            AgentModels.InterruptDescriptor interruptRequest,
+            AgentModels.InterruptRequest interruptRequest,
             String resultPayload
     ) {
         if (interruptRequest == null) {

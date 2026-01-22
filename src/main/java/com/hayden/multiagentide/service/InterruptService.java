@@ -1,18 +1,19 @@
 package com.hayden.multiagentide.service;
 
 import com.embabel.agent.api.common.OperationContext;
-import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.gate.PermissionGate;
 import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.multiagentidelib.prompt.PromptContext;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.GraphNode;
 import com.hayden.multiagentidelib.model.nodes.InterruptContext;
 import com.hayden.multiagentidelib.model.nodes.InterruptNode;
 import com.hayden.multiagentidelib.model.nodes.Interruptible;
 import com.hayden.multiagentidelib.model.nodes.ReviewNode;
+
+import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.function.Supplier;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,40 +25,62 @@ public class InterruptService {
             "Review for correctness and completeness. Reply with approved if correct, otherwise explain issues.";
 
     private final PermissionGate permissionGate;
+    private final LlmRunner llmRunner;
 
-    public <T> Optional<T> handleReviewInterrupt(
+    /**
+     * Handle review interrupt using Jinja templates and PromptContext.
+     * 
+     * @param context The operation context
+     * @param request The interrupt request
+     * @param originNode The originating graph node
+     * @param templateName The Jinja template name (e.g., "workflow/orchestrator")
+     * @param promptContext The prompt context for contributors
+     * @param templateModel The model data for template rendering
+     * @param routingClass The expected routing class
+     * @param <T> The routing type
+     * @return Optional routing result if interrupt was handled
+     */
+    public <T> T handleInterrupt(
             OperationContext context,
-            AgentModels.InterruptDescriptor request,
+            AgentModels.InterruptRequest request,
             GraphNode originNode,
-            Supplier<String> promptSupplier,
-            Class<T> routingClass,
-            String reviewPromptTemplate
+            String templateName,
+            PromptContext promptContext,
+            Map<String, Object> templateModel,
+            Class<T> routingClass
     ) {
-        if (request == null || request.type() == null) {
-            return Optional.empty();
-        }
         return switch (request.type()) {
             case HUMAN_REVIEW, AGENT_REVIEW -> {
-                String feedback = resolveInterruptFeedback(context, request, originNode, reviewPromptTemplate);
-                String basePrompt = promptSupplier != null ? promptSupplier.get() : null;
-                if (basePrompt == null || basePrompt.isBlank()) {
-                    yield Optional.empty();
-                }
-                String prompt = appendInterruptFeedback(basePrompt, feedback);
-                T routing = context.ai()
-                        .withDefaultLlm()
-                        .createObject(prompt, routingClass);
-                yield Optional.ofNullable(routing);
+                String feedback = resolveInterruptFeedback(context, request, originNode, promptContext);
+                
+                Map<String, Object> modelWithFeedback = new java.util.HashMap<>(templateModel);
+                modelWithFeedback.put("interruptFeedback", feedback);
+
+                yield llmRunner.runWithTemplate(
+                        templateName,
+                        promptContext,
+                        modelWithFeedback,
+                        routingClass,
+                        context
+                );
             }
-            default -> Optional.empty();
+            default -> llmRunner.runWithTemplate(
+                    templateName,
+                    promptContext,
+                    templateModel,
+                    routingClass,
+                    context
+            );
         };
     }
 
+
+
     private String resolveInterruptFeedback(
             OperationContext context,
-            AgentModels.InterruptDescriptor request,
+            AgentModels.InterruptRequest request,
             GraphNode originNode,
-            String reviewPromptTemplate
+            PromptContext promptContext
     ) {
         InterruptContext interruptContext = resolveInterruptContext(originNode);
         String reviewContent = firstNonBlank(
@@ -84,33 +107,34 @@ public class InterruptService {
             return firstNonBlank(feedback, reviewContent);
         }
         AgentModels.ReviewAgentResult reviewResult =
-                runInterruptAgentReview(context, reviewPromptTemplate, reviewContent);
+                runInterruptAgentReview(context, promptContext, reviewContent);
         String feedback = reviewResult != null ? reviewResult.output() : "";
         permissionGate.resolveInterrupt(interruptId, "agent-review", feedback, reviewResult);
         return feedback;
     }
+    
+
 
     private AgentModels.ReviewAgentResult runInterruptAgentReview(
             OperationContext context,
-            String reviewPromptTemplate,
+            PromptContext promptContext,
             String reviewContent
     ) {
-        if (reviewPromptTemplate == null || reviewPromptTemplate.isBlank()) {
-            return null;
-        }
-        String prompt = AgentInterfaces.renderTemplate(
-                reviewPromptTemplate,
-                java.util.Map.of(
+        AgentModels.ReviewRouting routing = llmRunner.runWithTemplate(
+                "workflow/review",
+                promptContext,
+                Map.of(
                         "content", Objects.toString(reviewContent, ""),
                         "criteria", REVIEW_CRITERIA,
                         "returnRoute", "interrupt"
-                )
+                ),
+                AgentModels.ReviewRouting.class,
+                context
         );
-        AgentModels.ReviewRouting routing = context.ai()
-                .withDefaultLlm()
-                .createObject(prompt, AgentModels.ReviewRouting.class);
         return routing != null ? routing.reviewResult() : null;
     }
+    
+
 
     private InterruptContext resolveInterruptContext(GraphNode node) {
         if (node == null) {
@@ -134,6 +158,7 @@ public class InterruptService {
         }
         return prompt + "\n\nReview feedback:\n" + feedback;
     }
+
 
     private static String firstNonBlank(String... values) {
         if (values == null) {

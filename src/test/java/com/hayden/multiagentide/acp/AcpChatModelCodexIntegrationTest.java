@@ -9,17 +9,29 @@ import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.annotation.support.AgentMetadataReader;
 import com.embabel.agent.api.common.OperationContext;
 import com.embabel.agent.api.common.PlannerType;
+import com.embabel.agent.api.common.ToolObject;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.IoBinding;
 import com.embabel.agent.core.ProcessOptions;
+import com.embabel.agent.spi.support.springai.SpringToolCallbackWrapper;
 import com.embabel.chat.support.InMemoryConversation;
+import com.embabel.common.util.StringTransformer;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.controller.OrchestrationController;
+import com.hayden.multiagentide.tool.EmbabelToolObjectRegistry;
+import com.hayden.multiagentidelib.agent.AgentTools;
 import com.hayden.utilitymodule.acp.AcpChatModel;
+import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.DelegatingHttpClientStreamableHttpTransport;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.mcp.SyncMcpToolCallback;
+import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.ai.chat.model.ChatModel;
@@ -34,7 +46,7 @@ import java.util.UUID;
 
 @Slf4j
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
-@ActiveProfiles("openai")
+@ActiveProfiles("acp")
 @TestPropertySource(properties = {"spring.ai.mcp.server.stdio=false"})
 class AcpChatModelCodexIntegrationTest {
 
@@ -53,6 +65,12 @@ class AcpChatModelCodexIntegrationTest {
     @Autowired
     private OrchestrationController orchestrationController;
 
+    @Autowired
+    private EmbabelToolObjectRegistry toolObjectRegistry;
+
+    @Autowired
+    private AgentTools guiEvent;
+
     public record ResultValue(String result) {}
     public record FinalValue(String result) {}
 
@@ -63,10 +81,14 @@ class AcpChatModelCodexIntegrationTest {
             description = "tests some stuff.",
             planner = PlannerType.GOAP
     )
+    @RequiredArgsConstructor
     public static class TestAgent {
 
         public static final String TEST_AGENT = "test_agent";
 
+        private final EmbabelToolObjectRegistry toolObjectRegistry;
+
+        private final AgentTools guiEvent;
 
 //        @Action
 //        @AchievesGoal(description = "finishes the test")
@@ -101,8 +123,11 @@ class AcpChatModelCodexIntegrationTest {
                 RequestValue input,
                 OperationContext context
         ) {
+
             return context.ai().withDefaultLlm()
                     .withId("hello!")
+                    .withToolObjects(toolObjectRegistry.tool("deepwiki").get())
+                    .withToolObject(new ToolObject(guiEvent))
                     .createObject(input.request, ResultValue.class);
         }
 
@@ -110,7 +135,7 @@ class AcpChatModelCodexIntegrationTest {
 
     @BeforeEach
     public void before() {
-        TestAgent agentInterface = new TestAgent();
+        TestAgent agentInterface = new TestAgent(toolObjectRegistry, guiEvent);
         Optional.ofNullable(agentMetadataReader.createAgentMetadata(agentInterface))
                 .ifPresentOrElse(agentPlatform::deploy, () -> log.error("Error deploying {} - could not create agent metadata.", agentInterface));
     }
@@ -123,12 +148,31 @@ class AcpChatModelCodexIntegrationTest {
     }
 
     @Test
+    void chatModelWorksWithTools() {
+        String nodeId = UUID.randomUUID().toString();
+        ProcessOptions processOptions = ProcessOptions.DEFAULT.withContextId(nodeId)
+                .withListener(AgentLifecycleHandler.agentProcessIdListener());
+        List<com.embabel.agent.core.Agent> agents = agentPlatform.agents();
+        var agentName = TEST_AGENT;
+        var thisAgent = agents.stream()
+                .filter(agent -> agent.getName().equals(agentName))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Agent not found: " + agentName));
+        AgentProcess process = agentPlatform.runAgentFrom(
+                thisAgent,
+                processOptions,
+                Map.of(
+                        IoBinding.DEFAULT_BINDING,
+                        new RequestValue(".")));
+    }
+
+    @Test
     void chatModelUsesAcpProtocol() {
         assertThat(chatModel).isInstanceOf(AcpChatModel.class);
 
-        var c = chatModel.call("Do you have the capability to read or write to the file");
-        var x = chatModel.call("Can you please read the file log.log");
-        log.info("");
+//        var c = chatModel.call("Do you have the capability to read or write to the file");
+//        var x = chatModel.call("Can you please read the file log.log");
+//        log.info("");
 
         try {
             String nodeId = UUID.randomUUID().toString();
@@ -145,10 +189,7 @@ class AcpChatModelCodexIntegrationTest {
                     processOptions,
                     Map.of(
                             IoBinding.DEFAULT_BINDING,
-                            new RequestValue("Please use your tools read one of the files in the current directory, return the result, " +
-                                             "then write that result to another file named log.log, then update that file and add the words WHATEVER!?? " +
-                                             "Please assume you have access to the log.log file.")));
-
+                            new RequestValue("Can you please try using your emitGuiEvent tool? Skip the session ID.")));
             process.bind("conversation", new InMemoryConversation());
 
             var res = process.run().resultOfType(ResultValue.class);
