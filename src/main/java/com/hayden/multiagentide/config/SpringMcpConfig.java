@@ -241,17 +241,19 @@ public class SpringMcpConfig {
     private static @NonNull BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult> wrapToolCallWithInjection(ToolCallbackProvider t, McpServerFeatures.SyncToolSpecification syncToolSpecification) {
         return (s, tcr) -> {
             if (t instanceof SpecialMethodToolCallbackProvider smtc) {
-                smtc.toolCallbackMethods().forEach((key, value) -> {
-                    Arrays.stream(value.getParameters())
-                            .forEach(p -> {
-                                if (p.getType().equals(McpRequestContext.McpToolContext.class)) {
-                                    tcr.arguments().put(p.getName(), new McpRequestContext.McpToolContext(McpRequestContext.getHeaders()));
-                                }
-                                if (p.isAnnotationPresent(SetFromHeader.class)) {
-                                    var header = p.getAnnotation(SetFromHeader.class).value();
-                                    tcr.arguments().put(p.getName(), McpRequestContext.getHeader(header));
-                                }
-                            });
+                smtc.toolCallbackMethods()
+                        .forEach((key, value) -> {
+                    if (tcr.name().equals(key))
+                        Arrays.stream(value.getParameters())
+                                .forEach(p -> {
+                                    if (p.getType().equals(McpRequestContext.McpToolContext.class)) {
+                                        tcr.arguments().put(p.getName(), new McpRequestContext.McpToolContext(McpRequestContext.getHeaders()));
+                                    }
+                                    if (p.isAnnotationPresent(SetFromHeader.class)) {
+                                        var header = p.getAnnotation(SetFromHeader.class).value();
+                                        tcr.arguments().put(p.getName(), McpRequestContext.getHeader(header));
+                                    }
+                                });
                 });
             }
 
