@@ -1,6 +1,7 @@
 package com.hayden.multiagentide.tool;
 
 import com.embabel.agent.api.common.ToolObject;
+import io.modelcontextprotocol.spec.McpSchema;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.retry.support.RetryTemplate;
@@ -12,35 +13,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 @Slf4j
 @Component
 public class EmbabelToolObjectRegistry implements EmbabelToolObjectProvider {
 
-    Map<String, ToolObjectRegistration> toolObjectMap = new ConcurrentHashMap<>();
+    Map<String, LazyToolObjectRegistration> toolObjectMap = new ConcurrentHashMap<>();
 
     public interface ToolRegistration {
-        Optional<List<ToolObject>> computeToolObject();
+
+        Optional<List<ToolObject>> computeToolObject(LazyToolObjectRegistration toolObjectRegistration);
+
     }
 
-    public interface ToolObjectRegistration extends ToolRegistration {
-
-        Optional<List<ToolObject>> prev();
-
-        void set(List<ToolObject> values);
-
-        default Optional<List<ToolObject>> compute() {
-            if (prev().isPresent())
-               return prev();
-
-            var g = computeToolObject();
-            g.ifPresent(this::set);
-            return g;
-        }
-    }
-
-    public void register(String name, ToolObjectRegistration toolObject) {
+    public void register(String name, LazyToolObjectRegistration toolObject) {
         toolObjectMap.put(name, toolObject);
     }
 
@@ -53,7 +41,7 @@ public class EmbabelToolObjectRegistry implements EmbabelToolObjectProvider {
                 .build()
                 .execute(r -> {
                     var f = Optional.ofNullable(toolObjectMap.get(name))
-                            .flatMap(ToolObjectRegistration::compute)
+                            .flatMap(LazyToolObjectRegistration::compute)
                             .filter(Predicate.not(CollectionUtils::isEmpty));
 
                     if (f.isEmpty()) {

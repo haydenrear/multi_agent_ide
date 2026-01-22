@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.acp.config.McpProperties;
 import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.DelegatingHttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
@@ -41,15 +42,19 @@ public class McpToolObjectRegistrar {
             McpServer value = entry.getValue();
 
 
-            embabelToolObjectRegistry.register(name, new LazyToolObjectRegistration(() -> {
-                var tc = resolveToolCallbacks(name, value);
-                var t = tc.stream().map(tcb -> new ToolObject(tcb, to -> name + "." + to, s -> true)).toList();
+            embabelToolObjectRegistry.register(name, new LazyToolObjectRegistration(tor -> {
+                var t = toToolObjects(tor, name, value);
                 return Optional.of(t);
             }));
         }
     }
 
-    private @NonNull List<ToolCallback> resolveToolCallbacks(String name, McpServer value) {
+    private @NonNull List<ToolObject> toToolObjects(LazyToolObjectRegistration tor, String name, McpServer value) {
+        var tc = resolveToolCallbacks(name, value, tor);
+        return EmbabelToolObjectProvider.parseToolObjects(name, tc);
+    }
+
+    private @NonNull List<ToolCallback> resolveToolCallbacks(String name, McpServer value, LazyToolObjectRegistration toolsChangeConsumer) {
 
         try {
             switch (value) {
@@ -59,10 +64,13 @@ public class McpToolObjectRegistrar {
                                             .builder(http.getUrl())
                                             .build()
                             )
+                            .toolsChangeConsumer(toolsChangeConsumer.toolsChangeConsumer())
                             .build();
 
-                    var tc = SyncMcpToolCallbackProvider.syncToolCallbacks(List.of(m));
-
+                    List<McpSyncClient> m1 = List.of(m);
+                    var tc = SyncMcpToolCallbackProvider.syncToolCallbacks(m1);
+                    toolsChangeConsumer.clients = m1;
+                    toolsChangeConsumer.name = name;
                     return tc;
 
                 }
@@ -78,9 +86,11 @@ public class McpToolObjectRegistrar {
                                 )
                                 .build();
 
-                        var tc = SyncMcpToolCallbackProvider.syncToolCallbacks(List.of(m));
-
-                        return tc;
+                    List<McpSyncClient> m1 = List.of(m);
+                    toolsChangeConsumer.clients = m1;
+                    toolsChangeConsumer.name = name;
+                    var tc = SyncMcpToolCallbackProvider.syncToolCallbacks(m1);
+                    return tc;
                 }
                 case McpServer.Sse sse -> {
                     log.error("Dont support SSE!");
