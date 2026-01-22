@@ -14,24 +14,16 @@ import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.IoBinding;
 import com.embabel.agent.core.ProcessOptions;
-import com.embabel.agent.spi.support.springai.SpringToolCallbackWrapper;
 import com.embabel.chat.support.InMemoryConversation;
-import com.embabel.common.util.StringTransformer;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.controller.OrchestrationController;
 import com.hayden.multiagentide.tool.EmbabelToolObjectRegistry;
 import com.hayden.multiagentidelib.agent.AgentTools;
 import com.hayden.utilitymodule.acp.AcpChatModel;
-import io.modelcontextprotocol.client.McpClient;
-import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.DelegatingHttpClientStreamableHttpTransport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.mcp.SyncMcpToolCallback;
-import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.ai.chat.model.ChatModel;
@@ -123,10 +115,15 @@ class AcpChatModelCodexIntegrationTest {
                 RequestValue input,
                 OperationContext context
         ) {
+            Optional<List<ToolObject>> deepwiki = toolObjectRegistry.tool("deepwiki");
+
+            assertThat(deepwiki)
+                    .withFailMessage("Deep wiki could not be reached.")
+                    .isPresent();
 
             return context.ai().withDefaultLlm()
                     .withId("hello!")
-                    .withToolObjects(toolObjectRegistry.tool("deepwiki").get())
+                    .withToolObjects(deepwiki.get())
                     .withToolObject(new ToolObject(guiEvent))
                     .createObject(input.request, ResultValue.class);
         }
