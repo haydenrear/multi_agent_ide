@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -28,7 +29,7 @@ public class EmbabelToolObjectRegistry implements EmbabelToolObjectProvider {
 
     }
 
-    public void register(String name, LazyToolObjectRegistration toolObject) {
+    void register(String name, LazyToolObjectRegistration toolObject) {
         toolObjectMap.put(name, toolObject);
     }
 
@@ -40,9 +41,19 @@ public class EmbabelToolObjectRegistry implements EmbabelToolObjectProvider {
                 .fixedBackoff(Duration.ofSeconds(3))
                 .build()
                 .execute(r -> {
-                    var f = Optional.ofNullable(toolObjectMap.get(name))
-                            .flatMap(LazyToolObjectRegistration::compute)
-                            .filter(Predicate.not(CollectionUtils::isEmpty));
+                    AtomicReference<List<ToolObject>> tools = new AtomicReference<>();
+
+//                  for concurrency/lock striping
+                    toolObjectMap.computeIfPresent(name, (ignored, v) -> {
+                                v.compute().ifPresent(tools::set);
+                                return v;
+                            });
+
+                    var f = Optional.ofNullable(tools.get());
+
+                    if (f.isPresent() && CollectionUtils.isEmpty(f.get())) {
+                        log.error("Found tools list response with empty list - {}.", name);
+                    }
 
                     if (f.isEmpty()) {
                         log.error("Failed to boot MCP server - {} number of retries.", r.getRetryCount());
