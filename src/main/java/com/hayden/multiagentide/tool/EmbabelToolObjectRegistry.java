@@ -57,7 +57,6 @@ public class EmbabelToolObjectRegistry implements EmbabelToolObjectProvider {
 
                     if (f.isEmpty()) {
                         log.error("Failed to boot MCP server - {} number of retries.", r.getRetryCount());
-                        throw new RuntimeException("Failed to retrieve");
                     }
 
                     return f;
