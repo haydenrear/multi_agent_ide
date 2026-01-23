@@ -66,14 +66,15 @@ class LazyToolObjectRegistration {
     private void doToolChangeConsumer() {
         log.info("Received tool change notification - updating tools.");
         try {
-            if (countDownLatch.await(5, TimeUnit.SECONDS) && clients != null) {
+            boolean waitedCountdownLatch = countDownLatch.await(5, TimeUnit.SECONDS);
+            if (waitedCountdownLatch && clients != null) {
+                log.info("Resetting tools from notification.");
                 setValues();
-            } else if (clients == null) {
-                log.error("Found tools change consumer execution but clients was null. Probably just a race thing before it was set.");
-            } else if (clients != null) {
-                log.error("Timed out waiting for countdown latch but clients was not null - this is strange behavior because countdown latch always should run after client publication!");
+            } else if (clients == null && waitedCountdownLatch) {
+                log.error("Found tools change consumer execution but clients was null. " +
+                          "A race thing before it was set but ultimately very weird - a supposed impossible state.");
             } else {
-                log.error("Timed out waiting for countdown latch.");
+                log.error("Clients: {}, waitedCountdownLatch: {}.", clients, waitedCountdownLatch);
             }
         } catch (InterruptedException e) {
             log.error("Found interrupted exception while waiting for countdown latch.");
