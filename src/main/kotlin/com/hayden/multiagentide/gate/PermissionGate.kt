@@ -267,13 +267,17 @@ class PermissionGate(
     }
 
     suspend fun awaitInterrupt(interruptId: String): InterruptResolution {
-        val pending = pendingInterrupts[interruptId] ?: return InterruptResolution(
+        val pending = pendingInterrupts[interruptId] ?: return invalidInterrupt(interruptId)
+        return pending.deferred.await()
+    }
+
+    fun invalidInterrupt(interruptId: String): InterruptResolution {
+        return InterruptResolution(
             interruptId = interruptId,
             originNodeId = interruptId,
             resolutionType = "cancelled",
             resolutionNotes = null
         )
-        return pending.deferred.await()
     }
 
     fun awaitInterruptBlocking(interruptId: String): InterruptResolution {

@@ -4,6 +4,7 @@ plugins {
     id("com.hayden.kotlin")
     id("com.github.node-gradle.node")
     id("com.hayden.mcp")
+    id("com.hayden.ai")
     id("com.hayden.paths")
 }
 

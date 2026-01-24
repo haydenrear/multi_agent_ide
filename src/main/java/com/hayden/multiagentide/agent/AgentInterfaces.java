@@ -14,10 +14,13 @@ import com.embabel.agent.core.InjectedType;
 import com.embabel.agent.core.Operation;
 import com.hayden.multiagentidelib.prompt.ContextIdService;
 import com.hayden.multiagentide.service.InterruptService;
+import com.hayden.multiagentide.tool.ToolAbstraction;
+import com.hayden.multiagentide.tool.ToolContext;
 import com.hayden.multiagentidelib.service.RequestEnrichment;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.agent.AgentType;
 import com.hayden.multiagentidelib.agent.BlackboardHistory;
+import com.hayden.multiagentidelib.agent.ContextManagerTools;
 import com.hayden.multiagentidelib.agent.AgentContext;
 import com.hayden.multiagentidelib.agent.ContextId;
 import com.hayden.multiagentidelib.agent.UpstreamContext;
@@ -71,6 +74,7 @@ public interface AgentInterfaces {
         private final PromptContextFactory promptContextFactory;
         private final RequestEnrichment requestEnrichment;
         private final com.hayden.multiagentide.service.LlmRunner llmRunner;
+        private final ContextManagerTools contextManagerTools;
 
         void emitActionStarted(EventBus eventBus, String agentName, String actionName, OperationContext context) {
             AgentInterfaces.emitActionStarted(eventBus, agentName, actionName, context);
@@ -111,6 +115,7 @@ public interface AgentInterfaces {
                     "workflow/context_manager",
                     promptContext,
                     Map.of("reason", loopSummary),
+                    ToolContext.of(ToolAbstraction.fromToolCarrier(contextManagerTools)),
                     AgentModels.ContextManagerResultRouting.class,
                     context
             );
@@ -159,6 +164,7 @@ public interface AgentInterfaces {
                     "workflow/context_manager_interrupt",
                     promptContext,
                     Map.of("reason", reason),
+                    ToolContext.of(ToolAbstraction.fromToolCarrier(contextManagerTools)),
                     AgentModels.ContextManagerResultRouting.class
             );
 
@@ -313,6 +319,7 @@ public interface AgentInterfaces {
                     "workflow/orchestrator_collector",
                     promptContext,
                     model,
+                    ToolContext.empty(),
                     AgentModels.OrchestratorCollectorRouting.class,
                     context
             );
@@ -336,6 +343,7 @@ public interface AgentInterfaces {
                     "workflow/discovery_collector",
                     promptContext,
                     Map.of("goal", input.goal(), "discoveryResults", input.discoveryResults()),
+                    ToolContext.empty(),
                     AgentModels.DiscoveryCollectorRouting.class,
                     context
             );
@@ -359,6 +367,7 @@ public interface AgentInterfaces {
                     "workflow/planning_collector",
                     promptContext,
                     Map.of("goal", input.goal(), "planningResults", input.planningResults()),
+                    ToolContext.empty(),
                     AgentModels.PlanningCollectorRouting.class,
                     context
             );
@@ -382,6 +391,7 @@ public interface AgentInterfaces {
                     "workflow/ticket_collector",
                     promptContext,
                     Map.of("goal", input.goal(), "ticketResults", input.ticketResults()),
+                    ToolContext.empty(),
                     AgentModels.TicketCollectorRouting.class,
                     context
             );
@@ -411,6 +421,7 @@ public interface AgentInterfaces {
                     "workflow/orchestrator",
                     promptContext,
                     model,
+                    ToolContext.empty(),
                     AgentModels.OrchestratorRouting.class,
                     context
             );
@@ -469,6 +480,7 @@ public interface AgentInterfaces {
                     "workflow/discovery_orchestrator",
                     promptContext,
                     Map.of("goal", input.goal()),
+                    ToolContext.empty(),
                     AgentModels.DiscoveryOrchestratorRouting.class,
                     context
             );
@@ -535,6 +547,7 @@ public interface AgentInterfaces {
                             "discoveryResults",
                             d.prettyPrint(new AgentContext.AgentSerializationCtx.ResultsSerialization())
                     ),
+                    ToolContext.empty(),
                     AgentModels.DiscoveryAgentDispatchRouting.class,
                     context
             );
@@ -588,6 +601,7 @@ public interface AgentInterfaces {
                     "workflow/planning_orchestrator",
                     promptContext,
                     Map.of("goal", input.goal()),
+                    ToolContext.empty(),
                     AgentModels.PlanningOrchestratorRouting.class,
                     context
             );
@@ -670,6 +684,7 @@ public interface AgentInterfaces {
                             "planningResults",
                             planningAgentResults.prettyPrint(new AgentContext.AgentSerializationCtx.ResultsSerialization())
                     ),
+                    ToolContext.empty(),
                     AgentModels.PlanningAgentDispatchRouting.class,
                     context
             );
@@ -736,6 +751,7 @@ public interface AgentInterfaces {
                     Map.of(
                             "goal", input.goal()
                     ),
+                    ToolContext.empty(),
                     AgentModels.TicketOrchestratorRouting.class,
                     context
             );
@@ -825,6 +841,7 @@ public interface AgentInterfaces {
                             "ticketResults",
                             ticketAgentResults.prettyPrint(new AgentContext.AgentSerializationCtx.ResultsSerialization())
                     ),
+                    ToolContext.empty(),
                     AgentModels.TicketAgentDispatchRouting.class,
                     context
             );
@@ -891,6 +908,7 @@ public interface AgentInterfaces {
                             "conflictFiles", input.conflictFiles(),
                             "returnRoute", returnRoute
                     ),
+                    ToolContext.empty(),
                     AgentModels.MergerRouting.class,
                     context
             );
@@ -924,6 +942,7 @@ public interface AgentInterfaces {
                             "criteria", input.criteria(),
                             "returnRoute", returnRoute
                     ),
+                    ToolContext.empty(),
                     AgentModels.ReviewRouting.class,
                     context
             );
@@ -1425,6 +1444,7 @@ public interface AgentInterfaces {
                             "ticketDetails", input.ticketDetails() != null ? input.ticketDetails() : "",
                             "ticketDetailsFilePath", input.ticketDetailsFilePath() != null ? input.ticketDetailsFilePath() : ""
                     ),
+                    ToolContext.empty(),
                     AgentModels.TicketAgentRouting.class,
                     context
             );
@@ -1512,6 +1532,7 @@ public interface AgentInterfaces {
                     "workflow/planning_agent",
                     promptContext,
                     Map.of("goal", input.goal()),
+                    ToolContext.empty(),
                     AgentModels.PlanningAgentRouting.class,
                     context
             );
@@ -1602,6 +1623,7 @@ public interface AgentInterfaces {
                     "workflow/discovery_agent",
                     promptContext,
                     Map.of("goal", input.goal(), "subdomainFocus", input.subdomainFocus()),
+                    ToolContext.empty(),
                     AgentModels.DiscoveryAgentRouting.class,
                     context
             );

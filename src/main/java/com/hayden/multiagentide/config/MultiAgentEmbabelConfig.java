@@ -7,6 +7,8 @@ import com.embabel.agent.core.AgentScope;
 import com.embabel.agent.spi.AgentProcessIdGenerator;
 import com.embabel.common.ai.model.Llm;
 import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.AgentQuestionAnswerFunction;
+import com.hayden.multiagentide.agent.AskUserQuestionTool;
 import com.hayden.utilitymodule.acp.config.AcpModelProperties;
 import com.hayden.utilitymodule.acp.config.McpProperties;
 import com.hayden.utilitymodule.acp.events.EventBus;
@@ -55,8 +57,17 @@ public class MultiAgentEmbabelConfig {
                     agent.getClass().getName());
         }
 
+
         return args -> {
         };
+    }
+
+    @Bean
+    public AskUserQuestionTool askUserQuestionTool(AgentQuestionAnswerFunction agentQuestionAnswerFunction) {
+        return AskUserQuestionTool.builder()
+                .questionAnswerFunction(agentQuestionAnswerFunction)
+                .answersValidation(false)
+                .build();
     }
 
     private static void deployAgent(AgentScope agentMetadataReader, AgentPlatform agentPlatform, String workflowAgent) {

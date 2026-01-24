@@ -7,6 +7,7 @@ import com.hayden.multiagentide.service.LlmRunner;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.agent.AgentType;
 import com.hayden.multiagentidelib.agent.BlackboardHistory;
+import com.hayden.multiagentidelib.agent.ContextManagerTools;
 import com.hayden.multiagentidelib.prompt.ContextIdService;
 import com.hayden.multiagentidelib.prompt.PromptAssembly;
 import com.hayden.multiagentidelib.prompt.PromptContextFactory;
@@ -35,6 +36,7 @@ class WorkflowAgentRouteToContextManagerTest {
         PromptContextFactory promptContextFactory = mock(PromptContextFactory.class);
         RequestEnrichment requestEnrichment = mock(RequestEnrichment.class);
         LlmRunner llmRunner = mock(LlmRunner.class);
+        ContextManagerTools contextManagerTools = mock(ContextManagerTools.class);
 
         AgentInterfaces.WorkflowAgent workflowAgent = new AgentInterfaces.WorkflowAgent(
                 eventBus,
@@ -44,7 +46,8 @@ class WorkflowAgentRouteToContextManagerTest {
                 promptAssembly,
                 promptContextFactory,
                 requestEnrichment,
-                llmRunner
+                llmRunner,
+                contextManagerTools
         );
 
         OperationContext context = mock(OperationContext.class);
