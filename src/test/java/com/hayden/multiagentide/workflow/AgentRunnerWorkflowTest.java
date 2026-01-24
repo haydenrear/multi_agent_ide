@@ -5,7 +5,7 @@ import static org.mockito.Mockito.when;
 
 import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentide.agent.WorkflowGraphService;
-import com.hayden.multiagentide.agent.WorkflowGraphState;
+import com.hayden.multiagentidelib.agent.WorkflowGraphState;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
@@ -58,14 +58,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
 
         workflowGraphService.completeReview(
                 reviewNode,
-                new AgentModels.ReviewRouting(
-                        null,
-                        new AgentModels.ReviewAgentResult("approved"),
-                        null,
-                        null,
-                        null,
-                        null
-                )
+                AgentModels.ReviewRouting.builder().reviewResult(new AgentModels.ReviewAgentResult("approved")).build()
         );
 
         WorkflowGraphState state = new WorkflowGraphState(
@@ -119,14 +112,8 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
 
         workflowGraphService.completeReview(
                 reviewNode,
-                new AgentModels.ReviewRouting(
-                        null,
-                        new AgentModels.ReviewAgentResult("human review needed"),
-                        null,
-                        null,
-                        null,
-                        null
-                )
+                AgentModels.ReviewRouting.builder().reviewResult(new AgentModels.ReviewAgentResult("human review needed"))
+                        .build()
         );
 
         GraphNode updatedReview = graphRepository.findById(reviewNode.nodeId()).orElseThrow();
@@ -177,17 +164,12 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
 
         workflowGraphService.completeMerge(
                 mergeNode,
-                new AgentModels.MergerRouting(
+                AgentModels.MergerRouting.builder().interruptRequest(
                         new AgentModels.MergerInterruptRequest(
                                 Events.InterruptType.HUMAN_REVIEW,
                                 "conflicts"
-                        ),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null
-                ),
+                        )
+                ).build(),
                 "conflicts"
         );
 

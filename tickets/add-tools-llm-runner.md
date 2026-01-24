@@ -1,0 +1,1 @@
+Tools need to be added to the LlmRunner interface - do not add @Deperecated - just update the current interface. We will add a ToolContext argument with ToolAbstraction items, and then this will be sealed interface, and we will match over them and map them to the prompt runner function correctly based on their input types.

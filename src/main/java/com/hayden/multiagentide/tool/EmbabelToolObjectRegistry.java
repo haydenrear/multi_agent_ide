@@ -23,7 +23,7 @@ public class EmbabelToolObjectRegistry implements EmbabelToolObjectProvider {
 
     Map<String, LazyToolObjectRegistration> toolObjectMap = new ConcurrentHashMap<>();
 
-    public interface ToolRegistration {
+    interface ToolRegistration {
 
         Optional<List<ToolObject>> computeToolObject(LazyToolObjectRegistration toolObjectRegistration);
 

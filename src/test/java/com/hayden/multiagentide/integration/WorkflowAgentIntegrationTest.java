@@ -1,6 +1,7 @@
-package com.hayden.multiagentide.agent;
+package com.hayden.multiagentide.integration;
 
 import com.embabel.agent.core.AgentPlatform;
+import com.hayden.multiagentide.agent.*;
 import com.hayden.multiagentide.service.InterruptService;
 import com.hayden.multiagentide.support.AgentTestBase;
 import com.hayden.multiagentide.support.TestEventListener;

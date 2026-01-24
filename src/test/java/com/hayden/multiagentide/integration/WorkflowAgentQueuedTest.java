@@ -1,8 +1,10 @@
-package com.hayden.multiagentide.agent;
+package com.hayden.multiagentide.integration;
 
 import com.embabel.agent.api.common.PlannerType;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.ProcessOptions;
+import com.hayden.multiagentide.agent.AgentInterfaces;
+import com.hayden.multiagentide.agent.WorkflowGraphService;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
@@ -12,6 +14,9 @@ import com.hayden.multiagentide.support.AgentTestBase;
 import com.hayden.multiagentide.support.QueuedLlmRunner;
 import com.hayden.multiagentide.support.TestEventListener;
 import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.multiagentidelib.agent.AgentType;
+import com.hayden.multiagentidelib.agent.ContextId;
+import com.hayden.multiagentidelib.prompt.ContextIdService;
 import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
@@ -44,7 +49,7 @@ import static org.mockito.Mockito.*;
  * 1. Mocks the LlmRunner with a queue of pre-defined responses
  * 2. Lets the real agent code execute (no need to mock individual actions)
  * 3. Verifies the workflow executes correctly with those responses
- * 
+ *
  * Benefits over action-level mocking:
  * - Simpler test setup (just queue responses)
  * - Tests execute closer to production code
@@ -92,6 +97,8 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
 
     @Autowired
     private TestEventListener testEventListener;
+    @Autowired
+    private ContextIdService contextIdService;
 
     @TestConfiguration
     static class TestConfig {
@@ -100,12 +107,12 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
         LlmRunner llmRunner() {
             return new QueuedLlmRunner();
         }
-        
+
         @Bean
         QueuedLlmRunner queuedLlmRunner(LlmRunner llmRunner) {
             return (QueuedLlmRunner) llmRunner;
         }
-        
+
         @Bean
         TestEventListener testEventListener() {
             return new TestEventListener();
@@ -148,56 +155,44 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                             .reason("User requested pause")
                             .build())
                     .build());
-
-            enqueueHappyPath("Paused task");
+            queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
+                    .collectorRequest(
+                            AgentModels.OrchestratorCollectorRequest.builder()
+                                    .phase("ORCHESTRATION")
+                                    .goal("Do that thing.")
+                                    .build())
+                    .build());
+            queuedLlmRunner.enqueue(AgentModels.OrchestratorCollectorRouting.builder()
+                    .collectorResult(
+                            AgentModels.OrchestratorCollectorResult.builder()
+                                    .build())
+                    .build());
 
             var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-pause").withPlannerType(PlannerType.GOAP),
-                    Map.of("it", new AgentModels.OrchestratorRequest("Paused task", "DISCOVERY"))
+                    Map.of("it", new AgentModels.OrchestratorRequest(new ContextId("workflow", AgentType.ORCHESTRATOR, 0), "Paused task", "DISCOVERY"))
             );
 
             assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
             queuedLlmRunner.assertAllConsumed();
             verify(workflowGraphService).handleOrchestratorInterrupt(any(),
                     argThat(req -> req.type() == Events.InterruptType.PAUSE));
-            verify(workflowGraphService).startDiscoveryOrchestrator(any(), any());
-            verify(computationGraphOrchestrator, atLeastOnce()).emitStatusChangeEvent(any(), any(), any(), any());
 
             var ordered = inOrder(
-                    workflowAgent,
-                    discoveryDispatchSubagent,
-                    planningDispatchSubagent,
-                    ticketDispatchSubagent
+                    workflowAgent
             );
             ordered.verify(workflowAgent).coordinateWorkflow(any(), any());
             ordered.verify(workflowAgent).handleOrchestratorInterrupt(any(), any());
-            ordered.verify(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
-            ordered.verify(workflowAgent).dispatchDiscoveryAgentRequests(any(), any());
-            ordered.verify(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
-            ordered.verify(workflowAgent).consolidateDiscoveryFindings(any(), any());
-            ordered.verify(workflowAgent).handleDiscoveryCollectorBranch(any(), any());
-            ordered.verify(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
-            ordered.verify(workflowAgent).dispatchPlanningAgentRequests(any(), any());
-            ordered.verify(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
-            ordered.verify(workflowAgent).consolidatePlansIntoTickets(any(), any());
-            ordered.verify(workflowAgent).handlePlanningCollectorBranch(any(), any());
-            ordered.verify(workflowAgent).orchestrateTicketExecution(any(), any());
-            ordered.verify(workflowAgent).dispatchTicketAgentRequests(any(), any());
-            ordered.verify(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
-            ordered.verify(workflowAgent).consolidateTicketResults(any(), any());
-            ordered.verify(workflowAgent).handleTicketCollectorBranch(any(), any());
             ordered.verify(workflowAgent).consolidateWorkflowOutputs(any(), any());
+
+            verify(computationGraphOrchestrator, atLeastOnce()).emitStatusChangeEvent(any(), any(), any(), any());
         }
 
         @Test
         void collectorPause_afterDiscovery() {
             seedOrchestrator("test-collector-pause");
-            queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
-                    .orchestratorRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
-                            .goal("Task")
-                            .build())
-                    .build());
+            initialOrchestratorToDiscovery("Task");
 
             queuedLlmRunner.enqueue(AgentModels.DiscoveryOrchestratorRouting.builder()
                     .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
@@ -207,12 +202,6 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                                             .subdomainFocus("subdomain")
                                             .build()
                             ))
-                            .build())
-                    .build());
-
-            queuedLlmRunner.enqueue(AgentModels.DiscoveryAgentRouting.builder()
-                    .agentResult(AgentModels.DiscoveryAgentResult.builder()
-                            .output("Found stuff")
                             .build())
                     .build());
 
@@ -233,7 +222,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-collector-pause").withPlannerType(PlannerType.GOAP),
-                    Map.of("it", new AgentModels.OrchestratorRequest("Task", "DISCOVERY"))
+                    Map.of("it", new AgentModels.OrchestratorRequest(new ContextId("workflow", AgentType.ORCHESTRATOR, 0), "Task", "DISCOVERY"))
             );
 
             queuedLlmRunner.assertAllConsumed();
@@ -244,7 +233,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             ordered.verify(workflowAgent).coordinateWorkflow(any(), any());
             ordered.verify(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
             ordered.verify(workflowAgent).dispatchDiscoveryAgentRequests(any(), any());
-            ordered.verify(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            ordered.verify(discoveryDispatchSubagent).runDiscoveryAgent(any(AgentModels.DiscoveryAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateDiscoveryFindings(any(), any());
         }
     }
@@ -261,15 +250,15 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-full-workflow").withPlannerType(PlannerType.GOAP),
-                    Map.of("it", new AgentModels.OrchestratorRequest("Implement auth", "DISCOVERY"))
+                    Map.of("it", new AgentModels.OrchestratorRequest(new ContextId("workflow", AgentType.ORCHESTRATOR, 0), "Implement auth", "DISCOVERY"))
             );
 
             // Assert
             assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
-            
+
             // Verify all queued responses were consumed
             queuedLlmRunner.assertAllConsumed();
-            
+
             // Verify graph service calls happened
             verify(workflowGraphService).startOrchestrator(any());
             verify(workflowGraphService).startDiscoveryOrchestrator(any(), any());
@@ -290,17 +279,17 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             ordered.verify(workflowAgent).coordinateWorkflow(any(), any());
             ordered.verify(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
             ordered.verify(workflowAgent).dispatchDiscoveryAgentRequests(any(), any());
-            ordered.verify(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            ordered.verify(discoveryDispatchSubagent).runDiscoveryAgent(any(AgentModels.DiscoveryAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateDiscoveryFindings(any(), any());
             ordered.verify(workflowAgent).handleDiscoveryCollectorBranch(any(), any());
             ordered.verify(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
             ordered.verify(workflowAgent).dispatchPlanningAgentRequests(any(), any());
-            ordered.verify(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            ordered.verify(planningDispatchSubagent).runPlanningAgent(any(AgentModels.PlanningAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidatePlansIntoTickets(any(), any());
             ordered.verify(workflowAgent).handlePlanningCollectorBranch(any(), any());
             ordered.verify(workflowAgent).orchestrateTicketExecution(any(), any());
             ordered.verify(workflowAgent).dispatchTicketAgentRequests(any(), any());
-            ordered.verify(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
+            ordered.verify(ticketDispatchSubagent).runTicketAgent(any(AgentModels.TicketAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateTicketResults(any(), any());
             ordered.verify(workflowAgent).handleTicketCollectorBranch(any(), any());
             ordered.verify(workflowAgent).consolidateWorkflowOutputs(any(), any());
@@ -310,19 +299,15 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
         void skipDiscovery_startAtPlanning() {
             seedOrchestrator("test-skip-discovery");
             // Queue responses for workflow starting at PLANNING phase (short-circuit discovery agents)
-            
+
             // 1. Orchestrator routes to discovery orchestrator
-            queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
-                    .orchestratorRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
-                            .goal("Quick task")
-                            .build())
-                    .build());
-            
+            initialOrchestratorToDiscovery("Quick task");
+
             // 2. Discovery orchestrator routes directly to collector (no agents)
             queuedLlmRunner.enqueue(AgentModels.DiscoveryOrchestratorRouting.builder()
                     .collectorRequest(AgentModels.DiscoveryCollectorRequest.builder()
                             .goal("Quick task")
-                            .discoveryResults("")
+                            .discoveryResults("discovery-result")
                             .build())
                     .build());
 
@@ -337,7 +322,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                                     .build())
                             .build())
                     .build());
-            
+
             // 4. Planning orchestrator creates request
             queuedLlmRunner.enqueue(AgentModels.PlanningOrchestratorRouting.builder()
                     .agentRequests(AgentModels.PlanningAgentRequests.builder()
@@ -348,14 +333,14 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                             ))
                             .build())
                     .build());
-            
+
             // 5. Planning agent returns output
             queuedLlmRunner.enqueue(AgentModels.PlanningAgentRouting.builder()
                     .agentResult(AgentModels.PlanningAgentResult.builder()
                             .output("Simple plan")
                             .build())
                     .build());
-            
+
             // 6. Planning dispatch routes to collector
             queuedLlmRunner.enqueue(AgentModels.PlanningAgentDispatchRouting.builder()
                     .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
@@ -363,7 +348,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                             .planningResults("plan")
                             .build())
                     .build());
-            
+
             // 7. Planning collector advances via collector result
             queuedLlmRunner.enqueue(AgentModels.PlanningCollectorRouting.builder()
                     .collectorResult(AgentModels.PlanningCollectorResult.builder()
@@ -375,7 +360,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                                     .build())
                             .build())
                     .build());
-            
+
             // 8. Ticket orchestrator creates agent requests
             queuedLlmRunner.enqueue(AgentModels.TicketOrchestratorRouting.builder()
                     .agentRequests(AgentModels.TicketAgentRequests.builder()
@@ -387,14 +372,14 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                             ))
                             .build())
                     .build());
-            
+
             // 9. Ticket agent returns output
             queuedLlmRunner.enqueue(AgentModels.TicketAgentRouting.builder()
                     .agentResult(AgentModels.TicketAgentResult.builder()
                             .output("Ticket done")
                             .build())
                     .build());
-            
+
             // 10. Ticket dispatch routes to collector
             queuedLlmRunner.enqueue(AgentModels.TicketAgentDispatchRouting.builder()
                     .ticketCollectorRequest(AgentModels.TicketCollectorRequest.builder()
@@ -431,17 +416,17 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-skip-discovery").withPlannerType(PlannerType.GOAP),
-                    Map.of("it", new AgentModels.OrchestratorRequest("Quick task", "PLANNING"))
+                    Map.of("it", new AgentModels.OrchestratorRequest(new ContextId("workflow", AgentType.ORCHESTRATOR, 0), "Quick task", "PLANNING"))
             );
 
             // Assert
             assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
             queuedLlmRunner.assertAllConsumed();
-            
+
             // Verify discovery orchestrator ran without agents
             verify(workflowGraphService).startDiscoveryOrchestrator(any(), any());
             verify(workflowGraphService, never()).startDiscoveryAgent(any(), any(), any());
-            
+
             // Verify Planning was executed
             verify(workflowGraphService).startPlanningOrchestrator(any(), any());
             verify(computationGraphOrchestrator, atLeastOnce()).emitStatusChangeEvent(any(), any(), any(), any());
@@ -457,12 +442,12 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             ordered.verify(workflowAgent).handleDiscoveryCollectorBranch(any(), any());
             ordered.verify(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
             ordered.verify(workflowAgent).dispatchPlanningAgentRequests(any(), any());
-            ordered.verify(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            ordered.verify(planningDispatchSubagent).runPlanningAgent(any(AgentModels.PlanningAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidatePlansIntoTickets(any(), any());
             ordered.verify(workflowAgent).handlePlanningCollectorBranch(any(), any());
             ordered.verify(workflowAgent).orchestrateTicketExecution(any(), any());
             ordered.verify(workflowAgent).dispatchTicketAgentRequests(any(), any());
-            ordered.verify(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
+            ordered.verify(ticketDispatchSubagent).runTicketAgent(any(AgentModels.TicketAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateTicketResults(any(), any());
             ordered.verify(workflowAgent).handleTicketCollectorBranch(any(), any());
             ordered.verify(workflowAgent).consolidateWorkflowOutputs(any(), any());
@@ -476,11 +461,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
         void discoveryCollector_loopsBackForMoreInvestigation() {
             seedOrchestrator("test-discovery-loop");
 
-            queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
-                    .orchestratorRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
-                            .goal("Needs more discovery")
-                            .build())
-                    .build());
+            initialOrchestratorToDiscovery("Needs more discovery");
 
             queuedLlmRunner.enqueue(AgentModels.DiscoveryOrchestratorRouting.builder()
                     .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
@@ -557,7 +538,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-discovery-loop").withPlannerType(PlannerType.GOAP),
-                    Map.of("it", new AgentModels.OrchestratorRequest("Needs more discovery", "DISCOVERY"))
+                    Map.of("it", new AgentModels.OrchestratorRequest(new ContextId("workflow", AgentType.ORCHESTRATOR, 0), "Needs more discovery", "DISCOVERY"))
             );
 
             assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
@@ -575,22 +556,22 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             ordered.verify(workflowAgent).coordinateWorkflow(any(), any());
             ordered.verify(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
             ordered.verify(workflowAgent).dispatchDiscoveryAgentRequests(any(), any());
-            ordered.verify(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            ordered.verify(discoveryDispatchSubagent).runDiscoveryAgent(any(AgentModels.DiscoveryAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateDiscoveryFindings(any(), any());
             ordered.verify(workflowAgent).handleDiscoveryCollectorBranch(any(), any());
             ordered.verify(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
             ordered.verify(workflowAgent).dispatchDiscoveryAgentRequests(any(), any());
-            ordered.verify(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            ordered.verify(discoveryDispatchSubagent).runDiscoveryAgent(any(AgentModels.DiscoveryAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateDiscoveryFindings(any(), any());
             ordered.verify(workflowAgent).handleDiscoveryCollectorBranch(any(), any());
             ordered.verify(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
             ordered.verify(workflowAgent).dispatchPlanningAgentRequests(any(), any());
-            ordered.verify(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            ordered.verify(planningDispatchSubagent).runPlanningAgent(any(AgentModels.PlanningAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidatePlansIntoTickets(any(), any());
             ordered.verify(workflowAgent).handlePlanningCollectorBranch(any(), any());
             ordered.verify(workflowAgent).orchestrateTicketExecution(any(), any());
             ordered.verify(workflowAgent).dispatchTicketAgentRequests(any(), any());
-            ordered.verify(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
+            ordered.verify(ticketDispatchSubagent).runTicketAgent(any(AgentModels.TicketAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateTicketResults(any(), any());
             ordered.verify(workflowAgent).handleTicketCollectorBranch(any(), any());
             ordered.verify(workflowAgent).consolidateWorkflowOutputs(any(), any());
@@ -600,16 +581,12 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
         void planningCollector_loopsBackToDiscovery_needsMoreContext() {
             seedOrchestrator("test-planning-to-discovery");
 
-            queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
-                    .orchestratorRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
-                            .goal("Incomplete context")
-                            .build())
-                    .build());
+            initialOrchestratorToDiscovery("Incomplete context");
 
             queuedLlmRunner.enqueue(AgentModels.DiscoveryOrchestratorRouting.builder()
                     .collectorRequest(AgentModels.DiscoveryCollectorRequest.builder()
                             .goal("Incomplete context")
-                            .discoveryResults("")
+                            .discoveryResults("discovery-result")
                             .build())
                     .build());
 
@@ -693,7 +670,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-planning-to-discovery").withPlannerType(PlannerType.GOAP),
-                    Map.of("it", new AgentModels.OrchestratorRequest("Incomplete context", "PLANNING"))
+                    Map.of("it", new AgentModels.OrchestratorRequest(new ContextId("workflow", AgentType.ORCHESTRATOR, 0), "Incomplete context", "PLANNING"))
             );
 
             assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
@@ -715,22 +692,22 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             ordered.verify(workflowAgent).handleDiscoveryCollectorBranch(any(), any());
             ordered.verify(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
             ordered.verify(workflowAgent).dispatchPlanningAgentRequests(any(), any());
-            ordered.verify(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            ordered.verify(planningDispatchSubagent).runPlanningAgent(any(AgentModels.PlanningAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidatePlansIntoTickets(any(), any());
             ordered.verify(workflowAgent).handlePlanningCollectorBranch(any(), any());
             ordered.verify(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
             ordered.verify(workflowAgent).dispatchDiscoveryAgentRequests(any(), any());
-            ordered.verify(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            ordered.verify(discoveryDispatchSubagent).runDiscoveryAgent(any(AgentModels.DiscoveryAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateDiscoveryFindings(any(), any());
             ordered.verify(workflowAgent).handleDiscoveryCollectorBranch(any(), any());
             ordered.verify(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
             ordered.verify(workflowAgent).dispatchPlanningAgentRequests(any(), any());
-            ordered.verify(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            ordered.verify(planningDispatchSubagent).runPlanningAgent(any(AgentModels.PlanningAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidatePlansIntoTickets(any(), any());
             ordered.verify(workflowAgent).handlePlanningCollectorBranch(any(), any());
             ordered.verify(workflowAgent).orchestrateTicketExecution(any(), any());
             ordered.verify(workflowAgent).dispatchTicketAgentRequests(any(), any());
-            ordered.verify(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
+            ordered.verify(ticketDispatchSubagent).runTicketAgent(any(AgentModels.TicketAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateTicketResults(any(), any());
             ordered.verify(workflowAgent).handleTicketCollectorBranch(any(), any());
             ordered.verify(workflowAgent).consolidateWorkflowOutputs(any(), any());
@@ -740,11 +717,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
         void orchestratorCollector_loopsBackMultipleTimes() {
             seedOrchestrator("test-multi-loop");
 
-            queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
-                    .orchestratorRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
-                            .goal("Multi-loop")
-                            .build())
-                    .build());
+            initialOrchestratorToDiscovery("Multi-loop");
 
             queuedLlmRunner.enqueue(AgentModels.DiscoveryOrchestratorRouting.builder()
                     .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
@@ -894,7 +867,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             var output = agentPlatform.runAgentFrom(
                     findWorkflowAgent(),
                     ProcessOptions.DEFAULT.withContextId("test-multi-loop").withPlannerType(PlannerType.GOAP),
-                    Map.of("it", new AgentModels.OrchestratorRequest("Multi-loop", "DISCOVERY"))
+                    Map.of("it", new AgentModels.OrchestratorRequest(contextIdService.generate("workflow", AgentType.ORCHESTRATOR), "Multi-loop", "DISCOVERY"))
             );
 
             assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
@@ -912,20 +885,20 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             ordered.verify(workflowAgent).coordinateWorkflow(any(), any());
             ordered.verify(workflowAgent).kickOffAnyNumberOfAgentsForCodeSearch(any(), any());
             ordered.verify(workflowAgent).dispatchDiscoveryAgentRequests(any(), any());
-            ordered.verify(discoveryDispatchSubagent).run(any(AgentModels.DiscoveryAgentRequest.class), any());
+            ordered.verify(discoveryDispatchSubagent).runDiscoveryAgent(any(AgentModels.DiscoveryAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateDiscoveryFindings(any(), any());
             ordered.verify(workflowAgent).coordinateWorkflow(any(), any());
             ordered.verify(workflowAgent).consolidateWorkflowOutputs(any(), any());
             ordered.verify(workflowAgent).decomposePlanAndCreateWorkItems(any(), any());
             ordered.verify(workflowAgent).dispatchPlanningAgentRequests(any(), any());
-            ordered.verify(planningDispatchSubagent).run(any(AgentModels.PlanningAgentRequest.class), any());
+            ordered.verify(planningDispatchSubagent).runPlanningAgent(any(AgentModels.PlanningAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidatePlansIntoTickets(any(), any());
             ordered.verify(workflowAgent).handlePlanningCollectorBranch(any(), any());
             ordered.verify(workflowAgent).performReview(any(), any());
             ordered.verify(workflowAgent).consolidateWorkflowOutputs(any(), any());
             ordered.verify(workflowAgent).orchestrateTicketExecution(any(), any());
             ordered.verify(workflowAgent).dispatchTicketAgentRequests(any(), any());
-            ordered.verify(ticketDispatchSubagent).run(any(AgentModels.TicketAgentRequest.class), any());
+            ordered.verify(ticketDispatchSubagent).runTicketAgent(any(AgentModels.TicketAgentRequest.class), any());
             ordered.verify(workflowAgent).consolidateTicketResults(any(), any());
             ordered.verify(workflowAgent).handleTicketCollectorBranch(any(), any());
             ordered.verify(workflowAgent).consolidateWorkflowOutputs(any(), any());
@@ -934,18 +907,27 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
 
     private com.embabel.agent.core.Agent findWorkflowAgent() {
         return agentPlatform.agents().stream()
-                .filter(a -> a.getName().equals(AgentInterfaces.WORKFLOW_AGENT_NAME))
+                .filter(a -> a.getName().equals(AgentInterfaces.WORKFLOW_AGENT_NAME)
+                        || a.getName().contains(AgentInterfaces.WorkflowAgent.class.getSimpleName()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("WorkflowAgent not found"));
     }
 
     private void enqueueHappyPath(String goal) {
+        initialOrchestratorToDiscovery(goal);
+        discoveryOnly(goal);
+        enqueuePlanningToCompletion(goal);
+    }
+
+    private void initialOrchestratorToDiscovery(String goal) {
         queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
                 .orchestratorRequest(AgentModels.DiscoveryOrchestratorRequest.builder()
                         .goal(goal)
                         .build())
                 .build());
+    }
 
+    private void discoveryOnly(String goal) {
         queuedLlmRunner.enqueue(AgentModels.DiscoveryOrchestratorRouting.builder()
                 .agentRequests(AgentModels.DiscoveryAgentRequests.builder()
                         .requests(List.of(
@@ -959,7 +941,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
 
         queuedLlmRunner.enqueue(AgentModels.DiscoveryAgentRouting.builder()
                 .agentResult(AgentModels.DiscoveryAgentResult.builder()
-                        .output("Discovery output")
+                        .output("Found stuff")
                         .build())
                 .build());
 
@@ -980,44 +962,30 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                                 .build())
                         .build())
                 .build());
-        enqueuePlanningToCompletion(goal);
     }
 
     private void enqueuePlanningToCompletion(String goal) {
-        queuedLlmRunner.enqueue(AgentModels.PlanningOrchestratorRouting.builder()
-                .agentRequests(AgentModels.PlanningAgentRequests.builder()
-                        .requests(List.of(
-                                AgentModels.PlanningAgentRequest.builder()
-                                        .goal(goal)
-                                        .build()
-                        ))
-                        .build())
-                .build());
+        planningOnly(goal);
 
-        queuedLlmRunner.enqueue(AgentModels.PlanningAgentRouting.builder()
-                .agentResult(AgentModels.PlanningAgentResult.builder()
-                        .output("Plan output")
-                        .build())
-                .build());
+        ticketsOnly(goal);
 
-        queuedLlmRunner.enqueue(AgentModels.PlanningAgentDispatchRouting.builder()
-                .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
-                        .goal(goal)
-                        .planningResults("planning-results")
-                        .build())
-                .build());
+        finalOrchestratorCollector();
+    }
 
-        queuedLlmRunner.enqueue(AgentModels.PlanningCollectorRouting.builder()
-                .collectorResult(AgentModels.PlanningCollectorResult.builder()
-                        .consolidatedOutput("Planning complete")
+    private void finalOrchestratorCollector() {
+        queuedLlmRunner.enqueue(AgentModels.OrchestratorCollectorRouting.builder()
+                .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
+                        .consolidatedOutput("Workflow complete")
                         .collectorDecision(AgentModels.CollectorDecision.builder()
                                 .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
-                                .rationale("Advance to tickets")
-                                .requestedPhase("TICKETS")
+                                .rationale("All phases done")
+                                .requestedPhase("COMPLETE")
                                 .build())
                         .build())
                 .build());
+    }
 
+    private void ticketsOnly(String goal) {
         queuedLlmRunner.enqueue(AgentModels.TicketOrchestratorRouting.builder()
                 .agentRequests(AgentModels.TicketAgentRequests.builder()
                         .requests(List.of(
@@ -1052,14 +1020,39 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                                 .build())
                         .build())
                 .build());
+    }
 
-        queuedLlmRunner.enqueue(AgentModels.OrchestratorCollectorRouting.builder()
-                .collectorResult(AgentModels.OrchestratorCollectorResult.builder()
-                        .consolidatedOutput("Workflow complete")
+    private void planningOnly(String goal) {
+        queuedLlmRunner.enqueue(AgentModels.PlanningOrchestratorRouting.builder()
+                .agentRequests(AgentModels.PlanningAgentRequests.builder()
+                        .requests(List.of(
+                                AgentModels.PlanningAgentRequest.builder()
+                                        .goal(goal)
+                                        .build()
+                        ))
+                        .build())
+                .build());
+
+        queuedLlmRunner.enqueue(AgentModels.PlanningAgentRouting.builder()
+                .agentResult(AgentModels.PlanningAgentResult.builder()
+                        .output("Plan output")
+                        .build())
+                .build());
+
+        queuedLlmRunner.enqueue(AgentModels.PlanningAgentDispatchRouting.builder()
+                .planningCollectorRequest(AgentModels.PlanningCollectorRequest.builder()
+                        .goal(goal)
+                        .planningResults("planning-results")
+                        .build())
+                .build());
+
+        queuedLlmRunner.enqueue(AgentModels.PlanningCollectorRouting.builder()
+                .collectorResult(AgentModels.PlanningCollectorResult.builder()
+                        .consolidatedOutput("Planning complete")
                         .collectorDecision(AgentModels.CollectorDecision.builder()
                                 .decisionType(Events.CollectorDecisionType.ADVANCE_PHASE)
-                                .rationale("All phases done")
-                                .requestedPhase("COMPLETE")
+                                .rationale("Advance to tickets")
+                                .requestedPhase("TICKETS")
                                 .build())
                         .build())
                 .build());
