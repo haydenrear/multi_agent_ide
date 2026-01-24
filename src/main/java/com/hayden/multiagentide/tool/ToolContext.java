@@ -1,5 +1,7 @@
 package com.hayden.multiagentide.tool;
 
+import com.hayden.utilitymodule.stream.StreamUtil;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -18,6 +20,6 @@ public record ToolContext(List<ToolAbstraction> tools) {
     }
 
     public static ToolContext of(ToolAbstraction... tools) {
-        return new ToolContext(List.of(tools));
+        return new ToolContext(StreamUtil.toStream(tools).toList());
     }
 }
