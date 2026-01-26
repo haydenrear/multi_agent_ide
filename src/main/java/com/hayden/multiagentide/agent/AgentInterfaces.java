@@ -259,7 +259,7 @@ public interface AgentInterfaces {
          */
         private PromptContext buildPromptContext(
                 AgentType agentType,
-                Object input,
+                AgentModels.AgentRequest input,
                 OperationContext context
         ) {
             BlackboardHistory history = BlackboardHistory.getEntireBlackboardHistory(context);
@@ -1337,7 +1337,7 @@ public interface AgentInterfaces {
             AgentInterfaces.emitActionStarted(eventBus, agentName, actionName, context);
         }
 
-        private PromptContext buildPromptContext(AgentType agentType, Object input, OperationContext context) {
+        private PromptContext buildPromptContext(AgentType agentType, AgentModels.AgentRequest input, OperationContext context) {
             BlackboardHistory history = BlackboardHistory.getEntireBlackboardHistory(context);
             return promptContextFactory.build(agentType, input, history);
         }
@@ -1434,7 +1434,7 @@ public interface AgentInterfaces {
             AgentInterfaces.emitActionStarted(eventBus, agentName, actionName, context);
         }
 
-        private PromptContext buildPromptContext(AgentType agentType, Object input, OperationContext context) {
+        private PromptContext buildPromptContext(AgentType agentType, AgentModels.AgentRequest input, OperationContext context) {
             BlackboardHistory history = BlackboardHistory.getEntireBlackboardHistory(context);
             return promptContextFactory.build(agentType, input, history);
         }
@@ -1524,7 +1524,7 @@ public interface AgentInterfaces {
             AgentInterfaces.emitActionStarted(eventBus, agentName, actionName, context);
         }
 
-        private PromptContext buildPromptContext(AgentType agentType, Object input, OperationContext context) {
+        private PromptContext buildPromptContext(AgentType agentType, AgentModels.AgentRequest input, OperationContext context) {
             BlackboardHistory history = BlackboardHistory.getEntireBlackboardHistory(context);
             return promptContextFactory.build(agentType, input, history);
         }

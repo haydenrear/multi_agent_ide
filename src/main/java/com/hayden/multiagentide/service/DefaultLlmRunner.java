@@ -48,16 +48,6 @@ public class DefaultLlmRunner implements LlmRunner {
             Class<T> responseClass,
             OperationContext context
     ) {
-        // Emit PromptArgsArtifact before LLM call
-        String workflowRunId = resolveWorkflowRunId(promptContext);
-        if (workflowRunId != null) {
-            try {
-                artifactEmissionService.emitPromptArgs(workflowRunId, templateName, model);
-            } catch (Exception e) {
-                log.warn("Failed to emit PromptArgsArtifact: {}", e.getMessage());
-            }
-        }
-        
         // Get applicable prompt contributors using the full PromptContext
         PromptElement[] contributors = promptContributorService.getContributors(promptContext)
                 .toArray(ContextualPromptElement[]::new);

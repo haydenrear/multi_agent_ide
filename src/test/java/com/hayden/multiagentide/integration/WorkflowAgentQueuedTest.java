@@ -133,6 +133,16 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
         queuedLlmRunner.clear();
         graphRepository.clear();
         worktreeRepository.clear();
+        reset(
+                workflowAgent,
+                discoveryDispatchSubagent,
+                planningDispatchSubagent,
+                ticketDispatchSubagent,
+                workflowGraphService,
+                computationGraphOrchestrator,
+                worktreeService,
+                eventBus
+        );
         doThrow(new RuntimeException("worktree disabled"))
                 .when(worktreeService)
                 .branchWorktree(any(), any(), any());
