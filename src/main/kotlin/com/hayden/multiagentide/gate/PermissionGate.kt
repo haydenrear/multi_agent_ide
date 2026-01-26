@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.function.Predicate
 
 @Service
 class PermissionGate(
@@ -52,6 +53,18 @@ class PermissionGate(
 
     private val pendingRequests = ConcurrentHashMap<String, IPermissionGate.PendingPermissionRequest>()
     private val pendingInterrupts = ConcurrentHashMap<String, PendingInterruptRequest>()
+
+    fun getInterruptPending(requestId: Predicate<PendingInterruptRequest>): PendingInterruptRequest? {
+        return pendingInterrupts.entries
+            .filter{ requestId.test(it.value) }
+            .map { it.value }
+            .firstOrNull()
+    }
+
+    fun isInterruptPending(requestId: Predicate<PendingInterruptRequest>): Boolean {
+        return pendingInterrupts.entries
+            .any{ requestId.test(it.value) }
+    }
 
     override fun publishRequest(
         requestId: String,
@@ -293,13 +306,13 @@ class PermissionGate(
         reviewResult: AgentModels.ReviewAgentResult? = null
     ): Boolean {
         val pending = pendingInterrupts.remove(interruptId) ?: return false
+
         val resolution = InterruptResolution(
             interruptId = interruptId,
             originNodeId = pending.originNodeId,
             resolutionType = resolutionType,
             resolutionNotes = resolutionNotes
         )
-        pending.deferred.complete(resolution)
 
         val interruptNode = graphRepository.findById(interruptId).orElse(null)
         when (interruptNode) {
@@ -379,6 +392,8 @@ class PermissionGate(
                 )
             }
         }
+
+        pending.deferred.complete(resolution)
         return true
     }
 

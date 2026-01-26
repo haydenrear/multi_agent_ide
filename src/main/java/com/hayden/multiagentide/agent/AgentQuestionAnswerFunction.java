@@ -7,6 +7,8 @@ import com.hayden.multiagentide.service.InterruptService;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.agent.BlackboardHistory;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -23,9 +25,14 @@ public class AgentQuestionAnswerFunction implements Function<AskUserQuestionTool
 
     private final AgentPlatform agentPlatform;
 
-    private final InterruptService interruptService;
-
     private final GraphRepository graphRepository;
+
+    private InterruptService interruptService;
+
+    @Autowired @Lazy
+    public void setInterruptService(InterruptService interruptService) {
+        this.interruptService = interruptService;
+    }
 
     @Override
     public Map<String, String> apply(AskUserQuestionTool.QuestionContext questionContext) {

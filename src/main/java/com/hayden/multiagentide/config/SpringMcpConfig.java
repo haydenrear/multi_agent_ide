@@ -58,10 +58,6 @@ import java.util.stream.Collectors;
 @Import({DelegatingSchemaReplacer.class, SpecialJsonSchemaGenerator.class, SpecialMethodToolCallbackProviderFactory.class, SkipInSchemaFilter.class,
          DisableGraphQl.class, SkipMcpToolContextFilter.class, SkipSetFromSessionHeader.class})
 @Slf4j
-@EnableAutoConfiguration(exclude = {
-        DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class
-})
 @EnableConfigurationProperties({McpServerProperties.class, McpServerChangeNotificationProperties.class})
 public class SpringMcpConfig {
 

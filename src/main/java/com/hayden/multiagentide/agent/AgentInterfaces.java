@@ -12,7 +12,7 @@ import com.embabel.agent.api.common.StuckHandlingResultCode;
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.InjectedType;
 import com.embabel.agent.core.Operation;
-import com.hayden.multiagentidelib.prompt.ContextIdService;
+import com.hayden.multiagentidelib.events.DegenerateLoopException;
 import com.hayden.multiagentide.service.InterruptService;
 import com.hayden.multiagentide.tool.ToolAbstraction;
 import com.hayden.multiagentide.tool.ToolContext;
@@ -22,7 +22,6 @@ import com.hayden.multiagentidelib.agent.AgentType;
 import com.hayden.multiagentidelib.agent.BlackboardHistory;
 import com.hayden.multiagentidelib.agent.ContextManagerTools;
 import com.hayden.multiagentidelib.agent.AgentContext;
-import com.hayden.multiagentidelib.agent.ContextId;
 import com.hayden.multiagentidelib.agent.UpstreamContext;
 import com.hayden.multiagentidelib.prompt.PromptAssembly;
 import com.hayden.multiagentidelib.prompt.PromptContext;
@@ -32,6 +31,7 @@ import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Instant;
 import java.util.*;
@@ -69,12 +69,14 @@ public interface AgentInterfaces {
         private final EventBus eventBus;
         private final WorkflowGraphService workflowGraphService;
         private final InterruptService interruptService;
-        private final ContextIdService contextIdService;
         private final PromptAssembly promptAssembly;
         private final PromptContextFactory promptContextFactory;
         private final RequestEnrichment requestEnrichment;
         private final com.hayden.multiagentide.service.LlmRunner llmRunner;
         private final ContextManagerTools contextManagerTools;
+
+        @Autowired(required = false)
+        private List<ResultDecorator> resultDecorators;
 
         void emitActionStarted(EventBus eventBus, String agentName, String actionName, OperationContext context) {
             AgentInterfaces.emitActionStarted(eventBus, agentName, actionName, context);
@@ -169,7 +171,8 @@ public interface AgentInterfaces {
             );
 
             emitActionCompleted(eventBus, multiAgentAgentName(), "context-manager-interrupt", context, resumed);
-            return resumed;
+
+            return AgentInterfaces.decorateRouting(resumed, context, resultDecorators);
         }
 
         @Action(canRerun = true, cost = 2)
@@ -250,24 +253,6 @@ public interface AgentInterfaces {
             );
         }
 
-        private String resolveWorkflowRunId(OperationContext context) {
-            String nodeId = resolveNodeId(context);
-            if (nodeId == null || nodeId.isBlank()) {
-                return "wf-unknown";
-            }
-            return nodeId.startsWith("wf-") ? nodeId : "wf-" + nodeId;
-        }
-
-        private ContextId resolveContextId(ContextId existing, OperationContext context, AgentType agentType) {
-            if (existing != null) {
-                return existing;
-            }
-            if (contextIdService == null) {
-                return null;
-            }
-            return contextIdService.generate(resolveWorkflowRunId(context), agentType);
-        }
-
         /**
          * Build prompt context by extracting upstream contexts from typed curation fields on the input.
          * Delegates to PromptContextFactory for pattern matching logic.
@@ -326,7 +311,7 @@ public interface AgentInterfaces {
 
             workflowGraphService.completeOrchestratorCollector(context, running, routing);
             emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator-collector", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -350,7 +335,7 @@ public interface AgentInterfaces {
 
             workflowGraphService.completeDiscoveryCollector(context, running, routing);
             emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-collector", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -374,7 +359,7 @@ public interface AgentInterfaces {
 
             workflowGraphService.completePlanningCollector(context, running, routing);
             emitActionCompleted(eventBus, multiAgentAgentName(), "planning-collector", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -398,7 +383,7 @@ public interface AgentInterfaces {
 
             workflowGraphService.completeTicketCollector(context, running, routing);
             emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-collector", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -428,7 +413,7 @@ public interface AgentInterfaces {
 
             workflowGraphService.completeOrchestrator(running, routing);
             emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
 
@@ -448,8 +433,8 @@ public interface AgentInterfaces {
                         originNode,
                         "Orchestrator request not found - creating default recovery request."
                 );
-//                TODO: replace the generate call here with artifact ID
-                lastRequest = new AgentModels.OrchestratorRequest(contextIdService.generate(UUID.randomUUID().toString(), AgentType.ORCHESTRATOR), "Resume workflow", "recovery");
+                throw new DegenerateLoopException("Found strange situation where OrchestratorRequest not found. Impossible state.",
+                        "handleOrchestratorInterrupt", AgentModels.OrchestratorInterruptRequest.class, 1);
             }
             PromptContext promptContext = buildPromptContext(AgentType.ORCHESTRATOR, lastRequest, context);
             var resumed = interruptService.handleInterrupt(
@@ -462,7 +447,7 @@ public interface AgentInterfaces {
                     AgentModels.OrchestratorRouting.class
             );
             emitActionCompleted(eventBus, multiAgentAgentName(), "orchestrator-interrupt", context, resumed);
-            return resumed;
+            return AgentInterfaces.decorateRouting(resumed, context, resultDecorators);
         }
 
 
@@ -487,7 +472,7 @@ public interface AgentInterfaces {
 
             workflowGraphService.completeDiscoveryOrchestrator(running, routing);
             emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-orchestrator", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -513,7 +498,7 @@ public interface AgentInterfaces {
                     continue;
                 }
                 String focus = firstNonBlank(request.subdomainFocus(), "Discovery");
-                // Enrich the request with ContextId and PreviousContext
+                // Enrich the request with ArtifactKey and PreviousContext
                 AgentModels.DiscoveryAgentRequest enrichedRequest = requestEnrichment.enrich(request, context);
                 DiscoveryNode running = workflowGraphService.startDiscoveryAgent(
                         discoveryParent,
@@ -529,12 +514,11 @@ public interface AgentInterfaces {
                 AgentModels.DiscoveryAgentResult agentResult = response != null ? response.agentResult() : null;
                 workflowGraphService.completeDiscoveryAgent(running, agentResult);
                 if (agentResult != null) {
-                    discoveryResults.add(agentResult);
+                    discoveryResults.add(requestEnrichment.enrich(agentResult, context));
                 }
             }
 
-            var contextId = resolveContextId(input.upstreamContextId(), context, AgentType.DISCOVERY_AGENT_DISPATCH);
-            var d = requestEnrichment.enrich(AgentModels.DiscoveryAgentResults.builder().result(discoveryResults).contextId(contextId).build(), context);
+            var d = requestEnrichment.enrich(AgentModels.DiscoveryAgentResults.builder().result(discoveryResults).build(), context);
 
             PromptContext promptContext = buildPromptContext(AgentType.DISCOVERY_AGENT_DISPATCH, d, context);
 
@@ -552,7 +536,7 @@ public interface AgentInterfaces {
                     context
             );
             emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-dispatch", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true, cost = 1.0)
@@ -584,7 +568,7 @@ public interface AgentInterfaces {
                     AgentModels.DiscoveryOrchestratorRouting.class
             );
             emitActionCompleted(eventBus, multiAgentAgentName(), "discovery-interrupt", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -608,7 +592,7 @@ public interface AgentInterfaces {
 
             workflowGraphService.completePlanningOrchestrator(running, routing);
             emitActionCompleted(eventBus, multiAgentAgentName(), "planning-orchestrator", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -642,7 +626,7 @@ public interface AgentInterfaces {
                 }
                 index++;
                 String title = "Plan segment " + index;
-                // Pass through discoveryCuration from orchestrator if not set, then enrich with ContextId and PreviousContext
+                // Pass through discoveryCuration from orchestrator if not set, then enrich with ArtifactKey and PreviousContext
                 AgentModels.PlanningAgentRequest requestWithCuration = request.discoveryCuration() == null && discoveryContext != null
                         ? request.toBuilder().discoveryCuration(discoveryContext).build()
                         : request;
@@ -661,18 +645,15 @@ public interface AgentInterfaces {
                 AgentModels.PlanningAgentResult agentResult = response != null ? response.agentResult() : null;
                 workflowGraphService.completePlanningAgent(running, agentResult);
                 if (agentResult != null) {
-                    planningResults.add(agentResult);
+                    planningResults.add(requestEnrichment.enrich(agentResult, context));
                 }
             }
 
-            var contextId = resolveContextId(input.upstreamContextId(), context, AgentType.PLANNING_AGENT_DISPATCH);
-
             AgentModels.PlanningAgentResults planningAgentResults = AgentModels.PlanningAgentResults.builder()
                     .planningAgentResults(planningResults)
-                    .contextId(contextId)
                     .build();
 
-            planningAgentResults = requestEnrichment.enrichAgentRequests(planningAgentResults, context);
+            planningAgentResults = requestEnrichment.enrich(planningAgentResults, context);
             PromptContext promptContext = buildPromptContext(AgentType.PLANNING_AGENT_DISPATCH, planningAgentResults, context);
 
             AgentModels.PlanningAgentDispatchRouting routing = llmRunner.runWithTemplate(
@@ -689,7 +670,7 @@ public interface AgentInterfaces {
                     context
             );
             emitActionCompleted(eventBus, multiAgentAgentName(), "planning-dispatch", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true, cost = 1.0)
@@ -721,7 +702,7 @@ public interface AgentInterfaces {
                     AgentModels.PlanningOrchestratorRouting.class
             );
             emitActionCompleted(eventBus, multiAgentAgentName(), "planning-interrupt", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -758,7 +739,7 @@ public interface AgentInterfaces {
 
             workflowGraphService.completeTicketOrchestrator(running, routing);
             emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-orchestrator", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -796,7 +777,7 @@ public interface AgentInterfaces {
 
                 index++;
 
-                // Pass through curation fields from orchestrator if not set, then enrich with ContextId and PreviousContext
+                // Pass through curation fields from orchestrator if not set, then enrich with ArtifactKey and PreviousContext
                 AgentModels.TicketAgentRequest requestWithCurations = request.toBuilder()
                         .discoveryCuration(request.discoveryCuration() != null ? request.discoveryCuration() : discoveryCuration)
                         .planningCuration(request.planningCuration() != null ? request.planningCuration() : planningCuration)
@@ -822,13 +803,11 @@ public interface AgentInterfaces {
                 }
             }
 
-            ContextId contextId = resolveContextId(input.upstreamContextId(), context, AgentType.TICKET_AGENT_DISPATCH);
             var ticketAgentResults = AgentModels.TicketAgentResults.builder()
-                    .contextId(contextId)
                     .ticketAgentResults(ticketResults)
                     .build();
 
-            ticketAgentResults = requestEnrichment.enrichAgentRequests(ticketAgentResults, context);
+            ticketAgentResults = requestEnrichment.enrich(ticketAgentResults, context);
 
             PromptContext promptContext = buildPromptContext(AgentType.TICKET_AGENT_DISPATCH, ticketAgentResults, context);
 
@@ -846,7 +825,7 @@ public interface AgentInterfaces {
                     context
             );
             emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-dispatch", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true, cost = 1.0)
@@ -880,7 +859,7 @@ public interface AgentInterfaces {
                     AgentModels.TicketOrchestratorRouting.class
             );
             emitActionCompleted(eventBus, multiAgentAgentName(), "ticket-interrupt", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -915,7 +894,7 @@ public interface AgentInterfaces {
             String combinedSummary = resolveMergeSummary(input, routing);
             workflowGraphService.completeMerge(running, routing, combinedSummary);
             emitActionCompleted(eventBus, multiAgentAgentName(), "merger-agent", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -948,7 +927,7 @@ public interface AgentInterfaces {
             );
             workflowGraphService.completeReview(running, response);
             emitActionCompleted(eventBus, multiAgentAgentName(), "review-agent", context, response);
-            return response;
+            return AgentInterfaces.decorateRouting(response, context, resultDecorators);
         }
 
         @Action(canRerun = true, cost = 1.0)
@@ -991,7 +970,7 @@ public interface AgentInterfaces {
             );
             workflowGraphService.completeReview(originNode, routing);
             emitActionCompleted(eventBus, multiAgentAgentName(), "review-interrupt", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -1010,17 +989,14 @@ public interface AgentInterfaces {
                     ? lastTicketOrchestratorRequest.planningCuration()
                     : null;
 
-            return switch(request.collectorDecision().decisionType()) {
+            AgentModels.TicketCollectorRouting routing = switch(request.collectorDecision().decisionType()) {
                 case ROUTE_BACK -> {
-                    ContextId contextId = resolveContextId(null, context, AgentType.TICKET_ORCHESTRATOR);
                     AgentModels.TicketOrchestratorRequest ticketRequest = requestEnrichment.enrich(
-                            new AgentModels.TicketOrchestratorRequest(
-                                    contextId,
-                                    request.consolidatedOutput(),
-                                    discoveryCuration,
-                                    planningCuration,
-                                    null
-                            ),
+                            AgentModels.TicketOrchestratorRequest.builder()
+                                    .goal(request.consolidatedOutput())
+                                    .discoveryCuration(discoveryCuration)
+                                    .planningCuration(planningCuration)
+                                    .build(),
                             context
                     );
                     yield AgentModels.TicketCollectorRouting.builder()
@@ -1028,17 +1004,14 @@ public interface AgentInterfaces {
                             .build();
                 }
                 case ADVANCE_PHASE -> {
-                    ContextId contextId = resolveContextId(null, context, AgentType.ORCHESTRATOR_COLLECTOR);
                     AgentModels.OrchestratorCollectorRequest orchestratorCollectorRequest = requestEnrichment.enrich(
-                            new AgentModels.OrchestratorCollectorRequest(
-                                    contextId,
-                                    request.consolidatedOutput(),
-                                    request.collectorDecision().requestedPhase(),
-                                    discoveryCuration,
-                                    planningCuration,
-                                    request.ticketCuration(),
-                                    null
-                            ),
+                            AgentModels.OrchestratorCollectorRequest.builder()
+                                    .goal(request.consolidatedOutput())
+                                            .phase(request.collectorDecision().requestedPhase())
+                                    .discoveryCuration(discoveryCuration)
+                                    .planningCuration(planningCuration)
+                                            .ticketCuration(request.ticketCuration())
+                                    .build(),
                             context
                     );
                     yield AgentModels.TicketCollectorRouting.builder()
@@ -1046,17 +1019,14 @@ public interface AgentInterfaces {
                             .build();
                 }
                 case STOP -> {
-                    ContextId contextId = resolveContextId(null, context, AgentType.ORCHESTRATOR_COLLECTOR);
                     AgentModels.OrchestratorCollectorRequest orchestratorCollectorRequest = requestEnrichment.enrich(
-                            new AgentModels.OrchestratorCollectorRequest(
-                                    contextId,
-                                    request.consolidatedOutput(),
-                                    request.collectorDecision().requestedPhase(),
-                                    discoveryCuration,
-                                    planningCuration,
-                                    request.ticketCuration(),
-                                    null
-                            ),
+                            AgentModels.OrchestratorCollectorRequest.builder()
+                                    .goal(request.consolidatedOutput())
+                                    .phase(request.collectorDecision().requestedPhase())
+                                    .discoveryCuration(discoveryCuration)
+                                    .planningCuration(planningCuration)
+                                    .ticketCuration(request.ticketCuration())
+                                    .build(),
                             context
                     );
                     yield AgentModels.TicketCollectorRouting.builder()
@@ -1064,6 +1034,7 @@ public interface AgentInterfaces {
                             .build();
                 }
             };
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -1072,15 +1043,12 @@ public interface AgentInterfaces {
                 OperationContext context
         ) {
             BlackboardHistory.registerAndHideInput(context, "handleDiscoveryCollectorBranch", request, requestEnrichment);
-            return switch(request.collectorDecision().decisionType()) {
+            AgentModels.DiscoveryCollectorRouting routing = switch(request.collectorDecision().decisionType()) {
                 case ROUTE_BACK -> {
-                    ContextId contextId = resolveContextId(null, context, AgentType.DISCOVERY_ORCHESTRATOR);
                     AgentModels.DiscoveryOrchestratorRequest discoveryRequest = requestEnrichment.enrich(
-                            new AgentModels.DiscoveryOrchestratorRequest(
-                                    contextId,
-                                    request.consolidatedOutput(),
-                                    null
-                            ),
+                            AgentModels.DiscoveryOrchestratorRequest.builder()
+                                    .goal(request.consolidatedOutput())
+                                    .build(),
                             context
                     );
                     yield AgentModels.DiscoveryCollectorRouting.builder()
@@ -1088,15 +1056,12 @@ public interface AgentInterfaces {
                             .build();
                 }
                 case ADVANCE_PHASE -> {
-                    ContextId contextId = resolveContextId(null, context, AgentType.PLANNING_ORCHESTRATOR);
                     // Pass the discovery curation directly to planning orchestrator
                     AgentModels.PlanningOrchestratorRequest planningRequest = requestEnrichment.enrich(
-                            new AgentModels.PlanningOrchestratorRequest(
-                                    contextId,
-                                    request.consolidatedOutput(),
-                                    request.discoveryCuration(),
-                                    null
-                            ),
+                            AgentModels.PlanningOrchestratorRequest.builder()
+                                    .goal(request.consolidatedOutput())
+                                    .discoveryCuration(request.discoveryCuration())
+                                    .build(),
                             context
                     );
                     yield AgentModels.DiscoveryCollectorRouting.builder()
@@ -1104,17 +1069,12 @@ public interface AgentInterfaces {
                             .build();
                 }
                 case STOP -> {
-                    ContextId contextId = resolveContextId(null, context, AgentType.ORCHESTRATOR_COLLECTOR);
                     AgentModels.OrchestratorRequest orchestratorRequest = requestEnrichment.enrich(
-                            new AgentModels.OrchestratorRequest(
-                                    contextId,
-                                    request.consolidatedOutput(),
-                                    request.collectorDecision().requestedPhase(),
-                                    request.discoveryCuration(),
-                                    null,
-                                    null,
-                                    null
-                            ),
+                            AgentModels.OrchestratorRequest.builder()
+                                    .goal(request.consolidatedOutput())
+                                    .phase(request.collectorDecision().requestedPhase())
+                                    .discoveryCuration(request.discoveryCuration())
+                                    .build(),
                             context
                     );
                     yield AgentModels.DiscoveryCollectorRouting.builder()
@@ -1122,6 +1082,7 @@ public interface AgentInterfaces {
                             .build();
                 }
             };
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -1130,24 +1091,22 @@ public interface AgentInterfaces {
                 OperationContext context
         ) {
             BlackboardHistory.registerAndHideInput(context, "handleOrchestratorCollectorBranch", request, requestEnrichment);
-            return switch(request.collectorDecision().decisionType()) {
+            AgentModels.OrchestratorCollectorRouting routing = switch(request.collectorDecision().decisionType()) {
                 case ROUTE_BACK -> {
                     AgentModels.OrchestratorRequest orchestratorRequest = requestEnrichment.enrich(
-                            new AgentModels.OrchestratorRequest(
-                                    resolveContextId(null, context, AgentType.ORCHESTRATOR),
-                                    request.consolidatedOutput(),
-                                    request.collectorDecision().requestedPhase(),
-                                    request.discoveryCollectorResult() != null
+                            AgentModels.OrchestratorRequest.builder()
+                                    .goal(request.consolidatedOutput())
+                                    .phase(request.collectorDecision().requestedPhase())
+                                    .discoveryCuration(request.discoveryCollectorResult() != null
                                             ? request.discoveryCollectorResult().discoveryCuration()
-                                            : null,
-                                    request.planningCollectorResult() != null
+                                            : null)
+                                    .planningCuration(request.planningCollectorResult() != null
                                             ? request.planningCollectorResult().planningCuration()
-                                            : null,
-                                    request.ticketCollectorResult() != null
+                                            : null)
+                                    .ticketCuration(request.ticketCollectorResult() != null
                                             ? request.ticketCollectorResult().ticketCuration()
-                                            : null,
-                                    null
-                            ),
+                                            : null)
+                                    .build(),
                             context
                     );
                     yield AgentModels.OrchestratorCollectorRouting.builder()
@@ -1158,6 +1117,7 @@ public interface AgentInterfaces {
                         .collectorResult(new AgentModels.OrchestratorCollectorResult(request.consolidatedOutput(), request.collectorDecision()))
                         .build();
             };
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -1173,17 +1133,14 @@ public interface AgentInterfaces {
                     ? lastPlanningOrchestratorRequest.discoveryCuration()
                     : null;
 
-            return switch(request.collectorDecision().decisionType()) {
+            AgentModels.PlanningCollectorRouting routing = switch(request.collectorDecision().decisionType()) {
                 case ROUTE_BACK -> {
-                    ContextId contextId = resolveContextId(null, context, AgentType.PLANNING_ORCHESTRATOR);
                     // Pass discovery curation back when routing back
                     AgentModels.PlanningOrchestratorRequest planningRequest = requestEnrichment.enrich(
-                            new AgentModels.PlanningOrchestratorRequest(
-                                    contextId,
-                                    request.consolidatedOutput(),
-                                    discoveryCuration,
-                                    null
-                            ),
+                            AgentModels.PlanningOrchestratorRequest.builder()
+                                    .goal(request.consolidatedOutput())
+                                    .discoveryCuration(discoveryCuration)
+                                    .build(),
                             context
                     );
                     yield AgentModels.PlanningCollectorRouting.builder()
@@ -1191,16 +1148,13 @@ public interface AgentInterfaces {
                             .build();
                 }
                 case ADVANCE_PHASE -> {
-                    ContextId contextId = resolveContextId(null, context, AgentType.TICKET_ORCHESTRATOR);
                     // Pass both discovery and planning curations to ticket orchestrator
                     AgentModels.TicketOrchestratorRequest ticketRequest = requestEnrichment.enrich(
-                            new AgentModels.TicketOrchestratorRequest(
-                                    contextId,
-                                    request.consolidatedOutput(),
-                                    discoveryCuration,
-                                    request.planningCuration(),
-                                    null
-                            ),
+                            AgentModels.TicketOrchestratorRequest.builder()
+                                    .goal(request.consolidatedOutput())
+                                    .discoveryCuration(discoveryCuration)
+                                    .planningCuration(request.planningCuration())
+                                    .build(),
                             context
                     );
                     yield AgentModels.PlanningCollectorRouting.builder()
@@ -1208,17 +1162,13 @@ public interface AgentInterfaces {
                             .build();
                 }
                 case STOP -> {
-                    ContextId contextId = resolveContextId(null, context, AgentType.ORCHESTRATOR_COLLECTOR);
                     AgentModels.OrchestratorCollectorRequest orchestratorCollectorRequest = requestEnrichment.enrich(
-                            new AgentModels.OrchestratorCollectorRequest(
-                                    contextId,
-                                    request.consolidatedOutput(),
-                                    request.collectorDecision().requestedPhase(),
-                                    discoveryCuration,
-                                    request.planningCuration(),
-                                    null,
-                                    null
-                            ),
+                            AgentModels.OrchestratorCollectorRequest.builder()
+                                    .goal(request.consolidatedOutput())
+                                    .phase(request.collectorDecision().requestedPhase())
+                                    .discoveryCuration(discoveryCuration)
+                                    .planningCuration(request.planningCuration())
+                                    .build(),
                             context
                     );
                     yield AgentModels.PlanningCollectorRouting.builder()
@@ -1226,6 +1176,7 @@ public interface AgentInterfaces {
                             .build();
                 }
             };
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true, cost = 1.0)
@@ -1270,7 +1221,7 @@ public interface AgentInterfaces {
             String combinedSummary = resolveMergeSummary(lastRequest, routing);
             workflowGraphService.completeMerge(originNode, routing, combinedSummary);
             emitActionCompleted(eventBus, multiAgentAgentName(), "merger-interrupt", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         private <T> T runSubProcess(
@@ -1374,6 +1325,9 @@ public interface AgentInterfaces {
         private final com.hayden.multiagentide.service.LlmRunner llmRunner;
         private final WorkflowGraphService workflowGraphService;
 
+        @Autowired(required = false)
+        private List<ResultDecorator> resultDecorators;
+
         @Override
         public String multiAgentAgentName() {
             return WORKFLOW_TICKET_DISPATCH_SUBAGENT;
@@ -1426,7 +1380,7 @@ public interface AgentInterfaces {
                     AgentModels.TicketAgentRouting.class
             );
             emitActionCompleted(eventBus, "", "ticket-agent-interrupt", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action
@@ -1450,7 +1404,7 @@ public interface AgentInterfaces {
             );
 
             emitActionCompleted(eventBus, "", "ticket-agent", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
     }
 
@@ -1467,6 +1421,9 @@ public interface AgentInterfaces {
         private final InterruptService interruptService;
         private final com.hayden.multiagentide.service.LlmRunner llmRunner;
         private final WorkflowGraphService workflowGraphService;
+
+        @Autowired(required = false)
+        private List<ResultDecorator> resultDecorators;
 
         @Override
         public String multiAgentAgentName() {
@@ -1517,7 +1474,7 @@ public interface AgentInterfaces {
                     AgentModels.PlanningAgentRouting.class
             );
             emitActionCompleted(eventBus, "", "planning-agent-interrupt", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action(canRerun = true)
@@ -1538,7 +1495,7 @@ public interface AgentInterfaces {
             );
 
             emitActionCompleted(eventBus, "", "planning-agent", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
     }
 
@@ -1554,6 +1511,9 @@ public interface AgentInterfaces {
         private final InterruptService interruptService;
         private final com.hayden.multiagentide.service.LlmRunner llmRunner;
         private final WorkflowGraphService workflowGraphService;
+
+        @Autowired(required = false)
+        private List<ResultDecorator> resultDecorators;
 
         @Override
         public String multiAgentAgentName() {
@@ -1608,7 +1568,7 @@ public interface AgentInterfaces {
                     AgentModels.DiscoveryAgentRouting.class
             );
             emitActionCompleted(eventBus, "", "discovery-agent-interrupt", context, routing);
-            return routing;
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
         }
 
         @Action
@@ -1629,8 +1589,26 @@ public interface AgentInterfaces {
             );
 
             emitActionCompleted(eventBus, "", "discovery-agent", context, routing);
+            return AgentInterfaces.decorateRouting(routing, context, resultDecorators);
+        }
+    }
+
+    static <T extends AgentModels.Routing> T decorateRouting(
+            T routing,
+            OperationContext context,
+            List<ResultDecorator> decorators
+    ) {
+        if (routing == null || decorators == null || decorators.isEmpty()) {
             return routing;
         }
+        T decorated = routing;
+        for (ResultDecorator decorator : decorators) {
+            if (decorator == null) {
+                continue;
+            }
+            decorated = decorator.decorate(decorated, context);
+        }
+        return decorated;
     }
 
     static void emitActionStarted(EventBus eventBus, String agentName, String actionName, OperationContext context) {

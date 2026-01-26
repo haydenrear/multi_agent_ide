@@ -6,6 +6,8 @@ plugins {
     id("com.hayden.mcp")
     id("com.hayden.ai")
     id("com.hayden.paths")
+    id("com.hayden.jpa-persistence")
+    id("com.hayden.docker-compose")
 }
 
 group = "com.hayden"
@@ -125,5 +127,13 @@ tasks.compileJava {
     dependsOn("processYmlFiles")
 }
 tasks.test {
+    if (project.findProperty("profile") == "integration") {
+        include("**/integration/**")
+    } else if (project.findProperty("profile") == "acp_integration") {
+        include("**/acp_tests/**")
+    } else {
+        exclude("**/acp_test/**", "**/integration/**")
+    }
+
     dependsOn("processYmlFiles")
 }

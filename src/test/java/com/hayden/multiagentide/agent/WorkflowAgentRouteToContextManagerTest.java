@@ -4,10 +4,7 @@ import com.embabel.agent.api.common.OperationContext;
 import com.embabel.agent.core.AgentProcess;
 import com.hayden.multiagentide.service.InterruptService;
 import com.hayden.multiagentide.service.LlmRunner;
-import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentidelib.agent.AgentType;
-import com.hayden.multiagentidelib.agent.BlackboardHistory;
-import com.hayden.multiagentidelib.agent.ContextManagerTools;
+import com.hayden.multiagentidelib.agent.*;
 import com.hayden.multiagentidelib.prompt.ContextIdService;
 import com.hayden.multiagentidelib.prompt.PromptAssembly;
 import com.hayden.multiagentidelib.prompt.PromptContextFactory;
@@ -42,7 +39,6 @@ class WorkflowAgentRouteToContextManagerTest {
                 eventBus,
                 workflowGraphService,
                 interruptService,
-                contextIdService,
                 promptAssembly,
                 promptContextFactory,
                 requestEnrichment,
@@ -59,6 +55,7 @@ class WorkflowAgentRouteToContextManagerTest {
                 new AgentModels.OrchestratorRequest(contextIdService.generate(UUID.randomUUID().toString(), AgentType.ORCHESTRATOR), "Need context", "DISCOVERY");
         AgentModels.ContextManagerRoutingRequest routingRequest =
                 new AgentModels.ContextManagerRoutingRequest(
+                        contextIdService.generate(UUID.randomUUID().toString(), AgentType.CONTEXT_MANAGER),
                         "Missing info",
                         AgentModels.ContextManagerRequestType.INTROSPECT_AGENT_CONTEXT
                 );
@@ -69,7 +66,9 @@ class WorkflowAgentRouteToContextManagerTest {
                 new BlackboardHistory.DefaultEntry(Instant.now(), "routeToContextManager", routingRequest,
                         AgentModels.ContextManagerRoutingRequest.class)
         ));
-        when(context.last(BlackboardHistory.History.class)).thenReturn(history);
+
+        var bh = new BlackboardHistory(history, "orchestrator", WorkflowGraphState.initial("orchestrator"));
+        when(context.last(BlackboardHistory.class)).thenReturn(bh);
 
         AgentModels.ContextManagerRequest result = workflowAgent.routeToContextManager(routingRequest, context);
 

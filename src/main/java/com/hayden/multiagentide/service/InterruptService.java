@@ -31,7 +31,6 @@ public class InterruptService {
 
     private final PermissionGate permissionGate;
     private final LlmRunner llmRunner;
-    private final ObjectMapper objectMapper;
 
     /**
      * Handle review interrupt using Jinja templates and PromptContext.
@@ -57,7 +56,7 @@ public class InterruptService {
             Class<T> routingClass
     ) {
         return switch (request.type()) {
-            case HUMAN_REVIEW, AGENT_REVIEW -> {
+            case HUMAN_REVIEW, AGENT_REVIEW, PAUSE -> {
                 String feedback = resolveInterruptFeedback(context, request, originNode, promptContext);
                 
                 Map<String, Object> modelWithFeedback = new java.util.HashMap<>(templateModel);
@@ -72,7 +71,7 @@ public class InterruptService {
                         context
                 );
             }
-            default -> llmRunner.runWithTemplate(
+            case BRANCH, STOP, PRUNE -> llmRunner.runWithTemplate(
                     templateName,
                     promptContext,
                     templateModel,
@@ -148,13 +147,13 @@ public class InterruptService {
             return firstNonBlank(feedback, result.reviewContent());
         }
         return switch(request.type()) {
-            case HUMAN_REVIEW -> {
+            case HUMAN_REVIEW, PAUSE -> {
                 PermissionGate.InterruptResolution resolution =
                         resolveInterruptHumanAgent(request, originNode);
                 String feedback = resolution != null ? resolution.getResolutionNotes() : null;
                 yield firstNonBlank(feedback, result.reviewContent());
             }
-            case AGENT_REVIEW, PAUSE, STOP, BRANCH, PRUNE -> {
+            case AGENT_REVIEW, STOP, BRANCH, PRUNE -> {
                 if (result.interruptId().isBlank()) {
                     yield result.reviewContent();
                 }

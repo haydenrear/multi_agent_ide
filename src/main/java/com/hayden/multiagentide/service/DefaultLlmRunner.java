@@ -6,11 +6,13 @@ import com.embabel.agent.api.common.PromptRunner;
 import com.embabel.agent.api.common.ToolObject;
 import com.embabel.common.ai.prompt.PromptElement;
 import com.hayden.multiagentide.agent.AskUserQuestionToolAdapter;
+import com.hayden.multiagentide.artifacts.ArtifactEmissionService;
 import com.hayden.multiagentidelib.prompt.PromptContext;
 import com.hayden.multiagentidelib.prompt.PromptContributorService;
 import com.hayden.multiagentide.tool.ToolAbstraction;
 import com.hayden.multiagentide.tool.ToolContext;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 
@@ -30,10 +32,12 @@ import java.util.Map;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DefaultLlmRunner implements LlmRunner {
     
     private final PromptContributorService promptContributorService;
     private final AskUserQuestionToolAdapter askUserQuestionToolAdapter;
+    private final ArtifactEmissionService artifactEmissionService;
 
     @Override
     public <T> T runWithTemplate(
@@ -44,6 +48,16 @@ public class DefaultLlmRunner implements LlmRunner {
             Class<T> responseClass,
             OperationContext context
     ) {
+        // Emit PromptArgsArtifact before LLM call
+        String workflowRunId = resolveWorkflowRunId(promptContext);
+        if (workflowRunId != null) {
+            try {
+                artifactEmissionService.emitPromptArgs(workflowRunId, templateName, model);
+            } catch (Exception e) {
+                log.warn("Failed to emit PromptArgsArtifact: {}", e.getMessage());
+            }
+        }
+        
         // Get applicable prompt contributors using the full PromptContext
         PromptElement[] contributors = promptContributorService.getContributors(promptContext)
                 .toArray(ContextualPromptElement[]::new);
@@ -57,7 +71,28 @@ public class DefaultLlmRunner implements LlmRunner {
         var aiQueryWithTemplate = aiQuery.withTemplate(templateName);
 
         // Execute and return
-        return aiQueryWithTemplate.createObject(responseClass, model);
+        T result = aiQueryWithTemplate.createObject(responseClass, model);
+        
+        // Note: Embabel handles template rendering internally.
+        // RenderedPromptArtifact would require access to the rendered text,
+        // which we can capture if Embabel provides a hook for it.
+        // For now, we emit the PromptArgs which contains the dynamic inputs.
+        
+        return result;
+    }
+    
+    /**
+     * Resolves the workflow run ID from the prompt context.
+     */
+    private String resolveWorkflowRunId(PromptContext promptContext) {
+        if (promptContext == null || promptContext.currentContextId() == null) {
+            return null;
+        }
+        String contextId = promptContext.currentContextId().value();
+        if (contextId == null || contextId.isBlank()) {
+            return null;
+        }
+        return contextId;
     }
 
     private PromptRunner applyToolContext(PromptRunner promptRunner, ToolContext toolContext) {

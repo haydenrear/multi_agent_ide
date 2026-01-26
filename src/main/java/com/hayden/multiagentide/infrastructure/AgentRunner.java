@@ -62,7 +62,7 @@ public class AgentRunner {
             return;
         }
         try {
-            var contextId = contextIdService.generate("wf-" + orchestratorNode.nodeId(), AgentType.ORCHESTRATOR);
+            var contextId = contextIdService.generate(orchestratorNode.nodeId(), AgentType.ORCHESTRATOR);
             agentLifecycleHandler.runAgent(
                     AgentInterfaces.ORCHESTRATOR_AGENT,
                     new AgentModels.OrchestratorRequest(contextId, orchestratorNode.goal(), "ORCHESTRATOR_ONBOARDING"),

@@ -5,8 +5,10 @@ import static org.mockito.Mockito.when;
 
 import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentide.agent.WorkflowGraphService;
+import com.hayden.multiagentidelib.agent.BlackboardHistory;
 import com.hayden.multiagentidelib.agent.WorkflowGraphState;
 import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
@@ -73,8 +75,10 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
                 reviewNode.nodeId(),
                 null
         );
+
+        var bh = new BlackboardHistory(new BlackboardHistory.History(), "node", state);
         OperationContext context = Mockito.mock(OperationContext.class);
-        when(context.last(WorkflowGraphState.class)).thenReturn(state);
+        when(context.last(BlackboardHistory.class)).thenReturn(bh);
         workflowGraphService.startMerge(
                 context,
                 new AgentModels.MergerRequest(
@@ -166,6 +170,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
                 mergeNode,
                 AgentModels.MergerRouting.builder().interruptRequest(
                         new AgentModels.MergerInterruptRequest(
+                                ArtifactKey.createRoot(),
                                 Events.InterruptType.HUMAN_REVIEW,
                                 "conflicts"
                         )

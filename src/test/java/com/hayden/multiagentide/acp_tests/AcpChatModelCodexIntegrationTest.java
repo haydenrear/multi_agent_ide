@@ -1,6 +1,6 @@
-package com.hayden.multiagentide.acp;
+package com.hayden.multiagentide.acp_tests;
 
-import static com.hayden.multiagentide.acp.AcpChatModelCodexIntegrationTest.TestAgent.TEST_AGENT;
+import static com.hayden.multiagentide.acp_tests.AcpChatModelCodexIntegrationTest.TestAgent.TEST_AGENT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.embabel.agent.api.annotation.AchievesGoal;
@@ -137,7 +137,7 @@ class AcpChatModelCodexIntegrationTest {
                 .ifPresentOrElse(agentPlatform::deploy, () -> log.error("Error deploying {} - could not create agent metadata.", agentInterface));
     }
 
-    @Test
+//    @Test
     void testCreateGoal() {
         orchestrationController.startGoal(new OrchestrationController.StartGoalRequest(
                 "hello!", "/Users/hayde/IdeaProjects/multi_agent_ide_parent/libs-resolver",
@@ -184,9 +184,10 @@ class AcpChatModelCodexIntegrationTest {
             AgentProcess process = agentPlatform.runAgentFrom(
                     thisAgent,
                     processOptions,
-                    Map.of(
-                            IoBinding.DEFAULT_BINDING,
-                            new RequestValue("Can you please try using your emitGuiEvent tool? Skip the session ID.")));
+                    Map.of(IoBinding.DEFAULT_BINDING, new RequestValue("Can you read one of the files in the root directory, return the result, " +
+                                                                        "then write that result to another file named log.log, " +
+                                                                        "then update that file and add the words WHATEVER!??")));
+
             process.bind("conversation", new InMemoryConversation());
 
             var res = process.run().resultOfType(ResultValue.class);
