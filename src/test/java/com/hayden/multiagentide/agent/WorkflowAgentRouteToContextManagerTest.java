@@ -13,6 +13,7 @@ import com.hayden.utilitymodule.acp.events.EventBus;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,21 +30,19 @@ class WorkflowAgentRouteToContextManagerTest {
         WorkflowGraphService workflowGraphService = mock(WorkflowGraphService.class);
         InterruptService interruptService = mock(InterruptService.class);
         ContextIdService contextIdService = mock(ContextIdService.class);
-        PromptAssembly promptAssembly = mock(PromptAssembly.class);
         PromptContextFactory promptContextFactory = mock(PromptContextFactory.class);
         RequestEnrichment requestEnrichment = mock(RequestEnrichment.class);
         LlmRunner llmRunner = mock(LlmRunner.class);
         ContextManagerTools contextManagerTools = mock(ContextManagerTools.class);
+        BlackboardHistoryService blackboardHistoryService = new BlackboardHistoryService(new ArrayList<>());
 
         AgentInterfaces.WorkflowAgent workflowAgent = new AgentInterfaces.WorkflowAgent(
-                eventBus,
                 workflowGraphService,
                 interruptService,
-                promptAssembly,
                 promptContextFactory,
-                requestEnrichment,
                 llmRunner,
-                contextManagerTools
+                contextManagerTools,
+                blackboardHistoryService
         );
 
         OperationContext context = mock(OperationContext.class);

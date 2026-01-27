@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.agent;
 
+import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import java.time.Instant;
@@ -56,10 +57,10 @@ public class GraphNodeFactory {
         );
     }
 
-    public DiscoveryNode discoveryNode(String parentId, String goal, String title) {
+    public DiscoveryNode discoveryNode(String parentId, String goal, String title, AgentModels.DiscoveryAgentRequest enrichedRequest) {
         Instant now = Instant.now();
         return new DiscoveryNode(
-                newNodeId(),
+                enrichedRequest.artifactKey().value(),
                 title,
                 goal,
                 Events.NodeStatus.READY,

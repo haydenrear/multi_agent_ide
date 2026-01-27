@@ -6,6 +6,7 @@ import com.embabel.agent.api.common.PromptRunner;
 import com.embabel.agent.api.common.ToolObject;
 import com.embabel.common.ai.prompt.PromptElement;
 import com.hayden.multiagentide.agent.AskUserQuestionToolAdapter;
+import com.hayden.multiagentide.agent.LlmCallDecorator;
 import com.hayden.multiagentide.artifacts.ArtifactEmissionService;
 import com.hayden.multiagentidelib.prompt.PromptContext;
 import com.hayden.multiagentidelib.prompt.PromptContributorService;
@@ -14,6 +15,7 @@ import com.hayden.multiagentide.tool.ToolContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -39,6 +41,9 @@ public class DefaultLlmRunner implements LlmRunner {
     private final AskUserQuestionToolAdapter askUserQuestionToolAdapter;
     private final ArtifactEmissionService artifactEmissionService;
 
+    @Autowired(required = false)
+    private List<LlmCallDecorator> llmCallDecorators = new ArrayList<>();
+
     @Override
     public <T> T runWithTemplate(
             String templateName,
@@ -49,19 +54,22 @@ public class DefaultLlmRunner implements LlmRunner {
             OperationContext context
     ) {
         // Get applicable prompt contributors using the full PromptContext
-        PromptElement[] contributors = promptContributorService.getContributors(promptContext)
-                .toArray(ContextualPromptElement[]::new);
-
         var aiQuery = context.ai()
                 .withDefaultLlm()
-                .withPromptElements(contributors);
+                .withPromptElements(promptContext.promptContributors().toArray(ContextualPromptElement[]::new));
 
         aiQuery = applyToolContext(aiQuery, toolContext);
 
         var aiQueryWithTemplate = aiQuery.withTemplate(templateName);
 
+        var llmCallContext = new LlmCallDecorator.LlmCallContext(promptContext, toolContext, aiQueryWithTemplate);
+
+        for (var l : llmCallDecorators) {
+            llmCallContext = l.decorate(llmCallContext);
+        }
+
         // Execute and return
-        T result = aiQueryWithTemplate.createObject(responseClass, model);
+        T result = llmCallContext.templateOperations().createObject(responseClass, model);
         
         // Note: Embabel handles template rendering internally.
         // RenderedPromptArtifact would require access to the rendered text,

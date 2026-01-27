@@ -15,7 +15,6 @@ import com.hayden.multiagentide.support.AgentTestBase;
 import com.hayden.multiagentide.support.QueuedLlmRunner;
 import com.hayden.multiagentide.support.TestEventListener;
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentidelib.agent.AgentType;
 import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import com.hayden.multiagentidelib.prompt.ContextIdService;
 import com.hayden.utilitymodule.acp.events.EventBus;
@@ -294,7 +293,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             // Verify graph service calls happened
             verify(workflowGraphService).startOrchestrator(any());
             verify(workflowGraphService).startDiscoveryOrchestrator(any(), any());
-            verify(workflowGraphService).startDiscoveryAgent(any(), any(), any());
+            verify(workflowGraphService).startDiscoveryAgent(any(), any(), any(), any());
             verify(workflowGraphService).startPlanningOrchestrator(any(), any());
             verify(workflowGraphService).startPlanningAgent(any(), any(), any());
             verify(workflowGraphService).startTicketOrchestrator(any(), any());

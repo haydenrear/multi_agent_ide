@@ -1,0 +1,34 @@
+package com.hayden.multiagentide.agent;
+
+import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.multiagentidelib.service.RequestEnrichment;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+/**
+ * Request decorator that emits ActionStartedEvent before action execution.
+ * Uses Integer.MIN_VALUE ordering to ensure it runs first.
+ */
+@Component
+@RequiredArgsConstructor
+public class EnrichRequestDecorator implements RequestDecorator {
+
+    private final RequestEnrichment requestEnrichment;
+
+    @Override
+    public int order() {
+        return -1000;
+    }
+
+    @Override
+    public <T extends AgentModels.AgentRequest> T decorate(T request, DecoratorContext context) {
+        if (request == null || isAlreadyEnriched(request)) {
+            return request;
+        }
+        return requestEnrichment.enrich(request, context.operationContext());
+    }
+
+    private boolean isAlreadyEnriched(AgentModels.AgentRequest request) {
+        return request.contextId() != null;
+    }
+}

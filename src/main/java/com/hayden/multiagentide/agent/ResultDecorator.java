@@ -1,16 +1,29 @@
 package com.hayden.multiagentide.agent;
 
-import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentidelib.model.nodes.Collector;
 
 public interface ResultDecorator {
 
-    default <T extends AgentModels.Routing> T decorate(T t, OperationContext context) {
+
+    /**
+     * Ordering for decorator execution. Lower values execute first.
+     * Default decorators should use 0. The emitActionCompleted decorator
+     * should use Integer.MAX_VALUE to ensure it runs last with the fully
+     * decorated result.
+     */
+    default int order() {
+        return 0;
+    }
+
+    default <T extends AgentModels.Routing> T decorate(T t, DecoratorContext context) {
         return t;
     }
 
-    default <T extends AgentModels.AgentResult> T decorate(T t, OperationContext context) {
+    default <T extends AgentModels.AgentResult> T decorate(T t, DecoratorContext context) {
+        return t;
+    }
+
+    default <T extends AgentModels.AgentRequest> T decorateRequestResult(T t, DecoratorContext context) {
         return t;
     }
 

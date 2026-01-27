@@ -67,12 +67,28 @@ public class WorkflowGraphService {
         return resolveState(context, s -> requireNode(s.discoveryOrchestratorNodeId(), DiscoveryOrchestratorNode.class, "discovery orchestrator"));
     }
 
+    public DiscoveryCollectorNode requireDiscoveryCollector(OperationContext context) {
+        return resolveState(context, s -> requireNode(s.discoveryCollectorNodeId(), DiscoveryCollectorNode.class, "discovery collector"));
+    }
+
     public PlanningOrchestratorNode requirePlanningOrchestrator(OperationContext context) {
         return resolveState(context, s -> requireNode(s.planningOrchestratorNodeId(), PlanningOrchestratorNode.class, "planning orchestrator"));
     }
 
+    public PlanningCollectorNode requirePlanningCollector(OperationContext context) {
+        return resolveState(context, s -> requireNode(s.planningCollectorNodeId(), PlanningCollectorNode.class, "planning collector"));
+    }
+
     public TicketOrchestratorNode requireTicketOrchestrator(OperationContext context) {
         return resolveState(context, state -> requireNode(state.ticketOrchestratorNodeId(), TicketOrchestratorNode.class, "ticket orchestrator"));
+    }
+
+    public TicketCollectorNode requireTicketCollector(OperationContext context) {
+        return resolveState(context, state -> requireNode(state.ticketCollectorNodeId(), TicketCollectorNode.class, "ticket collector"));
+    }
+
+    public CollectorNode requireOrchestratorCollector(OperationContext context) {
+        return resolveState(context, state -> requireNode(state.orchestratorCollectorNodeId(), CollectorNode.class, "orchestrator collector"));
     }
 
     public ReviewNode requireReviewNode(OperationContext context) {
@@ -244,24 +260,32 @@ public class WorkflowGraphService {
     public DiscoveryNode startDiscoveryAgent(
             DiscoveryOrchestratorNode parent,
             String goal,
-            String focus
-    ) {
+            String focus,
+            AgentModels.DiscoveryAgentRequest enrichedRequest) {
         DiscoveryNode discoveryNode = nodeFactory.discoveryNode(
                 parent.nodeId(),
                 goal,
-                "Discover: " + focus
+                "Discover: " + focus,
+                enrichedRequest
         );
         return startChildNode(parent.nodeId(), discoveryNode);
     }
 
-    public void completeDiscoveryAgent(DiscoveryNode running, AgentModels.DiscoveryAgentResult response) {
+    public void completeDiscoveryAgent(AgentModels.DiscoveryAgentResult response,
+                                       String nodeId) {
+        var runningOpt = graphRepository.findById(nodeId);
+        if (runningOpt.isEmpty())
+            return;
         if (response == null) {
-            markNodeCompleted(running);
+            markNodeCompleted(runningOpt.get());
             return;
         }
-        DiscoveryNode completed = running.withResult(response).withContent(response.output());
-        graphRepository.save(completed);
-        markNodeCompleted(completed);
+
+        if (runningOpt.get() instanceof DiscoveryNode running) {
+            DiscoveryNode completed = running.withResult(response).withContent(response.output());
+            graphRepository.save(completed);
+            markNodeCompleted(completed);
+        }
     }
 
     public DiscoveryCollectorNode startDiscoveryCollector(
@@ -370,6 +394,15 @@ public class WorkflowGraphService {
                 Map.of(META_DISCOVERY_CONTEXT, discoveryContext)
         );
         return startChildNode(parent.nodeId(), planningNode);
+    }
+
+    public PlanningNode startPlanningAgent(
+            PlanningOrchestratorNode parent,
+            AgentModels.PlanningAgentRequest request
+    ) {
+        int index = nextChildIndex(parent.nodeId(), PlanningNode.class);
+        String title = "Plan segment " + index;
+        return startPlanningAgent(parent, Objects.toString(request.goal(), ""), title);
     }
 
     public void completePlanningAgent(PlanningNode running, AgentModels.PlanningAgentResult response) {
@@ -549,6 +582,14 @@ public class WorkflowGraphService {
                 )
         );
         return startChildNode(parent.nodeId(), ticketNode);
+    }
+
+    public TicketNode startTicketAgent(
+            TicketOrchestratorNode parent,
+            AgentModels.TicketAgentRequest request
+    ) {
+        int index = nextChildIndex(parent.nodeId(), TicketNode.class);
+        return startTicketAgent(parent, request, index);
     }
 
     public void completeTicketAgent(TicketNode running, AgentModels.TicketAgentResult response) {
@@ -916,6 +957,15 @@ public class WorkflowGraphService {
             ));
         }
         return collected;
+    }
+
+    private <T extends GraphNode> int nextChildIndex(String parentNodeId, Class<T> type) {
+        if (parentNodeId == null || parentNodeId.isBlank()) {
+            return 1;
+        }
+        List<GraphNode> children = computationGraphOrchestrator.getChildNodes(parentNodeId);
+        long count = children.stream().filter(type::isInstance).count();
+        return (int) count + 1;
     }
 
     private String resolveReviewParentId(AgentModels.ReviewRequest input, com.hayden.multiagentidelib.agent.WorkflowGraphState state) {
