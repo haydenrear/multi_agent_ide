@@ -1,4 +1,4 @@
-package com.hayden.multiagentide.agent;
+package com.hayden.multiagentide.agent.decorator;
 
 import com.embabel.agent.api.common.nested.TemplateOperations;
 import com.hayden.multiagentide.tool.ToolContext;

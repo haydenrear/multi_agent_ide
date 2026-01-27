@@ -1,7 +1,7 @@
-package com.hayden.multiagentide.agent;
+package com.hayden.multiagentide.agent.decorator;
 
+import com.hayden.multiagentide.agent.WorkflowGraphService;
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentidelib.model.nodes.DiscoveryNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -12,6 +12,11 @@ import org.springframework.stereotype.Component;
 public class WorkflowGraphServiceFinalResultDecorator implements FinalResultDecorator {
 
     private final WorkflowGraphService graphService;
+
+    @Override
+    public int order() {
+        return 10_000;
+    }
 
     @Override
     public <T extends AgentModels.AgentResult> T decorateFinalResult(T t, FinalResultDecoratorContext context) {

@@ -1,5 +1,6 @@
-package com.hayden.multiagentide.agent;
+package com.hayden.multiagentide.agent.decorator;
 
+import com.hayden.multiagentide.agent.DecoratorContext;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.service.RequestEnrichment;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ public class EnrichResultDecorator implements ResultDecorator {
 
     @Override
     public int order() {
-        return -1000;
+        return -10_000;
     }
 
     @Override

@@ -1,4 +1,4 @@
-package com.hayden.multiagentide.agent;
+package com.hayden.multiagentide.agent.decorator;
 
 import org.springframework.stereotype.Component;
 
@@ -6,6 +6,6 @@ import org.springframework.stereotype.Component;
 public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
     @Override
     public int order() {
-        return LlmCallDecorator.super.order();
+        return 10_000;
     }
 }

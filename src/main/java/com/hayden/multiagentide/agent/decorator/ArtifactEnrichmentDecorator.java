@@ -1,9 +1,9 @@
-package com.hayden.multiagentide.agent;
+package com.hayden.multiagentide.agent.decorator;
 
 import com.embabel.agent.api.common.OperationContext;
+import com.hayden.multiagentide.agent.DecoratorContext;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.service.RequestEnrichment;
-import com.hayden.utilitymodule.acp.events.Artifact;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +12,11 @@ import org.springframework.stereotype.Component;
 public class ArtifactEnrichmentDecorator implements ResultDecorator {
 
     private final RequestEnrichment requestEnrichment;
+
+    @Override
+    public int order() {
+        return -10_000;
+    }
 
     @Override
     @SuppressWarnings("unchecked")

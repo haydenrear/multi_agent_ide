@@ -1,6 +1,6 @@
-package com.hayden.multiagentide.agent;
+package com.hayden.multiagentide.agent.decorator;
 
-import com.embabel.agent.api.common.OperationContext;
+import com.hayden.multiagentide.agent.DecoratorContext;
 import com.hayden.multiagentidelib.agent.AgentModels;
 
 public interface FinalResultDecorator extends ResultDecorator {
