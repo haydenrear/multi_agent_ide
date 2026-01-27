@@ -192,35 +192,39 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
 
             verify(computationGraphOrchestrator, atLeastOnce()).emitStatusChangeEvent(any(), any(), any(), any());
             queuedLlmRunner.assertAllConsumed();
+
+            permissionGate.resolveInterrupt(output.getInterruptId(), "", "", null);
         }
 
         @SneakyThrows
         @Test
-        void orchestratorPause_workflowStops_resolveInterruptContinues() {
+        void orchestratorPause_resolveInterruptContinues() {
             String contextId = "test-pause-continue-" + UUID.randomUUID();
             seedOrchestrator(contextId);
             queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
                     .interruptRequest(AgentModels.OrchestratorInterruptRequest.builder()
                             .type(Events.InterruptType.PAUSE)
-                            .reason("User requested pause")
+                            .reason("User requested pause will continue")
                             .build())
                     .build());
 
             initialOrchestratorToDiscovery("Do that thing.");
             enqueueDiscoveryToEnd("Do that thing.");
 
-            var cf = CompletableFuture.supplyAsync(() -> {
-                return agentPlatform.runAgentFrom(
-                        findWorkflowAgent(),
-                        ProcessOptions.DEFAULT.withContextId(contextId).withPlannerType(PlannerType.GOAP),
-                        Map.of("it", new AgentModels.OrchestratorRequest(ArtifactKey.createRoot(), "Paused task", "DISCOVERY"))
-                );
-            });
+            var res = CompletableFuture.supplyAsync(() -> agentPlatform.runAgentFrom(
+                    findWorkflowAgent(),
+                    ProcessOptions.DEFAULT.withContextId(contextId).withPlannerType(PlannerType.GOAP),
+                    Map.of("it", new AgentModels.OrchestratorRequest(ArtifactKey.createRoot(), "Paused task", "DISCOVERY"))
+            ));
 
             await().atMost(Duration.ofSeconds(300))
-                    .until(() -> permissionGate.isInterruptPending(t -> t.getType() == Events.InterruptType.PAUSE && Objects.equals(t.getReason(), "User requested pause")));
+                    .until(() -> permissionGate.isInterruptPending(
+                            t -> t.getType() == Events.InterruptType.PAUSE && Objects.equals(t.getReason(), "User requested pause will continue")));
 
-            var output = permissionGate.getInterruptPending(t -> t.getType() == Events.InterruptType.PAUSE && Objects.equals(t.getReason(), "User requested pause"));
+            verify(workflowGraphService).handleOrchestratorInterrupt(any(),
+                    argThat(req -> req.type() == Events.InterruptType.PAUSE));
+
+            var output = permissionGate.getInterruptPending(t -> t.getType() == Events.InterruptType.PAUSE && Objects.equals(t.getReason(), "User requested pause will continue"));
 
             assertThat(output).isNotNull();
 
@@ -231,13 +235,12 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                     null);
 
             await().atMost(Duration.ofSeconds(300))
-                    .until(cf::isDone);
+                    .until(res::isDone);
 
-            var result = cf.get();
+            var result = res.get();
 
+            assertThat(result).isNotNull();
             assertThat(output).isNotNull();
-            verify(workflowGraphService).handleOrchestratorInterrupt(any(),
-                    argThat(req -> req.type() == Events.InterruptType.PAUSE));
 
             var ordered = inOrder(
                     workflowAgent,
