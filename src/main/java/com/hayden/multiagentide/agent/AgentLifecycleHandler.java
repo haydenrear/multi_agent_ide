@@ -101,7 +101,8 @@ public class AgentLifecycleHandler {
      */
     public void initializeOrchestrator(String repositoryUrl, String baseBranch,
                                        String goal, String title, String nodeId) {
-        String resolvedNodeId = nodeId != null ? nodeId : UUID.randomUUID().toString();
+        String resolvedNodeId = nodeId != null ? nodeId : ArtifactKey.createRoot().value();
+
         if (nodeExists(resolvedNodeId)) {
             log.info("Orchestrator node {} already exists; skipping initialization", resolvedNodeId);
             return;

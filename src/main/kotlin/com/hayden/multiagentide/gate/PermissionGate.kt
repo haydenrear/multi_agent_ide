@@ -13,6 +13,7 @@ import com.hayden.multiagentidelib.model.nodes.InterruptContext
 import com.hayden.multiagentidelib.model.nodes.InterruptNode
 import com.hayden.multiagentidelib.model.nodes.Interruptible
 import com.hayden.multiagentidelib.model.nodes.ReviewNode
+import com.hayden.utilitymodule.acp.events.ArtifactKey
 import com.hayden.utilitymodule.acp.events.EventBus
 import com.hayden.utilitymodule.acp.events.Events
 import com.hayden.utilitymodule.permission.IPermissionGate
@@ -81,7 +82,7 @@ class PermissionGate(
         val now = Instant.now()
         val permissionNodeId = UUID.randomUUID().toString()
         val permissionNode = AskPermissionNode.builder()
-            .nodeId(permissionNodeId)
+            .nodeId(ArtifactKey(permissionNodeId).createChild().value)
             .title("Permission: " + (toolCall.title ?: "request"))
             .goal("Permission requested for tool call " + toolCall.toolCallId.value)
             .status(Events.NodeStatus.WAITING_INPUT)
