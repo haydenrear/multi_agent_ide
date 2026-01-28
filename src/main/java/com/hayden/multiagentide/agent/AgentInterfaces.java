@@ -57,7 +57,7 @@ public interface AgentInterfaces {
     String AGENT_NAME_PLANNING_AGENT_DISPATCH = "planning-agent-dispatch";
 
     String ACTION_NONE = "";
-    String ACTION_STUCK_CONTEXT_MANAGER = "stuck-context-manager-agent";
+    String ACTION_CONTEXT_MANAGER_STUCK = "context-manager-stuck";
     String ACTION_CONTEXT_MANAGER_INTERRUPT = "context-manager-interrupt";
     String ACTION_CONTEXT_MANAGER_ROUTE = "context-manager-route";
     String ACTION_ORCHESTRATOR_COLLECTOR = "orchestrator-collector";
@@ -214,7 +214,7 @@ public interface AgentInterfaces {
                     context,
                     requestDecorators,
                     multiAgentAgentName(),
-                    ACTION_STUCK_CONTEXT_MANAGER,
+                    ACTION_CONTEXT_MANAGER_STUCK,
                     METHOD_HANDLE_STUCK,
                     lastRequest
             );
@@ -225,7 +225,7 @@ public interface AgentInterfaces {
                     lastRequest,
                     request,
                     context,
-                    ACTION_STUCK_CONTEXT_MANAGER,
+                    ACTION_CONTEXT_MANAGER_STUCK,
                     METHOD_HANDLE_STUCK,
                     TEMPLATE_WORKFLOW_CONTEXT_MANAGER
             );
@@ -244,7 +244,7 @@ public interface AgentInterfaces {
                     context,
                     resultDecorators,
                     multiAgentAgentName(),
-                    ACTION_STUCK_CONTEXT_MANAGER,
+                    ACTION_CONTEXT_MANAGER_STUCK,
                     METHOD_HANDLE_STUCK,
                     lastRequest
             );

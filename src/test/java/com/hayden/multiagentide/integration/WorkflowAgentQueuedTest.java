@@ -5,6 +5,11 @@ import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.ProcessOptions;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.WorkflowGraphService;
+import com.hayden.multiagentide.artifacts.ArtifactEventListener;
+import com.hayden.multiagentide.artifacts.ArtifactTreeBuilder;
+import com.hayden.multiagentide.artifacts.ExecutionScopeService;
+import com.hayden.multiagentide.artifacts.entity.ArtifactEntity;
+import com.hayden.multiagentide.artifacts.repository.ArtifactRepository;
 import com.hayden.multiagentide.gate.PermissionGate;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import com.hayden.multiagentide.repository.GraphRepository;
@@ -15,6 +20,7 @@ import com.hayden.multiagentide.support.AgentTestBase;
 import com.hayden.multiagentide.support.QueuedLlmRunner;
 import com.hayden.multiagentide.support.TestEventListener;
 import com.hayden.multiagentidelib.agent.AgentModels;
+import com.hayden.utilitymodule.acp.events.Artifact;
 import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import com.hayden.multiagentidelib.prompt.ContextIdService;
 import com.hayden.utilitymodule.acp.events.EventBus;
@@ -30,6 +36,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
@@ -62,6 +69,7 @@ import static org.mockito.Mockito.*;
  */
 @Slf4j
 @SpringBootTest
+@Profile("test")
 class WorkflowAgentQueuedTest extends AgentTestBase {
 
     @Autowired
@@ -97,15 +105,26 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
     @MockitoBean
     private WorktreeService worktreeService;
 
-    @MockitoBean
-    private EventBus eventBus;
-
     @Autowired
     private TestEventListener testEventListener;
     @Autowired
     private ContextIdService contextIdService;
     @Autowired
     private PermissionGate permissionGate;
+    @Autowired
+    private ArtifactRepository artifactRepository;
+
+    @Autowired
+    private ArtifactTreeBuilder artifactTreeBuilder;
+
+    @MockitoSpyBean
+    private EventBus eventBus;
+
+    @MockitoSpyBean
+    private ArtifactEventListener artifactEventListener;
+
+    @MockitoSpyBean
+    private ExecutionScopeService executionScopeService;
 
     @TestConfiguration
     static class TestConfig {
@@ -156,7 +175,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
         @SneakyThrows
         @Test
         void orchestratorPause_workflowStops() {
-            String contextId = "test-pause-" + UUID.randomUUID();
+            String contextId = ArtifactKey.createRoot().value();
             seedOrchestrator(contextId);
             queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
                     .interruptRequest(AgentModels.OrchestratorInterruptRequest.builder()
@@ -169,7 +188,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                 agentPlatform.runAgentFrom(
                         findWorkflowAgent(),
                         ProcessOptions.DEFAULT.withContextId(contextId).withPlannerType(PlannerType.GOAP),
-                        Map.of("it", new AgentModels.OrchestratorRequest(ArtifactKey.createRoot(), "Paused task", "DISCOVERY"))
+                        Map.of("it", new AgentModels.OrchestratorRequest(new ArtifactKey(contextId), "Paused task", "DISCOVERY"))
                 );
             });
 
@@ -327,6 +346,86 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             ordered.verify(workflowAgent).consolidateTicketResults(any(), any());
             ordered.verify(workflowAgent).handleTicketCollectorBranch(any(), any());
             ordered.verify(workflowAgent).consolidateWorkflowOutputs(any(), any());
+        }
+
+        @Test
+        void fullWorkflow_persistsArtifactTree() {
+            String contextId = "test-artifact-tree-" + UUID.randomUUID();
+            seedOrchestrator(contextId);
+            enqueueHappyPath("Implement auth");
+
+            Instant startedAt = Instant.now();
+
+            var output = agentPlatform.runAgentFrom(
+                    findWorkflowAgent(),
+                    ProcessOptions.DEFAULT.withContextId(contextId).withPlannerType(PlannerType.GOAP),
+                    Map.of("it", new AgentModels.OrchestratorRequest(ArtifactKey.createRoot(), "Implement auth", "DISCOVERY"))
+            );
+
+            Instant finishedAt = Instant.now();
+
+            assertThat(output.getStatus()).isEqualTo(com.embabel.agent.core.AgentProcessStatusCode.COMPLETED);
+            queuedLlmRunner.assertAllConsumed();
+
+            // Verify we emitted artifacts and opened execution scope
+            verify(artifactEventListener, atLeastOnce()).onEvent(isA(Events.ArtifactEvent.class));
+            verify(executionScopeService, atLeastOnce()).startExecution(anyString(), any(ArtifactKey.class));
+
+            String executionKey = findExecutionKeyForContext(contextId, startedAt, finishedAt);
+
+            List<ArtifactEntity> persisted = artifactRepository.findByExecutionKeyOrderByArtifactKey(executionKey);
+            assertThat(persisted).isNotEmpty();
+
+            Set<String> keys = persisted.stream().map(ArtifactEntity::getArtifactKey).collect(java.util.stream.Collectors.toSet());
+
+            ArtifactEntity root = persisted.stream()
+                    .filter(entity -> entity.getParentKey() == null && "Execution".equals(entity.getArtifactType()))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("Execution root not persisted"));
+
+            assertThat(root.getArtifactKey()).isEqualTo(executionKey);
+            assertThat(artifactRepository.existsByArtifactKey(executionKey)).isTrue();
+
+            // Validate tree structure: all children reference existing parents
+            persisted.stream()
+                    .filter(entity -> entity.getParentKey() != null)
+                    .forEach(entity -> assertThat(keys).contains(entity.getParentKey()));
+
+            // Validate expected artifacts exist and are nested under rendered prompt
+            List<ArtifactEntity> renderedPrompts = persisted.stream()
+                    .filter(entity -> "RenderedPrompt".equals(entity.getArtifactType()))
+                    .toList();
+            assertThat(renderedPrompts).isNotEmpty();
+
+            Set<String> renderedPromptKeys = renderedPrompts.stream()
+                    .map(ArtifactEntity::getArtifactKey)
+                    .collect(java.util.stream.Collectors.toSet());
+
+            List<ArtifactEntity> templateArtifacts = persisted.stream()
+                    .filter(entity -> "PromptTemplateVersion".equals(entity.getArtifactType()))
+                    .toList();
+            assertThat(templateArtifacts).isNotEmpty();
+
+            templateArtifacts.forEach(template ->
+                    assertThat(renderedPromptKeys).contains(template.getParentKey()));
+
+            // Clean up test artifacts to keep DB tidy
+            artifactRepository.deleteByExecutionKey(executionKey);
+        }
+
+        private String findExecutionKeyForContext(String contextId, Instant startedAt, Instant finishedAt) {
+            List<String> executionKeys = artifactRepository.findExecutionKeysBetween(
+                    startedAt.minusSeconds(2),
+                    finishedAt.plusSeconds(5)
+            );
+
+            return executionKeys.stream()
+                    .filter(key -> artifactTreeBuilder.loadExecution(key)
+                            .filter(artifact -> artifact instanceof Artifact.ExecutionArtifact exec
+                                    && contextId.equals(exec.workflowRunId()))
+                            .isPresent())
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("No execution persisted for workflow run id: " + contextId));
         }
 
         @Test

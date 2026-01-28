@@ -145,7 +145,7 @@ class AcpChatModelCodexIntegrationTest {
     void testCreateGoal() {
         orchestrationController.startGoal(new OrchestrationController.StartGoalRequest(
                 "hello!", "/Users/hayde/IdeaProjects/multi_agent_ide_parent/libs-resolver",
-                "main", "hello", UUID.randomUUID().toString()));
+                "main", "hello"));
     }
 
     @Test

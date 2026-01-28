@@ -40,7 +40,9 @@ import java.util.Map;
 public class ArtifactEmissionService {
     
     private final ExecutionScopeService executionScopeService;
+
     private final EventArtifactMapper eventArtifactMapper;
+
     private final ObjectMapper objectMapper;
     
     /**
