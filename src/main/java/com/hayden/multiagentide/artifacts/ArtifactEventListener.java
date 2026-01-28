@@ -2,15 +2,11 @@ package com.hayden.multiagentide.artifacts;
 
 import com.hayden.utilitymodule.acp.events.Artifact;
 import com.hayden.utilitymodule.acp.events.ArtifactKey;
-import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.events.EventListener;
 import com.hayden.utilitymodule.acp.events.Events;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -51,9 +47,6 @@ public class ArtifactEventListener implements EventListener {
         
         if (event instanceof Events.ArtifactEvent artifactEvent) {
             handleArtifactEvent(artifactEvent);
-        } else if (event instanceof Events.GoalCompletedEvent goalCompleted) {
-            // Finish and persist the execution
-            handleExecutionComplete(goalCompleted);
         }
     }
     
@@ -75,11 +68,16 @@ public class ArtifactEventListener implements EventListener {
      * Finishes an execution and returns the built artifact tree.
      * This persists all artifacts and returns the root with children populated.
      */
-    public Optional<Artifact> finishExecution(String executionKey) {
+    public Optional<Artifact> finishPersistRemove(String executionKey) {
+        Optional<Artifact> finished;
         if (persistenceEnabled) {
-            return treeBuilder.finished(executionKey);
+            finished = treeBuilder.persistRemoveExecution(executionKey);
+        } else {
+            finished = treeBuilder.buildRemoveArtifactTree(executionKey);
         }
-        return treeBuilder.buildArtifactTree(executionKey);
+
+        this.activeExecutions.remove(executionKey);
+        return finished;
     }
     
     /**
@@ -87,7 +85,7 @@ public class ArtifactEventListener implements EventListener {
      */
     public void flushExecution(String executionKey) {
         if (persistenceEnabled) {
-            treeBuilder.persistExecution(executionKey);
+            treeBuilder.persistExecutionTree(executionKey);
         }
     }
     
@@ -129,10 +127,10 @@ public class ArtifactEventListener implements EventListener {
             log.warn("No active execution found for completion: {}", workflowRunId);
             return;
         }
-        
+
         // Finish and persist the execution
         log.info("Execution completed, finishing artifacts for: {}", executionKey);
-        Optional<Artifact> result = treeBuilder.finished(executionKey);
+        Optional<Artifact> result = treeBuilder.persistExecutionTree(executionKey);
         
         if (result.isPresent()) {
             log.info("Persisted artifact tree for execution: {} with {} children", 

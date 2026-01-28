@@ -3,6 +3,9 @@ package com.hayden.multiagentide.agent.decorator;
 import com.embabel.agent.api.common.nested.TemplateOperations;
 import com.hayden.multiagentide.tool.ToolContext;
 import com.hayden.multiagentidelib.prompt.PromptContext;
+import lombok.Builder;
+
+import java.util.Map;
 
 public interface LlmCallDecorator {
 
@@ -10,7 +13,9 @@ public interface LlmCallDecorator {
         return 0;
     }
 
-    record LlmCallContext(PromptContext promptContext, ToolContext tcc, TemplateOperations templateOperations) {}
+    @Builder(toBuilder = true)
+    record LlmCallContext(PromptContext promptContext, ToolContext tcc,
+                          TemplateOperations templateOperations, Map<String, Object> templateArgs) {}
 
     default LlmCallContext decorate(LlmCallContext promptContext) {
         return promptContext;

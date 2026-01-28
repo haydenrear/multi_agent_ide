@@ -36,9 +36,7 @@ import java.util.Map;
 @Slf4j
 public class DefaultLlmRunner implements LlmRunner {
     
-    private final PromptContributorService promptContributorService;
     private final AskUserQuestionToolAdapter askUserQuestionToolAdapter;
-    private final ArtifactEmissionService artifactEmissionService;
 
     @Autowired(required = false)
     private List<LlmCallDecorator> llmCallDecorators = new ArrayList<>();
@@ -53,7 +51,8 @@ public class DefaultLlmRunner implements LlmRunner {
             OperationContext context
     ) {
         // Get applicable prompt contributors using the full PromptContext
-        var aiQuery = context.ai()
+        var aiQuery = context
+                .ai()
                 .withDefaultLlm()
                 .withPromptElements(promptContext.promptContributors().toArray(ContextualPromptElement[]::new));
 
@@ -61,7 +60,7 @@ public class DefaultLlmRunner implements LlmRunner {
 
         var aiQueryWithTemplate = aiQuery.withTemplate(templateName);
 
-        var llmCallContext = new LlmCallDecorator.LlmCallContext(promptContext, toolContext, aiQueryWithTemplate);
+        var llmCallContext = new LlmCallDecorator.LlmCallContext(promptContext, toolContext, aiQueryWithTemplate, model);
 
         for (var l : llmCallDecorators) {
             llmCallContext = l.decorate(llmCallContext);
@@ -69,11 +68,6 @@ public class DefaultLlmRunner implements LlmRunner {
 
         // Execute and return
         T result = llmCallContext.templateOperations().createObject(responseClass, model);
-        
-        // Note: Embabel handles template rendering internally.
-        // RenderedPromptArtifact would require access to the rendered text,
-        // which we can capture if Embabel provides a hook for it.
-        // For now, we emit the PromptArgs which contains the dynamic inputs.
         
         return result;
     }

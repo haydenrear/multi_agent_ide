@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.artifacts;
 
+import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.artifact.PromptTemplateVersion;
 import com.hayden.utilitymodule.acp.events.Artifact;
 import com.hayden.utilitymodule.acp.events.ArtifactKey;
@@ -100,9 +101,7 @@ class ArtifactEventListenerTest {
                     Instant.now(),
                     "orchestrator-1",
                     "Completed successfully",
-                    10,
-                    0,
-                    5000L
+                    AgentModels.OrchestratorCollectorResult.builder().build()
             );
             
             assertThat(listener.isInterestedIn(event)).isTrue();
@@ -276,14 +275,12 @@ class ArtifactEventListenerTest {
                     Instant.now(),
                     "workflow-run-1",
                     "Completed",
-                    5,
-                    0,
-                    3000L
+                    AgentModels.OrchestratorCollectorResult.builder().build()
             );
             
             listener.onEvent(event);
             
-            verify(treeBuilder).finished(executionKey);
+            verify(treeBuilder).persistExecutionTree(executionKey);
         }
         
         @Test
@@ -294,15 +291,13 @@ class ArtifactEventListenerTest {
                     Instant.now(),
                     "unknown-workflow",
                     "Completed",
-                    5,
-                    0,
-                    3000L
+                    AgentModels.OrchestratorCollectorResult.builder().build()
             );
             
             // Should not throw, just log warning
             listener.onEvent(event);
             
-            verify(treeBuilder, never()).finished(anyString());
+            verify(treeBuilder, never()).persistExecutionTree(anyString());
         }
     }
     
@@ -321,14 +316,12 @@ class ArtifactEventListenerTest {
                     Instant.now(),
                     "workflow-123",
                     "Done",
-                    1,
-                    0,
-                    1000L
+                    AgentModels.OrchestratorCollectorResult.builder().build()
             );
             
             listener.onEvent(event);
             
-            verify(treeBuilder).finished(executionKey);
+            verify(treeBuilder).persistExecutionTree(executionKey);
         }
         
         @Test
@@ -387,9 +380,7 @@ class ArtifactEventListenerTest {
                     Instant.now(),
                     "workflow-full-test",
                     "Success",
-                    3,
-                    0,
-                    2000L
+                    AgentModels.OrchestratorCollectorResult.builder().build()
             );
             listener.onEvent(completion);
             
@@ -397,7 +388,7 @@ class ArtifactEventListenerTest {
             verify(treeBuilder, times(3)).addArtifact(eq(executionKey), any());
             
             // Verify finished was called
-            verify(treeBuilder).finished(executionKey);
+            verify(treeBuilder).persistExecutionTree(executionKey);
         }
         
         @Test
@@ -424,12 +415,12 @@ class ArtifactEventListenerTest {
                     Instant.now(),
                     "workflow-1",
                     "Done",
-                    1, 0, 1000L
+                    AgentModels.OrchestratorCollectorResult.builder().build()
             ));
             
             // Verify only first execution was finished
-            verify(treeBuilder).finished(execKey1);
-            verify(treeBuilder, never()).finished(execKey2);
+            verify(treeBuilder).persistExecutionTree(execKey1);
+            verify(treeBuilder, never()).persistExecutionTree(execKey2);
             
             // Complete second execution
             listener.onEvent(new Events.GoalCompletedEvent(
@@ -437,11 +428,11 @@ class ArtifactEventListenerTest {
                     Instant.now(),
                     "workflow-2",
                     "Done",
-                    1, 0, 1000L
+                    AgentModels.OrchestratorCollectorResult.builder().build()
             ));
             
             // Verify second execution was finished
-            verify(treeBuilder).finished(execKey2);
+            verify(treeBuilder).persistExecutionTree(execKey2);
         }
     }
     
@@ -468,13 +459,32 @@ class ArtifactEventListenerTest {
                 .children(List.of())
                 .build();
     }
-    
-    private Artifact.GroupArtifact createGroupArtifact(ArtifactKey key, String name) {
-        return Artifact.GroupArtifact.builder()
-                .artifactKey(key)
-                .groupName(name)
-                .metadata(Map.of())
-                .children(List.of())
+
+    private Artifact.AgentModelArtifact createGroupArtifact(ArtifactKey key, String name) {
+        return Artifact.AgentModelArtifact.builder()
+                .agentModel(new Artifact.AgentModel() {
+                    @Override
+                    public String computeHash(Artifact.HashContext hashContext) {
+                        return UUID.randomUUID().toString();
+                    }
+
+                    @Override
+                    public List<Artifact.AgentModel> children() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public ArtifactKey key() {
+                        return key;
+                    }
+
+                    @Override
+                    public <T extends Artifact.AgentModel> T withChildren(List<Artifact.AgentModel> c) {
+                        return null;
+                    }
+                })
+                .metadata(new java.util.HashMap<>())
+                .children(new ArrayList<>())
                 .build();
     }
 }

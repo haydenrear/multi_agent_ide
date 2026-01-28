@@ -2,9 +2,12 @@ package com.hayden.multiagentide.agent.decorator;
 
 import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentide.agent.DecoratorContext;
+import com.hayden.multiagentide.artifacts.ExecutionScopeService;
+import com.hayden.multiagentide.embabel.EmbabelUtil;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.agent.BlackboardHistory;
 import com.hayden.multiagentidelib.agent.WorkflowGraphState;
+import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.events.Events;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,8 @@ public class EmitActionStartedRequestDecorator implements RequestDecorator, Disp
 
     private final EventBus eventBus;
 
+    private final ExecutionScopeService scopeService;
+
     @Override
     public int order() {
         return 10_000;
@@ -40,9 +45,10 @@ public class EmitActionStartedRequestDecorator implements RequestDecorator, Disp
 
         BlackboardHistory.ensureSubscribed(
                 eventBus, operationContext,
-                () -> WorkflowGraphState.initial(resolveNodeId(operationContext)));
+                () -> WorkflowGraphState.initial(request.key().value()));
 
-        String nodeId = resolveNodeId(operationContext);
+        String nodeId = request.key().value();
+
         eventBus.publish(new Events.ActionStartedEvent(
                 UUID.randomUUID().toString(),
                 Instant.now(),
@@ -50,19 +56,12 @@ public class EmitActionStartedRequestDecorator implements RequestDecorator, Disp
                 agentName,
                 actionName
         ));
-        
+
+        if (request instanceof AgentModels.OrchestratorRequest first) {
+            scopeService.startExecution(EmbabelUtil.extractWorkflowRunId(context.operationContext()), first.key());
+        }
+
         return request;
     }
 
-    private static String resolveNodeId(OperationContext context) {
-        if (context == null || context.getProcessContext() == null) {
-            return "unknown";
-        }
-        var options = context.getProcessContext().getProcessOptions();
-        if (options == null) {
-            return "unknown";
-        }
-        String contextId = options.getContextIdString();
-        return contextId != null ? contextId : "unknown";
-    }
 }

@@ -44,259 +44,47 @@ public class ArtifactEmissionService {
     private final ObjectMapper objectMapper;
     
     /**
-     * Emits an AgentRequestArtifact for a request being processed.
-     * 
-     * The artifact is created as a child of the request's own contextId (ArtifactKey),
+     * Emits an AgentRequestArtifact for a model being processed.
+     *
+     * The artifact is created as a child of the model's own contextId (ArtifactKey),
      * preserving the hierarchical structure.
-     * 
-     * @param request The agent request to emit
-     * @param agentType The type of agent processing this request
-     * @param nodeId The workflow node ID (optional)
+     *
+     * @param model The agent model to emit
      */
-    public void emitAgentRequest(
-            AgentModels.AgentRequest request,
-            AgentType agentType,
-            String nodeId
+    public void emitAgentModel(
+            Artifact.AgentModel model,
+            Artifact.HashContext context
     ) {
-        if (request == null) {
-            log.debug("Skipping null agent request emission");
+        if (model == null) {
+            log.debug("Skipping null agent model emission");
             return;
         }
-        
+
         try {
-            // The parent key is the request's own contextId - artifacts for this
-            // agent's execution are children of this request
-            ArtifactKey parentKey = request.contextId();
+            // The parent key is the model's own contextId - artifacts for this
+            // agent's execution are children of this model
+            ArtifactKey parentKey = model.key();
             if (parentKey == null) {
-                log.warn("AgentRequest has no contextId, cannot emit artifact: {}", 
-                        request.getClass().getSimpleName());
+                log.warn("AgentRequest has no contextId, cannot emit artifact: {}",
+                        model.getClass().getSimpleName());
                 return;
             }
-            
+
             ArtifactKey artifactKey = parentKey.createChild();
-            Map<String, Object> payload = toPayload(request);
-            String hash = ArtifactHashing.hashJson(payload);
-            
-            Artifact.AgentRequestArtifact artifact = Artifact.AgentRequestArtifact.builder()
-                    .artifactKey(artifactKey)
-                    .agentType(agentType != null ? agentType.name() : request.getClass().getSimpleName())
-                    .nodeId(nodeId)
-                    .interactionType(determineInteractionType(request))
-                    .payloadJson(payload)
-                    .hash(hash)
-                    .metadata(Map.of(
-                            "requestClass", request.getClass().getSimpleName()
-                    ))
-                    .children(new ArrayList<>())
-                    .build();
-            
+
+            var artifact = model.toArtifact(context);
+
             executionScopeService.emitArtifact(artifact, parentKey);
             log.debug("Emitted AgentRequestArtifact: {} under {}", artifactKey, parentKey);
-            
+
         } catch (Exception e) {
-            log.warn("Failed to emit AgentRequestArtifact for {}: {}", 
-                    request.getClass().getSimpleName(), e.getMessage());
+            log.warn("Failed to emit AgentRequestArtifact for {}: {}",
+                    model.getClass().getSimpleName(), e.getMessage());
         }
     }
-    
-    /**
-     * Emits an AgentResultArtifact for a result being returned.
-     * 
-     * The artifact is created as a child of the result's own contextId,
-     * which should match the original request's contextId.
-     * 
-     * @param result The agent result to emit
-     * @param agentType The type of agent that produced this result
-     * @param nodeId The workflow node ID (optional)
-     */
-    public void emitAgentResult(
-            AgentModels.AgentResult result,
-            AgentType agentType,
-            String nodeId
-    ) {
-        if (result == null) {
-            log.debug("Skipping null agent result emission");
-            return;
-        }
-        
-        try {
-            ArtifactKey parentKey = result.resultId();
-            if (parentKey == null) {
-                log.warn("AgentResult has no resultId, cannot emit artifact: {}", 
-                        result.getClass().getSimpleName());
-                return;
-            }
-            
-            ArtifactKey artifactKey = parentKey.createChild();
-            Map<String, Object> payload = toPayload(result);
-            String hash = ArtifactHashing.hashJson(payload);
-            
-            Artifact.AgentResultArtifact artifact = Artifact.AgentResultArtifact.builder()
-                    .artifactKey(artifactKey)
-                    .agentType(agentType != null ? agentType.name() : result.getClass().getSimpleName())
-                    .nodeId(nodeId)
-                    .interactionType("AGENT_RESULT")
-                    .payloadJson(payload)
-                    .hash(hash)
-                    .metadata(Map.of(
-                            "resultClass", result.getClass().getSimpleName()
-                    ))
-                    .children(new ArrayList<>())
-                    .build();
-            
-            executionScopeService.emitArtifact(artifact, parentKey);
-            log.debug("Emitted AgentResultArtifact: {} under {}", artifactKey, parentKey);
-            
-        } catch (Exception e) {
-            log.warn("Failed to emit AgentResultArtifact for {}: {}", 
-                    result.getClass().getSimpleName(), e.getMessage());
-        }
-    }
-    
-    /**
-     * Emits an InterruptRequestArtifact.
-     * 
-     * @param interruptRequest The interrupt request to emit
-     * @param agentType The type of agent that raised the interrupt
-     * @param nodeId The workflow node ID (optional)
-     */
-    public void emitInterruptRequest(
-            AgentModels.InterruptRequest interruptRequest,
-            AgentType agentType,
-            String nodeId
-    ) {
-        if (interruptRequest == null) {
-            log.debug("Skipping null interrupt request emission");
-            return;
-        }
-        
-        try {
-            ArtifactKey parentKey = interruptRequest.contextId();
-            if (parentKey == null) {
-                log.warn("InterruptRequest has no contextId, cannot emit artifact");
-                return;
-            }
-            
-            ArtifactKey artifactKey = parentKey.createChild();
-            Map<String, Object> payload = toPayload(interruptRequest);
-            String hash = ArtifactHashing.hashJson(payload);
-            
-            Artifact.AgentRequestArtifact artifact = Artifact.AgentRequestArtifact.builder()
-                    .artifactKey(artifactKey)
-                    .agentType(agentType != null ? agentType.name() : "INTERRUPT")
-                    .nodeId(nodeId)
-                    .interactionType("INTERRUPT_REQUEST")
-                    .payloadJson(payload)
-                    .hash(hash)
-                    .metadata(Map.of(
-                            "interruptType", interruptRequest.type() != null ? 
-                                    interruptRequest.type().name() : "UNKNOWN",
-                            "interruptClass", interruptRequest.getClass().getSimpleName()
-                    ))
-                    .children(new ArrayList<>())
-                    .build();
-            
-            executionScopeService.emitArtifact(artifact, parentKey);
-            log.debug("Emitted InterruptRequestArtifact: {} under {}", artifactKey, parentKey);
-            
-        } catch (Exception e) {
-            log.warn("Failed to emit InterruptRequestArtifact: {}", e.getMessage());
-        }
-    }
-    
-    /**
-     * Emits an InterruptResolutionArtifact when an interrupt is resolved.
-     * 
-     * @param parentKey The parent artifact key (typically the interrupt request's key)
-     * @param resolution The resolution data
-     * @param nodeId The workflow node ID (optional)
-     */
-    public void emitInterruptResolution(
-            ArtifactKey parentKey,
-            Object resolution,
-            String nodeId
-    ) {
-        if (parentKey == null) {
-            log.warn("Cannot emit interrupt resolution without parent key");
-            return;
-        }
-        
-        try {
-            ArtifactKey artifactKey = parentKey.createChild();
-            Map<String, Object> payload = toPayload(resolution);
-            String hash = ArtifactHashing.hashJson(payload);
-            
-            Artifact.AgentResultArtifact artifact = Artifact.AgentResultArtifact.builder()
-                    .artifactKey(artifactKey)
-                    .agentType("INTERRUPT")
-                    .nodeId(nodeId)
-                    .interactionType("INTERRUPT_RESOLUTION")
-                    .payloadJson(payload)
-                    .hash(hash)
-                    .metadata(Map.of())
-                    .children(new ArrayList<>())
-                    .build();
-            
-            executionScopeService.emitArtifact(artifact, parentKey);
-            log.debug("Emitted InterruptResolutionArtifact: {} under {}", artifactKey, parentKey);
-            
-        } catch (Exception e) {
-            log.warn("Failed to emit InterruptResolutionArtifact: {}", e.getMessage());
-        }
-    }
-    
-    /**
-     * Emits a CollectorDecisionArtifact for collector agent decisions.
-     * 
-     * Collector results include: DiscoveryCollectorResult, PlanningCollectorResult, 
-     * TicketCollectorResult, OrchestratorCollectorResult.
-     * 
-     * @param collectorResult The collector result containing the decision (any AgentResult from a collector)
-     * @param agentType The type of collector agent
-     * @param nodeId The workflow node ID (optional)
-     */
-    public void emitCollectorDecision(
-            AgentModels.AgentResult collectorResult,
-            AgentType agentType,
-            String nodeId
-    ) {
-        if (collectorResult == null) {
-            log.debug("Skipping null collector decision emission");
-            return;
-        }
-        
-        try {
-            ArtifactKey parentKey = collectorResult.resultId();
-            if (parentKey == null) {
-                log.warn("CollectorResult has no resultId, cannot emit artifact");
-                return;
-            }
-            
-            ArtifactKey artifactKey = parentKey.createChild();
-            Map<String, Object> payload = toPayload(collectorResult);
-            String hash = ArtifactHashing.hashJson(payload);
-            
-            Artifact.AgentResultArtifact artifact = Artifact.AgentResultArtifact.builder()
-                    .artifactKey(artifactKey)
-                    .agentType(agentType != null ? agentType.name() : "COLLECTOR")
-                    .nodeId(nodeId)
-                    .interactionType("COLLECTOR_DECISION")
-                    .payloadJson(payload)
-                    .hash(hash)
-                    .metadata(Map.of(
-                            "collectorClass", collectorResult.getClass().getSimpleName()
-                    ))
-                    .children(new ArrayList<>())
-                    .build();
-            
-            executionScopeService.emitArtifact(artifact, parentKey);
-            log.debug("Emitted CollectorDecisionArtifact: {} under {}", artifactKey, parentKey);
-            
-        } catch (Exception e) {
-            log.warn("Failed to emit CollectorDecisionArtifact: {}", e.getMessage());
-        }
-    }
-    
+
+
+
     /**
      * Emits an ExecutionConfigArtifact with the configuration state.
      * 
@@ -353,181 +141,7 @@ public class ArtifactEmissionService {
             log.warn("Failed to emit ExecutionConfigArtifact for {}: {}", workflowRunId, e.getMessage());
         }
     }
-    
-    /**
-     * Emits an OutcomeEvidenceArtifact.
-     * 
-     * @param workflowRunId The workflow run ID
-     * @param evidenceType Type of evidence (test-result, build-result, merge-result, human-ack)
-     * @param payload The evidence payload
-     */
-    public void emitOutcomeEvidence(
-            String workflowRunId,
-            String evidenceType,
-            Object payload
-    ) {
-        try {
-            ArtifactKey artifactKey = executionScopeService.createChildKey(
-                    workflowRunId,
-                    ExecutionScopeService.GROUP_OUTCOME_EVIDENCE
-            );
-            
-            String payloadJson = objectMapper.writeValueAsString(payload);
-            String hash = ArtifactHashing.hashText(payloadJson);
-            
-            Artifact.OutcomeEvidenceArtifact artifact = Artifact.OutcomeEvidenceArtifact.builder()
-                    .artifactKey(artifactKey)
-                    .evidenceType(evidenceType)
-                    .payload(payloadJson)
-                    .hash(hash)
-                    .metadata(Map.of())
-                    .children(new ArrayList<>())
-                    .build();
-            
-            executionScopeService.emitArtifactToGroup(
-                    workflowRunId,
-                    ExecutionScopeService.GROUP_OUTCOME_EVIDENCE,
-                    artifact
-            );
-            log.debug("Emitted OutcomeEvidenceArtifact: {} type={}", artifactKey, evidenceType);
-            
-        } catch (Exception e) {
-            log.warn("Failed to emit OutcomeEvidenceArtifact: {}", e.getMessage());
-        }
-    }
-    
-    /**
-     * Emits an OutcomeEvidenceArtifact under a specific parent key.
-     * 
-     * @param parentKey The parent artifact key
-     * @param evidenceType Type of evidence
-     * @param payload The evidence payload
-     */
-    public void emitOutcomeEvidence(
-            ArtifactKey parentKey,
-            String evidenceType,
-            Object payload
-    ) {
-        if (parentKey == null) {
-            log.warn("Cannot emit outcome evidence without parent key");
-            return;
-        }
-        
-        try {
-            Artifact.OutcomeEvidenceArtifact artifact = eventArtifactMapper.mapOutcomeEvent(
-                    evidenceType, payload, parentKey);
-            executionScopeService.emitArtifact(artifact, parentKey);
-            log.debug("Emitted OutcomeEvidenceArtifact: {} type={}", artifact.artifactKey(), evidenceType);
-            
-        } catch (Exception e) {
-            log.warn("Failed to emit OutcomeEvidenceArtifact: {}", e.getMessage());
-        }
-    }
-    
-    /**
-     * Emits a RenderedPromptArtifact for a fully rendered prompt.
-     * 
-     * IMPORTANT: The parentKey should be the current agent request's contextId,
-     * so the prompt is properly attributed to that agent in the tree.
-     * 
-     * @param parentKey The parent artifact key (agent request's contextId)
-     * @param renderedText The fully rendered prompt text
-     * @param templateRef Optional reference to the template artifact key
-     */
-    public void emitRenderedPrompt(
-            ArtifactKey parentKey,
-            String renderedText,
-            ArtifactKey templateRef
-    ) {
-        if (parentKey == null) {
-            log.warn("Cannot emit rendered prompt without parent key");
-            return;
-        }
-        
-        if (renderedText == null || renderedText.isEmpty()) {
-            log.debug("Skipping empty rendered prompt emission");
-            return;
-        }
-        
-        try {
-            ArtifactKey artifactKey = parentKey.createChild();
-            String hash = ArtifactHashing.hashText(renderedText);
-            
-            List<Artifact> children = new ArrayList<>();
-            
-            // Add template reference if provided
-            if (templateRef != null) {
-                children.add(com.hayden.utilitymodule.acp.events.RefArtifact.builder()
-                        .artifactKey(artifactKey.createChild())
-                        .targetArtifactKey(templateRef)
-                        .relationType("USES_TEMPLATE")
-                        .metadata(Map.of())
-                        .children(List.of())
-                        .build());
-            }
-            
-            Artifact.RenderedPromptArtifact artifact = Artifact.RenderedPromptArtifact.builder()
-                    .artifactKey(artifactKey)
-                    .renderedText(renderedText)
-                    .hash(hash)
-                    .metadata(Map.of(
-                            "textLength", String.valueOf(renderedText.length())
-                    ))
-                    .children(children)
-                    .build();
-            
-            executionScopeService.emitArtifact(artifact, parentKey);
-            log.debug("Emitted RenderedPromptArtifact: {} ({} chars) under {}", 
-                    artifactKey, renderedText.length(), parentKey);
-            
-        } catch (Exception e) {
-            log.warn("Failed to emit RenderedPromptArtifact: {}", e.getMessage());
-        }
-    }
 
-    /**
-     * Emits a PromptArgsArtifact for template arguments.
-     * 
-     * @param parentKey The parent artifact key (typically the RenderedPrompt's key)
-     * @param args The template arguments map
-     */
-    public void emitPromptArgs(
-            ArtifactKey parentKey,
-            Map<String, Object> args
-    ) {
-        if (parentKey == null) {
-            log.warn("Cannot emit prompt args without parent key");
-            return;
-        }
-        
-        if (args == null || args.isEmpty()) {
-            log.debug("Skipping empty prompt args emission");
-            return;
-        }
-        
-        try {
-            ArtifactKey artifactKey = parentKey.createChild();
-            String hash = ArtifactHashing.hashJson(args);
-            
-            Artifact.PromptArgsArtifact artifact = Artifact.PromptArgsArtifact.builder()
-                    .artifactKey(artifactKey)
-                    .args(args)
-                    .hash(hash)
-                    .metadata(Map.of(
-                            "argCount", String.valueOf(args.size())
-                    ))
-                    .children(new ArrayList<>())
-                    .build();
-            
-            executionScopeService.emitArtifact(artifact, parentKey);
-            log.debug("Emitted PromptArgsArtifact: {} ({} args) under {}", 
-                    artifactKey, args.size(), parentKey);
-            
-        } catch (Exception e) {
-            log.warn("Failed to emit PromptArgsArtifact: {}", e.getMessage());
-        }
-    }
-    
     /**
      * Emits a GraphEvent as an EventArtifact.
      * 

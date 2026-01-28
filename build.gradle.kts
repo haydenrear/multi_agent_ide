@@ -58,7 +58,7 @@ if (buildReact) {
         finalizedBy("buildFrontend")
     }
 
-//Build the Next.js frontend
+    //Build the Next.js frontend
     tasks.register<com.github.gradle.node.npm.task.NpmTask>("buildFrontend") {
         description = "Build Next.js frontend application"
         workingDir.set(file("${project.projectDir}/fe"))
@@ -129,7 +129,7 @@ tasks.compileJava {
 tasks.test {
     if (project.findProperty("profile") == "integration") {
         include("**/integration/**")
-    } else if (project.findProperty("profile") == "acp_integration") {
+    } else if (project.findProperty("profile") == "acp-integration") {
         include("**/acp_tests/**")
     } else {
         exclude("**/acp_test/**", "**/integration/**")

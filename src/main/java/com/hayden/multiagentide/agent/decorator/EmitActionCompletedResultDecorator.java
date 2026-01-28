@@ -2,8 +2,11 @@ package com.hayden.multiagentide.agent.decorator;
 
 import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentide.agent.DecoratorContext;
+import com.hayden.multiagentide.artifacts.ExecutionScopeService;
+import com.hayden.multiagentide.embabel.EmbabelUtil;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.agent.BlackboardHistory;
+import com.hayden.utilitymodule.acp.events.Artifact;
 import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.events.Events;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,8 @@ import java.util.UUID;
 public class EmitActionCompletedResultDecorator implements FinalResultDecorator, ResultDecorator {
 
     private final EventBus eventBus;
+
+    private final ExecutionScopeService exec;
 
     @Override
     public int order() {
@@ -67,6 +72,17 @@ public class EmitActionCompletedResultDecorator implements FinalResultDecorator,
                 outcomeType
         ));
 
+        if (t instanceof AgentModels.OrchestratorCollectorRouting routing
+                && routing.collectorResult() != null) {
+            eventBus.publish(new Events.GoalCompletedEvent(
+                    UUID.randomUUID().toString(),
+                    Instant.now(),
+                    nodeId,
+                    EmbabelUtil.extractWorkflowRunId(context.operationContext()),
+                    routing.collectorResult()
+            ));
+        }
+
         return t;
     }
 
@@ -94,6 +110,10 @@ public class EmitActionCompletedResultDecorator implements FinalResultDecorator,
                 actionName,
                 outcomeType
         ));
+
+        if (t instanceof AgentModels.OrchestratorCollectorResult) {
+            exec.completeExecution(context.operationContext().getAgentProcess().getId(), Artifact.ExecutionStatus.COMPLETED);
+        }
 
         return t;
     }

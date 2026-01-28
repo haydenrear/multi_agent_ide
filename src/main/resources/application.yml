@@ -124,3 +124,11 @@ artifacts:
     load-on-startup: ${ARTIFACTS_TEMPLATES_LOAD:true}
     source-paths:
       - classpath:prompts/workflow/
+acp.mcp:
+  http:
+    - name: deepwiki
+      url: https://mcp.deepwiki.com/mcp
+      headers:
+    - name: hindsight
+      url: http://localhost:8888/mcp
+      headers:

@@ -38,12 +38,9 @@ public class ArtifactTreeBuilder {
     
     private final ArtifactRepository artifactRepository;
     private final ObjectMapper objectMapper;
-    
-    // In-memory artifact trie per execution (cleared after persistence)
+
     private final Map<String, ArtifactNode> executionTrees = new ConcurrentHashMap<>();
     
-    // Pending artifacts for batch persistence
-
     /**
      * Adds an artifact to the tree using trie-based insertion with hash deduplication.
      * 
@@ -151,7 +148,15 @@ public class ArtifactTreeBuilder {
     public Optional<ArtifactNode> getExecutionTree(String executionKey) {
         return Optional.ofNullable(executionTrees.get(executionKey));
     }
-    
+
+    public Optional<Artifact> buildRemoveArtifactTree(String executionKey) {
+        ArtifactNode root = executionTrees.remove(executionKey);
+        if (root == null) {
+            return Optional.empty();
+        }
+        return Optional.of(root.buildArtifactTree());
+    }
+
     /**
      * Builds and returns the artifact tree for an execution.
      * Returns the root artifact with all children populated recursively.
@@ -183,7 +188,13 @@ public class ArtifactTreeBuilder {
         
         return parentNode.hasSiblingWithHash(contentHash);
     }
-    
+
+    public Optional<Artifact> persistRemoveExecution(String executionKey) {
+        var toRemove = persistExecutionTree(executionKey) ;
+        this.executionTrees.remove(executionKey);
+        return toRemove;
+    }
+
     /**
      * Marks an execution as finished and persists the artifact tree.
      * This is the primary way to complete an execution and persist its artifacts.
@@ -192,7 +203,7 @@ public class ArtifactTreeBuilder {
      * @return The root artifact with all children populated, or empty if no tree exists
      */
     @Transactional
-    public Optional<Artifact> finished(String executionKey) {
+    public Optional<Artifact> persistExecutionTree(String executionKey) {
         ArtifactNode root = executionTrees.get(executionKey);
         if (root == null) {
             log.warn("No execution tree found for key: {}", executionKey);
@@ -301,9 +312,7 @@ public class ArtifactTreeBuilder {
     
     private String extractNodeId(Artifact artifact) {
         return switch (artifact) {
-            case Artifact.EventArtifact e -> e.nodeId();
-            case Artifact.AgentRequestArtifact a -> a.nodeId();
-            case Artifact.AgentResultArtifact a -> a.nodeId();
+            case Artifact.AgentModelArtifact e -> e.artifactKey().value();
             default -> null;
         };
     }

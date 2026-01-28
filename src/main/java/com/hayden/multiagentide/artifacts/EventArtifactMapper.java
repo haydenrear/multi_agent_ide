@@ -42,7 +42,6 @@ public class EventArtifactMapper {
         return Artifact.EventArtifact.builder()
                 .artifactKey(artifactKey)
                 .eventId(event.eventId())
-                .nodeId(event.nodeId())
                 .eventTimestamp(event.timestamp())
                 .eventType(event.eventType())
                 .payloadJson(payload)

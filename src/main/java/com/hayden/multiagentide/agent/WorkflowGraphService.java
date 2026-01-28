@@ -6,6 +6,7 @@ import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.service.WorktreeService;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.agent.BlackboardHistory;
+import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
@@ -151,7 +152,7 @@ public class WorkflowGraphService {
             AgentModels.OrchestratorCollectorRequest input
     ) {
         OrchestratorNode orchestratorNode = requireOrchestrator(context);
-        CollectorNode collectorNode = nodeFactory.orchestratorCollectorNode(orchestratorNode, input.goal());
+        CollectorNode collectorNode = nodeFactory.orchestratorCollectorNode(orchestratorNode, input.goal(), input.contextId());
         computationGraphOrchestrator.addChildNodeAndEmitEvent(
                 orchestratorNode.nodeId(),
                 collectorNode
@@ -202,7 +203,7 @@ public class WorkflowGraphService {
     ) {
         var d = resolveState(context, s -> {
             String parentId = firstNonBlank(s.orchestratorCollectorNodeId(), s.orchestratorNodeId());
-            var discoveryNode = nodeFactory.discoveryOrchestratorNode(parentId, input.goal());
+            var discoveryNode = nodeFactory.discoveryOrchestratorNode(parentId, input.goal(), input.contextId());
             computationGraphOrchestrator.addChildNodeAndEmitEvent(parentId, discoveryNode);
             updateState(context,st ->  st.withDiscoveryOrchestratorNodeId(discoveryNode.nodeId()));
             return discoveryNode;
@@ -266,7 +267,8 @@ public class WorkflowGraphService {
                 parent.nodeId(),
                 goal,
                 "Discover: " + focus,
-                enrichedRequest
+                enrichedRequest,
+                enrichedRequest != null ? enrichedRequest.contextId() : null
         );
         return startChildNode(parent.nodeId(), discoveryNode);
     }
@@ -295,7 +297,8 @@ public class WorkflowGraphService {
         DiscoveryOrchestratorNode discoveryParent = requireDiscoveryOrchestrator(context);
         DiscoveryCollectorNode collectorNode = nodeFactory.discoveryCollectorNode(
                 discoveryParent.nodeId(),
-                input.goal()
+                input.goal(),
+                input.contextId()
         );
         computationGraphOrchestrator.addChildNodeAndEmitEvent(
                 discoveryParent.nodeId(),
@@ -349,7 +352,8 @@ public class WorkflowGraphService {
              PlanningOrchestratorNode planningNode = nodeFactory.planningOrchestratorNode(
                      parentId,
                      input.goal(),
-                     Map.of(META_DISCOVERY_CONTEXT, discoveryContext)
+                     Map.of(META_DISCOVERY_CONTEXT, discoveryContext),
+                     input.contextId()
              );
              computationGraphOrchestrator.addChildNodeAndEmitEvent(parentId, planningNode);
              updateState(context, s -> s.withPlanningOrchestratorNodeId(planningNode.nodeId()));
@@ -384,14 +388,16 @@ public class WorkflowGraphService {
     public PlanningNode startPlanningAgent(
             PlanningOrchestratorNode parent,
             String goal,
-            String title
+            String title,
+            ArtifactKey artifactKey
     ) {
         String discoveryContext = parent.metadata().getOrDefault(META_DISCOVERY_CONTEXT, "");
         PlanningNode planningNode = nodeFactory.planningNode(
                 parent.nodeId(),
                 goal,
                 title,
-                Map.of(META_DISCOVERY_CONTEXT, discoveryContext)
+                Map.of(META_DISCOVERY_CONTEXT, discoveryContext),
+                artifactKey
         );
         return startChildNode(parent.nodeId(), planningNode);
     }
@@ -402,7 +408,7 @@ public class WorkflowGraphService {
     ) {
         int index = nextChildIndex(parent.nodeId(), PlanningNode.class);
         String title = "Plan segment " + index;
-        return startPlanningAgent(parent, Objects.toString(request.goal(), ""), title);
+        return startPlanningAgent(parent, Objects.toString(request.goal(), ""), title, request != null ? request.contextId() : null);
     }
 
     public void completePlanningAgent(PlanningNode running, AgentModels.PlanningAgentResult response) {
@@ -422,7 +428,8 @@ public class WorkflowGraphService {
         PlanningOrchestratorNode planningParent = requirePlanningOrchestrator(context);
         PlanningCollectorNode collectorNode = nodeFactory.planningCollectorNode(
                 planningParent.nodeId(),
-                input.goal()
+                input.goal(),
+                input.contextId()
         );
         computationGraphOrchestrator.addChildNodeAndEmitEvent(
                 planningParent.nodeId(),
@@ -504,7 +511,8 @@ public class WorkflowGraphService {
                     parentId,
                     input.goal(),
                     metadata,
-                    new HasWorktree.WorkTree(ticketMainWorktreeId, root.mainWorktreeId(), branchedSubmodules)
+                    new HasWorktree.WorkTree(ticketMainWorktreeId, root.mainWorktreeId(), branchedSubmodules),
+                    input.contextId()
             );
             computationGraphOrchestrator.addChildNodeAndEmitEvent(parentId, ticketNode);
             updateState(context, s -> s.withTicketOrchestratorNodeId(ticketNode.nodeId()));
@@ -579,7 +587,8 @@ public class WorkflowGraphService {
                         branchedWorktreeId,
                         parent.mainWorktreeId(),
                         submoduleWorktrees
-                )
+                ),
+                request != null ? request.contextId() : null
         );
         return startChildNode(parent.nodeId(), ticketNode);
     }
@@ -609,7 +618,8 @@ public class WorkflowGraphService {
         TicketOrchestratorNode ticketParent = requireTicketOrchestrator(context);
         TicketCollectorNode collectorNode = nodeFactory.ticketCollectorNode(
                 ticketParent.nodeId(),
-                input.goal()
+                input.goal(),
+                input.contextId()
         );
         computationGraphOrchestrator.addChildNodeAndEmitEvent(
                 ticketParent.nodeId(),
@@ -651,7 +661,8 @@ public class WorkflowGraphService {
                     parentId,
                     Objects.toString(input.content(), ""),
                     Objects.toString(input.content(), ""),
-                    "agent-review"
+                    "agent-review",
+                    input.contextId()
             );
             computationGraphOrchestrator.addChildNodeAndEmitEvent(parentId, reviewNode);
             updateState(context, s -> s.withReviewNodeId(reviewNode.nodeId()));
@@ -715,7 +726,8 @@ public class WorkflowGraphService {
                     parentId,
                     Objects.toString(input.mergeSummary(), ""),
                     Objects.toString(input.mergeSummary(), ""),
-                    Map.of()
+                    Map.of(),
+                    input.contextId()
             );
             computationGraphOrchestrator.addChildNodeAndEmitEvent(parentId, mergeNode);
             updateState(context, s -> s.withMergeNodeId(mergeNode.nodeId()));

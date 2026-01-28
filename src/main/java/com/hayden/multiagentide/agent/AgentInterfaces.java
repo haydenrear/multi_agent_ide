@@ -13,6 +13,7 @@ import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.InjectedType;
 import com.embabel.agent.core.Operation;
 import com.hayden.multiagentide.agent.decorator.*;
+import com.hayden.multiagentide.embabel.EmbabelUtil;
 import com.hayden.multiagentidelib.events.DegenerateLoopException;
 import com.hayden.multiagentide.service.InterruptService;
 import com.hayden.multiagentide.tool.ToolAbstraction;
@@ -28,10 +29,12 @@ import com.hayden.multiagentidelib.agent.BlackboardHistoryService;
 import com.hayden.multiagentidelib.prompt.PromptContext;
 import com.hayden.multiagentidelib.prompt.PromptContextFactory;
 import com.hayden.utilitymodule.acp.events.Artifact;
+import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -160,6 +163,7 @@ public interface AgentInterfaces {
 
     @EmbabelComponent(scan = false)
     @RequiredArgsConstructor
+    @Slf4j
     class WorkflowAgent implements AgentInterfaces, StuckHandler {
 
         private final WorkflowGraphService workflowGraphService;
@@ -222,7 +226,8 @@ public interface AgentInterfaces {
                     request,
                     context,
                     ACTION_STUCK_CONTEXT_MANAGER,
-                    METHOD_HANDLE_STUCK
+                    METHOD_HANDLE_STUCK,
+                    TEMPLATE_WORKFLOW_CONTEXT_MANAGER
             );
 
             AgentModels.ContextManagerResultRouting routing = llmRunner.runWithTemplate(
@@ -290,7 +295,8 @@ public interface AgentInterfaces {
                     request,
                     context,
                     ACTION_CONTEXT_MANAGER_INTERRUPT,
-                    METHOD_HANDLE_CONTEXT_MANAGER_INTERRUPT
+                    METHOD_HANDLE_CONTEXT_MANAGER_INTERRUPT,
+                    TEMPLATE_WORKFLOW_CONTEXT_MANAGER_INTERRUPT
             );
             String reason = firstNonBlank(
                     request.reason(),
@@ -442,7 +448,8 @@ public interface AgentInterfaces {
                 AgentModels.AgentRequest currentRequest,
                 OperationContext context,
                 String actionName,
-                String methodName
+                String methodName,
+                String templateName
         ) {
             BlackboardHistory history = BlackboardHistory.getEntireBlackboardHistory(context);
             PromptContext promptContext = promptContextFactory.build(
@@ -450,7 +457,8 @@ public interface AgentInterfaces {
                     contextRequest,
                     previousRequest,
                     currentRequest,
-                    history
+                    history,
+                    templateName
             );
             return AgentInterfaces.decoratePromptContext(
                     promptContext,
@@ -479,6 +487,7 @@ public interface AgentInterfaces {
                         1
                 );
             }
+
             return AgentInterfaces.decorateFinalResult(
                     input,
                     lastRequest,
@@ -490,6 +499,8 @@ public interface AgentInterfaces {
                     METHOD_FINAL_COLLECTOR_RESULT
             );
         }
+        
+
 
         @Action(canRerun = true)
         public AgentModels.OrchestratorCollectorRouting consolidateWorkflowOutputs(
@@ -522,7 +533,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_ORCHESTRATOR_COLLECTOR,
-                    METHOD_CONSOLIDATE_WORKFLOW_OUTPUTS
+                    METHOD_CONSOLIDATE_WORKFLOW_OUTPUTS,
+                    TEMPLATE_WORKFLOW_ORCHESTRATOR_COLLECTOR
             );
 
             var model = new HashMap<String, Object>();
@@ -582,7 +594,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_DISCOVERY_COLLECTOR,
-                    METHOD_CONSOLIDATE_DISCOVERY_FINDINGS
+                    METHOD_CONSOLIDATE_DISCOVERY_FINDINGS,
+                    TEMPLATE_WORKFLOW_DISCOVERY_COLLECTOR
             );
 
             AgentModels.DiscoveryCollectorRouting routing = llmRunner.runWithTemplate(
@@ -636,7 +649,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_PLANNING_COLLECTOR,
-                    METHOD_CONSOLIDATE_PLANS_INTO_TICKETS
+                    METHOD_CONSOLIDATE_PLANS_INTO_TICKETS,
+                    TEMPLATE_WORKFLOW_PLANNING_COLLECTOR
             );
 
             AgentModels.PlanningCollectorRouting routing = llmRunner.runWithTemplate(
@@ -690,7 +704,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_TICKET_COLLECTOR,
-                    METHOD_CONSOLIDATE_TICKET_RESULTS
+                    METHOD_CONSOLIDATE_TICKET_RESULTS,
+                    TEMPLATE_WORKFLOW_TICKET_COLLECTOR
             );
 
             AgentModels.TicketCollectorRouting routing = llmRunner.runWithTemplate(
@@ -737,7 +752,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_ORCHESTRATOR,
-                    METHOD_COORDINATE_WORKFLOW
+                    METHOD_COORDINATE_WORKFLOW,
+                    TEMPLATE_WORKFLOW_ORCHESTRATOR
             );
 
 
@@ -800,7 +816,8 @@ public interface AgentInterfaces {
                     request,
                     context,
                     ACTION_ORCHESTRATOR_INTERRUPT,
-                    METHOD_HANDLE_ORCHESTRATOR_INTERRUPT
+                    METHOD_HANDLE_ORCHESTRATOR_INTERRUPT,
+                    TEMPLATE_WORKFLOW_ORCHESTRATOR
             );
             var resumed = interruptService.handleInterrupt(
                     context,
@@ -854,7 +871,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_DISCOVERY_ORCHESTRATOR,
-                    METHOD_KICK_OFF_ANY_NUMBER_OF_AGENTS_FOR_CODE_SEARCH
+                    METHOD_KICK_OFF_ANY_NUMBER_OF_AGENTS_FOR_CODE_SEARCH,
+                    TEMPLATE_WORKFLOW_DISCOVERY_ORCHESTRATOR
             );
 
             AgentModels.DiscoveryOrchestratorRouting routing = llmRunner.runWithTemplate(
@@ -935,7 +953,8 @@ public interface AgentInterfaces {
                     d,
                     context,
                     ACTION_DISCOVERY_DISPATCH,
-                    METHOD_DISPATCH_DISCOVERY_AGENT_REQUESTS
+                    METHOD_DISPATCH_DISCOVERY_AGENT_REQUESTS,
+                    TEMPLATE_WORKFLOW_DISCOVERY_DISPATCH
             );
 
             AgentModels.DiscoveryAgentDispatchRouting routing = llmRunner.runWithTemplate(
@@ -998,7 +1017,8 @@ public interface AgentInterfaces {
                     request,
                     context,
                     ACTION_DISCOVERY_INTERRUPT,
-                    METHOD_HANDLE_DISCOVERY_INTERRUPT
+                    METHOD_HANDLE_DISCOVERY_INTERRUPT,
+                    TEMPLATE_WORKFLOW_DISCOVERY_ORCHESTRATOR
             );
             var routing = interruptService.handleInterrupt(
                     context,
@@ -1051,7 +1071,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_PLANNING_ORCHESTRATOR,
-                    METHOD_DECOMPOSE_PLAN_AND_CREATE_WORK_ITEMS
+                    METHOD_DECOMPOSE_PLAN_AND_CREATE_WORK_ITEMS,
+                    TEMPLATE_WORKFLOW_PLANNING_ORCHESTRATOR
             );
 
             AgentModels.PlanningOrchestratorRouting routing = llmRunner.runWithTemplate(
@@ -1147,7 +1168,8 @@ public interface AgentInterfaces {
                     planningAgentResults,
                     context,
                     ACTION_PLANNING_DISPATCH,
-                    METHOD_DISPATCH_PLANNING_AGENT_REQUESTS
+                    METHOD_DISPATCH_PLANNING_AGENT_REQUESTS,
+                    TEMPLATE_WORKFLOW_PLANNING_DISPATCH
             );
 
             AgentModels.PlanningAgentDispatchRouting routing = llmRunner.runWithTemplate(
@@ -1214,7 +1236,8 @@ public interface AgentInterfaces {
                     request,
                     context,
                     ACTION_PLANNING_INTERRUPT,
-                    METHOD_HANDLE_PLANNING_INTERRUPT
+                    METHOD_HANDLE_PLANNING_INTERRUPT,
+                    TEMPLATE_WORKFLOW_PLANNING_ORCHESTRATOR
             );
             var routing = interruptService.handleInterrupt(
                     context,
@@ -1299,7 +1322,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_TICKET_ORCHESTRATOR,
-                    METHOD_ORCHESTRATE_TICKET_EXECUTION
+                    METHOD_ORCHESTRATE_TICKET_EXECUTION,
+                    TEMPLATE_WORKFLOW_TICKET_ORCHESTRATOR
             );
 
             AgentModels.TicketOrchestratorRouting routing = llmRunner.runWithTemplate(
@@ -1388,7 +1412,8 @@ public interface AgentInterfaces {
                     ticketAgentResults,
                     context,
                     ACTION_TICKET_DISPATCH,
-                    METHOD_DISPATCH_TICKET_AGENT_REQUESTS
+                    METHOD_DISPATCH_TICKET_AGENT_REQUESTS,
+                    TEMPLATE_WORKFLOW_TICKET_DISPATCH
             );
 
             AgentModels.TicketAgentDispatchRouting routing = llmRunner.runWithTemplate(
@@ -1452,7 +1477,8 @@ public interface AgentInterfaces {
                     request,
                     context,
                     ACTION_TICKET_INTERRUPT,
-                    METHOD_HANDLE_TICKET_INTERRUPT
+                    METHOD_HANDLE_TICKET_INTERRUPT,
+                    TEMPLATE_WORKFLOW_TICKET_ORCHESTRATOR
             );
             var routing = interruptService.handleInterrupt(
                     context,
@@ -1513,7 +1539,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_MERGER_AGENT,
-                    METHOD_PERFORM_MERGE
+                    METHOD_PERFORM_MERGE,
+                    TEMPLATE_WORKFLOW_MERGER
             );
 
             AgentModels.MergerRouting routing = llmRunner.runWithTemplate(
@@ -1577,7 +1604,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_REVIEW_AGENT,
-                    METHOD_PERFORM_REVIEW
+                    METHOD_PERFORM_REVIEW,
+                    TEMPLATE_WORKFLOW_REVIEW
             );
 
             AgentModels.ReviewRouting response = llmRunner.runWithTemplate(
@@ -1645,7 +1673,8 @@ public interface AgentInterfaces {
                     request,
                     context,
                     ACTION_REVIEW_INTERRUPT,
-                    METHOD_HANDLE_REVIEW_INTERRUPT
+                    METHOD_HANDLE_REVIEW_INTERRUPT,
+                    TEMPLATE_WORKFLOW_REVIEW
             );
             var routing = interruptService.handleInterrupt(
                     context,
@@ -1974,7 +2003,8 @@ public interface AgentInterfaces {
                     request,
                     context,
                     ACTION_MERGER_INTERRUPT,
-                    METHOD_HANDLE_MERGER_INTERRUPT
+                    METHOD_HANDLE_MERGER_INTERRUPT,
+                    TEMPLATE_WORKFLOW_MERGER
             );
             var routing = interruptService.handleInterrupt(
                     context,
@@ -2013,18 +2043,6 @@ public interface AgentInterfaces {
             context.addObject(request);
             T result = context.asSubProcess(outputClass, agent);
             return result;
-        }
-
-        private String resolveProcessNodeId(OperationContext context) {
-            if (context == null || context.getProcessContext() == null) {
-                return UNKNOWN_VALUE;
-            }
-            var options = context.getProcessContext().getProcessOptions();
-            if (options == null) {
-                return UNKNOWN_VALUE;
-            }
-            String contextId = options.getContextIdString();
-            return contextId != null ? contextId : UNKNOWN_VALUE;
         }
 
         private static String resolveDiscoveryGoal(
@@ -2135,7 +2153,8 @@ public interface AgentInterfaces {
                 AgentModels.AgentRequest currentRequest,
                 OperationContext context,
                 String actionName,
-                String methodName
+                String methodName,
+                String templateName
         ) {
             BlackboardHistory history = BlackboardHistory.getEntireBlackboardHistory(context);
             PromptContext promptContext = promptContextFactory.build(
@@ -2143,7 +2162,8 @@ public interface AgentInterfaces {
                     contextRequest,
                     previousRequest,
                     currentRequest,
-                    history
+                    history,
+                    templateName
             );
             return AgentInterfaces.decoratePromptContext(
                     promptContext,
@@ -2206,7 +2226,8 @@ public interface AgentInterfaces {
                     interruptRequest,
                     context,
                     ACTION_TICKET_AGENT_INTERRUPT,
-                    METHOD_TRANSITION_TO_INTERRUPT_STATE
+                    METHOD_TRANSITION_TO_INTERRUPT_STATE,
+                    TEMPLATE_WORKFLOW_TICKET_AGENT
             );
             GraphNode originNode = workflowGraphService.findNodeForContext(context)
                     .orElseGet(() -> workflowGraphService.requireTicketOrchestrator(context));
@@ -2266,7 +2287,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_TICKET_AGENT,
-                    METHOD_RUN_TICKET_AGENT
+                    METHOD_RUN_TICKET_AGENT,
+                    TEMPLATE_WORKFLOW_TICKET_AGENT
             );
 
             AgentModels.TicketAgentRouting routing = llmRunner.runWithTemplate(
@@ -2329,7 +2351,8 @@ public interface AgentInterfaces {
                 AgentModels.AgentRequest currentRequest,
                 OperationContext context,
                 String actionName,
-                String methodName
+                String methodName,
+                String templateName
         ) {
             BlackboardHistory history = BlackboardHistory.getEntireBlackboardHistory(context);
             PromptContext promptContext = promptContextFactory.build(
@@ -2337,7 +2360,8 @@ public interface AgentInterfaces {
                     contextRequest,
                     previousRequest,
                     currentRequest,
-                    history
+                    history,
+                    templateName
             );
             return AgentInterfaces.decoratePromptContext(
                     promptContext,
@@ -2401,7 +2425,8 @@ public interface AgentInterfaces {
                     interruptRequest,
                     context,
                     ACTION_PLANNING_AGENT_INTERRUPT,
-                    METHOD_TRANSITION_TO_INTERRUPT_STATE
+                    METHOD_TRANSITION_TO_INTERRUPT_STATE,
+                    TEMPLATE_WORKFLOW_PLANNING_AGENT
             );
             GraphNode originNode = workflowGraphService.findNodeForContext(context)
                     .orElseGet(() -> workflowGraphService.requirePlanningOrchestrator(context));
@@ -2457,7 +2482,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_PLANNING_AGENT,
-                    METHOD_RUN_PLANNING_AGENT
+                    METHOD_RUN_PLANNING_AGENT,
+                    TEMPLATE_WORKFLOW_PLANNING_AGENT
             );
 
             AgentModels.PlanningAgentRouting routing = llmRunner.runWithTemplate(
@@ -2516,7 +2542,8 @@ public interface AgentInterfaces {
                 AgentModels.AgentRequest currentRequest,
                 OperationContext context,
                 String actionName,
-                String methodName
+                String methodName,
+                String templateName
         ) {
             BlackboardHistory history = BlackboardHistory.getEntireBlackboardHistory(context);
             PromptContext promptContext = promptContextFactory.build(
@@ -2524,7 +2551,8 @@ public interface AgentInterfaces {
                     contextRequest,
                     previousRequest,
                     currentRequest,
-                    history
+                    history,
+                    templateName
             );
             return AgentInterfaces.decoratePromptContext(
                     promptContext,
@@ -2579,7 +2607,8 @@ public interface AgentInterfaces {
                     interruptRequest,
                     context,
                     ACTION_DISCOVERY_AGENT_INTERRUPT,
-                    METHOD_TRANSITION_TO_INTERRUPT_STATE
+                    METHOD_TRANSITION_TO_INTERRUPT_STATE,
+                    TEMPLATE_WORKFLOW_DISCOVERY_AGENT
             );
             GraphNode originNode = workflowGraphService.findNodeForContext(context)
                     .orElseGet(() -> workflowGraphService.requireDiscoveryOrchestrator(context));
@@ -2639,7 +2668,8 @@ public interface AgentInterfaces {
                     input,
                     context,
                     ACTION_DISCOVERY_AGENT,
-                    METHOD_RUN_DISCOVERY_AGENT
+                    METHOD_RUN_DISCOVERY_AGENT,
+                    TEMPLATE_WORKFLOW_DISCOVERY_AGENT
             );
 
             AgentModels.DiscoveryAgentRouting routing = llmRunner.runWithTemplate(

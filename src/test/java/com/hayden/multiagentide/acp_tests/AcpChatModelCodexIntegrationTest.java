@@ -18,12 +18,14 @@ import com.embabel.chat.support.InMemoryConversation;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.controller.OrchestrationController;
 import com.hayden.multiagentide.tool.EmbabelToolObjectRegistry;
+import com.hayden.multiagentidelib.agent.AcpTooling;
 import com.hayden.multiagentidelib.agent.AgentTools;
 import com.hayden.utilitymodule.acp.AcpChatModel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.agent.tools.FileSystemTools;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.ai.chat.model.ChatModel;
@@ -38,15 +40,12 @@ import java.util.UUID;
 
 @Slf4j
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
-@ActiveProfiles("acp")
+@ActiveProfiles("goose")
 @TestPropertySource(properties = {"spring.ai.mcp.server.stdio=false"})
 class AcpChatModelCodexIntegrationTest {
 
     @Autowired
     private ChatModel chatModel;
-
-    @Autowired
-    private AgentLifecycleHandler agentLifecycleHandler;
 
     @Autowired
     private AgentPlatform agentPlatform;
@@ -62,6 +61,8 @@ class AcpChatModelCodexIntegrationTest {
 
     @Autowired
     private AgentTools guiEvent;
+    @Autowired
+    private AcpTooling fileSystemTools;
 
     public record ResultValue(String result) {}
     public record FinalValue(String result) {}
@@ -81,6 +82,8 @@ class AcpChatModelCodexIntegrationTest {
         private final EmbabelToolObjectRegistry toolObjectRegistry;
 
         private final AgentTools guiEvent;
+
+        private final AcpTooling fileSystemTools;
 
 //        @Action
 //        @AchievesGoal(description = "finishes the test")
@@ -124,7 +127,8 @@ class AcpChatModelCodexIntegrationTest {
             return context.ai().withDefaultLlm()
                     .withId("hello!")
                     .withToolObjects(deepwiki.get())
-                    .withToolObject(new ToolObject(guiEvent))
+//                    .withToolObject(new ToolObject(guiEvent))
+                    .withToolObject(new ToolObject(fileSystemTools))
                     .createObject(input.request, ResultValue.class);
         }
 
@@ -132,7 +136,7 @@ class AcpChatModelCodexIntegrationTest {
 
     @BeforeEach
     public void before() {
-        TestAgent agentInterface = new TestAgent(toolObjectRegistry, guiEvent);
+        TestAgent agentInterface = new TestAgent(toolObjectRegistry, guiEvent, fileSystemTools);
         Optional.ofNullable(agentMetadataReader.createAgentMetadata(agentInterface))
                 .ifPresentOrElse(agentPlatform::deploy, () -> log.error("Error deploying {} - could not create agent metadata.", agentInterface));
     }
@@ -184,8 +188,8 @@ class AcpChatModelCodexIntegrationTest {
             AgentProcess process = agentPlatform.runAgentFrom(
                     thisAgent,
                     processOptions,
-                    Map.of(IoBinding.DEFAULT_BINDING, new RequestValue("Can you read one of the files in the root directory, return the result, " +
-                                                                        "then write that result to another file named log.log, " +
+                    Map.of(IoBinding.DEFAULT_BINDING, new RequestValue("Can you use your read tool to read the file /Users/hayde/IdeaProjects/multi_agent_ide_parent/multi_agent_ide/hello, return the result, " +
+                                                                        "then write that result to another file named log.log using your write tool, " +
                                                                         "then update that file and add the words WHATEVER!??")));
 
             process.bind("conversation", new InMemoryConversation());

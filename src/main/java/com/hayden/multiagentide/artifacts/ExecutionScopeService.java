@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ExecutionScopeService {
     
     private final EventBus eventBus;
+
     private final ArtifactEventListener artifactListener;
     
     // Active execution scopes: workflowRunId -> ExecutionScope
@@ -54,21 +55,14 @@ public class ExecutionScopeService {
     public static final String GROUP_AGENT_EXECUTION = "AgentExecutionArtifacts";
     public static final String GROUP_OUTCOME_EVIDENCE = "OutcomeEvidenceArtifacts";
     
-    private static final List<String> REQUIRED_GROUPS = List.of(
-            GROUP_EXECUTION_CONFIG,
-            GROUP_INPUT_ARTIFACTS,
-            GROUP_AGENT_EXECUTION,
-            GROUP_OUTCOME_EVIDENCE
-    );
-    
+
     /**
      * Starts a new execution scope and creates the root artifact.
      * 
      * @param workflowRunId Unique workflow run identifier
      * @return The execution scope
      */
-    public ExecutionScope startExecution(String workflowRunId) {
-        ArtifactKey executionKey = ArtifactKey.createRoot();
+    public ExecutionScope startExecution(String workflowRunId, ArtifactKey executionKey) {
         ExecutionScope scope = new ExecutionScope(workflowRunId, executionKey);
         
         // Create root execution artifact
@@ -85,10 +79,6 @@ public class ExecutionScopeService {
         emitArtifact(rootArtifact, null);
         
         // Create required child groups
-        for (String groupName : REQUIRED_GROUPS) {
-            createGroup(scope, groupName);
-        }
-        
         // Register with listener
         artifactListener.registerExecution(executionKey.value(), workflowRunId);
         
@@ -97,7 +87,27 @@ public class ExecutionScopeService {
         
         return scope;
     }
-    
+
+
+    /**
+     * Completes an execution scope with the given status.
+     */
+    public void completeExecution(String workflowRunId, Artifact.ExecutionStatus status) {
+        ExecutionScope scope = activeScopes.remove(workflowRunId);
+        if (scope == null) {
+            log.warn("No active scope found for completion: {}", workflowRunId);
+            return;
+        }
+
+        var persisted = artifactListener.finishPersistRemove(scope.executionKey().value());
+
+        if (persisted.isEmpty()) {
+            log.error("Execution completed but artifact listener did not have an execution for {}.", workflowRunId);
+        } else {
+            log.info("Completed execution scope: {} with status {} - {} entities persisted.", workflowRunId, status, persisted.get().collectRecursiveChildren().size() + 1);
+        }
+    }
+
     /**
      * Gets an active execution scope.
      */
@@ -122,35 +132,7 @@ public class ExecutionScopeService {
                 .orElseThrow(() -> new IllegalStateException(
                         "No active scope or group for: " + workflowRunId + "/" + groupName));
     }
-    
-    /**
-     * Creates a new child artifact key under the execution root.
-     */
-    public ArtifactKey createChildKey(String workflowRunId) {
-        return getScope(workflowRunId)
-                .map(scope -> scope.executionKey().createChild())
-                .orElseThrow(() -> new IllegalStateException(
-                        "No active scope for: " + workflowRunId));
-    }
-    
-    /**
-     * Completes an execution scope with the given status.
-     */
-    public void completeExecution(String workflowRunId, Artifact.ExecutionStatus status) {
-        ExecutionScope scope = activeScopes.remove(workflowRunId);
-        if (scope == null) {
-            log.warn("No active scope found for completion: {}", workflowRunId);
-            return;
-        }
-        
-        // Validate required groups exist
-        validateRequiredGroups(scope);
-        
-        // Flush artifacts
-        artifactListener.flushExecution(scope.executionKey().value());
-        
-        log.info("Completed execution scope: {} with status {}", workflowRunId, status);
-    }
+
     
     /**
      * Emits an artifact event.
@@ -177,44 +159,13 @@ public class ExecutionScopeService {
         emitArtifact(artifact, groupKey);
     }
     
-    // ========== Private Helpers ==========
-    
-    private void createGroup(ExecutionScope scope, String groupName) {
-        ArtifactKey groupKey = scope.executionKey().createChild();
-        
-        Artifact.GroupArtifact groupArtifact = Artifact.GroupArtifact.builder()
-                .artifactKey(groupKey)
-                .groupName(groupName)
-                .metadata(Map.of())
-                .children(new ArrayList<>())
-                .build();
-        
-        emitArtifact(groupArtifact, scope.executionKey());
-        scope.groupKeys().put(groupName, groupKey);
-        
-        log.debug("Created group artifact: {} -> {}", groupName, groupKey);
-    }
-    
-    private void validateRequiredGroups(ExecutionScope scope) {
-        List<String> missing = new ArrayList<>();
-        for (String required : REQUIRED_GROUPS) {
-            if (!scope.groupKeys().containsKey(required)) {
-                missing.add(required);
-            }
-        }
-        
-        if (!missing.isEmpty()) {
-            log.error("Execution {} missing required groups: {}", 
-                    scope.workflowRunId(), missing);
-        }
-    }
-    
     private String extractNodeId(Artifact artifact) {
         return switch (artifact) {
-            case Artifact.EventArtifact e -> e.nodeId();
-            case Artifact.AgentRequestArtifact a -> a.nodeId();
-            case Artifact.AgentResultArtifact a -> a.nodeId();
+            case Artifact.EventArtifact e -> e.artifactKey().value();
+            case Artifact.AgentModelArtifact a -> a.artifactKey().value();
             default -> null;
         };
     }
+
+
 }

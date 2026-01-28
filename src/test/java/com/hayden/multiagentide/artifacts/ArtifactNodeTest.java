@@ -9,10 +9,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -86,7 +83,7 @@ class ArtifactNodeTest {
         @DisplayName("addArtifact adds direct child successfully")
         void addArtifactAddsDirectChild() {
             ArtifactKey childKey = rootKey.createChild();
-            Artifact.GroupArtifact childArtifact = createGroupArtifact(childKey, "InputArtifacts");
+            Artifact.AgentModelArtifact childArtifact = createAgentModelArtifact(childKey, "InputArtifacts");
             
             ArtifactNode.AddResult result = rootNode.addArtifact(childArtifact);
             
@@ -100,7 +97,7 @@ class ArtifactNodeTest {
         void addArtifactAddsGrandchildUnderCorrectParent() {
             // Add child first
             ArtifactKey childKey = rootKey.createChild();
-            Artifact.GroupArtifact childArtifact = createGroupArtifact(childKey, "InputArtifacts");
+            Artifact.AgentModelArtifact childArtifact = createAgentModelArtifact(childKey, "InputArtifacts");
             rootNode.addArtifact(childArtifact);
             
             // Add grandchild
@@ -123,8 +120,8 @@ class ArtifactNodeTest {
         @DisplayName("addArtifact with duplicate key returns DUPLICATE_KEY")
         void addArtifactWithDuplicateKeyReturnsDuplicateKey() {
             ArtifactKey childKey = rootKey.createChild();
-            Artifact.GroupArtifact firstArtifact = createGroupArtifact(childKey, "First");
-            Artifact.GroupArtifact secondArtifact = createGroupArtifact(childKey, "Second");
+            Artifact.AgentModelArtifact firstArtifact = createAgentModelArtifact(childKey, "First");
+            Artifact.AgentModelArtifact secondArtifact = createAgentModelArtifact(childKey, "Second");
             
             rootNode.addArtifact(firstArtifact);
             ArtifactNode.AddResult result = rootNode.addArtifact(secondArtifact);
@@ -157,7 +154,7 @@ class ArtifactNodeTest {
             ArtifactKey missingParentKey = rootKey.createChild();
             ArtifactKey orphanKey = missingParentKey.createChild();
             
-            Artifact.GroupArtifact orphanArtifact = createGroupArtifact(orphanKey, "Orphan");
+            Artifact.AgentModelArtifact orphanArtifact = createAgentModelArtifact(orphanKey, "Orphan");
             
             ArtifactNode.AddResult result = rootNode.addArtifact(orphanArtifact);
             
@@ -210,12 +207,12 @@ class ArtifactNodeTest {
         @Test
         @DisplayName("addArtifact without hash always adds")
         void addArtifactWithoutHashAlwaysAdds() {
-            // GroupArtifact has no contentHash
+            // AgentModelArtifact has no contentHash
             ArtifactKey firstChildKey = rootKey.createChild();
-            Artifact.GroupArtifact firstChild = createGroupArtifact(firstChildKey, "Group1");
+            Artifact.AgentModelArtifact firstChild = createAgentModelArtifact(firstChildKey, "Group1");
             
             ArtifactKey secondChildKey = rootKey.createChild();
-            Artifact.GroupArtifact secondChild = createGroupArtifact(secondChildKey, "Group2");
+            Artifact.AgentModelArtifact secondChild = createAgentModelArtifact(secondChildKey, "Group2");
             
             rootNode.addArtifact(firstChild);
             ArtifactNode.AddResult result = rootNode.addArtifact(secondChild);
@@ -276,9 +273,9 @@ class ArtifactNodeTest {
             ArtifactKey child2Key = rootKey.createChild();
             ArtifactKey grandchildKey = child1Key.createChild();
             
-            rootNode.addArtifact(createGroupArtifact(child1Key, "Child1"));
-            rootNode.addArtifact(createGroupArtifact(child2Key, "Child2"));
-            rootNode.addArtifact(createGroupArtifact(grandchildKey, "Grandchild"));
+            rootNode.addArtifact(createAgentModelArtifact(child1Key, "Child1"));
+            rootNode.addArtifact(createAgentModelArtifact(child2Key, "Child2"));
+            rootNode.addArtifact(createAgentModelArtifact(grandchildKey, "Grandchild"));
             
             List<Artifact> allArtifacts = rootNode.collectAll();
             
@@ -293,9 +290,9 @@ class ArtifactNodeTest {
             ArtifactKey child2Key = rootKey.createChild();
             ArtifactKey grandchildKey = child1Key.createChild();
             
-            rootNode.addArtifact(createGroupArtifact(child1Key, "Child1"));
-            rootNode.addArtifact(createGroupArtifact(child2Key, "Child2"));
-            rootNode.addArtifact(createGroupArtifact(grandchildKey, "Grandchild"));
+            rootNode.addArtifact(createAgentModelArtifact(child1Key, "Child1"));
+            rootNode.addArtifact(createAgentModelArtifact(child2Key, "Child2"));
+            rootNode.addArtifact(createAgentModelArtifact(grandchildKey, "Grandchild"));
             
             assertThat(rootNode.size()).isEqualTo(4);
         }
@@ -361,16 +358,35 @@ class ArtifactNodeTest {
     }
     
     // ========== Helper Methods ==========
-    
-    private Artifact.GroupArtifact createGroupArtifact(ArtifactKey key, String name) {
-        return Artifact.GroupArtifact.builder()
-                .artifactKey(key)
-                .groupName(name)
+
+    private Artifact.AgentModelArtifact createAgentModelArtifact(ArtifactKey key, String name) {
+        return Artifact.AgentModelArtifact.builder()
+                .agentModel(new Artifact.AgentModel() {
+                    @Override
+                    public String computeHash(Artifact.HashContext hashContext) {
+                        return UUID.randomUUID().toString();
+                    }
+
+                    @Override
+                    public List<Artifact.AgentModel> children() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public ArtifactKey key() {
+                        return key;
+                    }
+
+                    @Override
+                    public <T extends Artifact.AgentModel> T withChildren(List<Artifact.AgentModel> c) {
+                        return null;
+                    }
+                })
                 .metadata(new java.util.HashMap<>())
                 .children(new ArrayList<>())
                 .build();
     }
-    
+
     private Artifact.RenderedPromptArtifact createRenderedPromptArtifact(
             ArtifactKey key, String text, String hash) {
         return Artifact.RenderedPromptArtifact.builder()

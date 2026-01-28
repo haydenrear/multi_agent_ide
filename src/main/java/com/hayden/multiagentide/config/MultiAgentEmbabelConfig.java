@@ -24,13 +24,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.*;
-import org.springframework.util.ReflectionUtils;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Optional;
-
-import static com.hayden.multiagentide.agent.AgentInterfaces.WORKFLOW_AGENT_NAME;
 
 /**
  * Embabel configuration for chat models and LLM integration.
@@ -127,7 +124,7 @@ public class MultiAgentEmbabelConfig {
 //                          process.getProcessContext().getAgentProcess().getLlmInvocations().getLast().getLlm();
                             var prev = EventBus.agentProcess.get();
                             try {
-                                EventBus.agentProcess.set(new EventBus.AgentProcessData(evt.getProcessId()));
+                                EventBus.agentProcess.set(new EventBus.AgentNodeKey(evt.getProcessId()));
                                 chatModel.call(new Prompt(new AssistantMessage(evt.getMessage().getContent())));
                             } finally {
                                 EventBus.agentProcess.set(prev);

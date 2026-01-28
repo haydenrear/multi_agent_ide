@@ -76,17 +76,17 @@ class ArtifactTreeBuilderTest {
         @DisplayName("addArtifact adds child to existing tree")
         void addArtifactAddsChildToExistingTree() {
             treeBuilder.addArtifact(executionKey, rootArtifact);
-            
+
             ArtifactKey childKey = rootKey.createChild();
-            Artifact.GroupArtifact child = createGroupArtifact(childKey, "InputArtifacts");
-            
+            Artifact.AgentModelArtifact child = createGroupArtifact(childKey, "InputArtifacts");
+
             boolean added = treeBuilder.addArtifact(executionKey, child);
-            
+
             assertThat(added).isTrue();
             Collection<Artifact> artifacts = treeBuilder.getExecutionArtifacts(executionKey);
             assertThat(artifacts).hasSize(2);
         }
-        
+
         @Test
         @DisplayName("addArtifact rejects duplicate key")
         void addArtifactRejectsDuplicateKey() {
@@ -153,7 +153,7 @@ class ArtifactTreeBuilderTest {
             treeBuilder.addArtifact(executionKey, rootArtifact);
             
             ArtifactKey childKey = rootKey.createChild();
-            Artifact.GroupArtifact child = createGroupArtifact(childKey, "TestGroup");
+            Artifact.AgentModelArtifact child = createGroupArtifact(childKey, "TestGroup");
             treeBuilder.addArtifact(executionKey, child);
             
             Optional<Artifact> found = treeBuilder.getArtifact(executionKey, childKey.value());
@@ -241,11 +241,11 @@ class ArtifactTreeBuilderTest {
             treeBuilder.addArtifact(executionKey, rootArtifact);
             
             ArtifactKey child1Key = rootKey.createChild();
-            Artifact.GroupArtifact child1 = createGroupArtifact(child1Key, "Child1");
+            Artifact.AgentModelArtifact child1 = createGroupArtifact(child1Key, "Child1");
             treeBuilder.addArtifact(executionKey, child1);
             
             ArtifactKey child2Key = rootKey.createChild();
-            Artifact.GroupArtifact child2 = createGroupArtifact(child2Key, "Child2");
+            Artifact.AgentModelArtifact child2 = createGroupArtifact(child2Key, "Child2");
             treeBuilder.addArtifact(executionKey, child2);
             
             // Build the tree
@@ -943,16 +943,35 @@ class ArtifactTreeBuilderTest {
                 .children(new ArrayList<>())
                 .build();
     }
-    
-    private Artifact.GroupArtifact createGroupArtifact(ArtifactKey key, String name) {
-        return Artifact.GroupArtifact.builder()
-                .artifactKey(key)
-                .groupName(name)
+
+    private Artifact.AgentModelArtifact createGroupArtifact(ArtifactKey key, String name) {
+        return Artifact.AgentModelArtifact.builder()
+                .agentModel(new Artifact.AgentModel() {
+                    @Override
+                    public String computeHash(Artifact.HashContext hashContext) {
+                        return UUID.randomUUID().toString();
+                    }
+
+                    @Override
+                    public List<Artifact.AgentModel> children() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public ArtifactKey key() {
+                        return key;
+                    }
+
+                    @Override
+                    public <T extends Artifact.AgentModel> T withChildren(List<Artifact.AgentModel> c) {
+                        return null;
+                    }
+                })
                 .metadata(new java.util.HashMap<>())
                 .children(new ArrayList<>())
                 .build();
     }
-    
+
     private Artifact.RenderedPromptArtifact createRenderedPromptArtifact(
             ArtifactKey key, String text, String hash) {
         return Artifact.RenderedPromptArtifact.builder()

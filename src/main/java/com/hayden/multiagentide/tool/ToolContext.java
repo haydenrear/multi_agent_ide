@@ -1,6 +1,7 @@
 package com.hayden.multiagentide.tool;
 
 import com.hayden.utilitymodule.stream.StreamUtil;
+import lombok.Builder;
 
 import java.util.List;
 import java.util.Objects;
@@ -8,6 +9,7 @@ import java.util.Objects;
 /**
  * Tool container for LLM runs.
  */
+@Builder(toBuilder = true)
 public record ToolContext(List<ToolAbstraction> tools) {
 
     public ToolContext {

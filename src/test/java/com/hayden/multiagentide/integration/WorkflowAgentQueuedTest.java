@@ -298,7 +298,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             verify(workflowGraphService).startDiscoveryOrchestrator(any(), any());
             verify(workflowGraphService).startDiscoveryAgent(any(), any(), any(), any());
             verify(workflowGraphService).startPlanningOrchestrator(any(), any());
-            verify(workflowGraphService).startPlanningAgent(any(), any(), any());
+            verify(workflowGraphService).startPlanningAgent(any(), any(), any(), any());
             verify(workflowGraphService).startTicketOrchestrator(any(), any());
             verify(workflowGraphService).startTicketAgent(any(), any(), anyInt());
             verify(computationGraphOrchestrator, atLeastOnce()).addChildNodeAndEmitEvent(any(), any());

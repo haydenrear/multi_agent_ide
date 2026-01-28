@@ -1,3 +1,0 @@
-This tool needs to be added, BUT we have to wrap it in our own @Tool object and expose it. The reason is that the acp clients have to boot up the MCP server and list tools and all of that, which is how we're doing the AgentTools for the gui. That's why it has the session header, after all, even though it's local. So we'll wrap the ask question tool as a tool object, and the logic looks almost exactly like the interrupts. And eventually we may be able to remove some of the interrupts? However maybe not because of agent review, human review, etc.
-
-So inside of this ticket is emitting graph events as if it's human review.

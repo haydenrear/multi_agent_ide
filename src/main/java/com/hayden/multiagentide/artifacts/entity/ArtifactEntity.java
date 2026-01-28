@@ -104,7 +104,12 @@ public class ArtifactEntity {
     private Boolean shared = false;
 
     @Column(nullable = false)
+    @Builder.Default
+    private String schemaVersion = "0.0.1";
+
+    @Column(nullable = false)
     @ElementCollection
     @Builder.Default
     private List<String> childIds = new ArrayList<>();
+
 }
