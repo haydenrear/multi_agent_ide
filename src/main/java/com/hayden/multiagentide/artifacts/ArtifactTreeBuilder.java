@@ -294,7 +294,7 @@ public class ArtifactTreeBuilder {
                 .artifactType(artifact.artifactType())
                 .contentHash(artifact.contentHash().orElse(null))
                 .contentJson(contentJson)
-                .nodeId(extractNodeId(artifact))
+                .nodeId(artifact.artifactKey().value())
                 .createdAt(key.extractTimestamp())
                 .depth(key.depth())
                 .shared(false)
@@ -303,13 +303,6 @@ public class ArtifactTreeBuilder {
                                 .flatMap(ak -> StreamUtil.toStream(ak.value()))
                                 .toList())
                 .build();
-    }
-    
-    private String extractNodeId(Artifact artifact) {
-        return switch (artifact) {
-            case Artifact.AgentModelArtifact e -> e.artifactKey().value();
-            default -> null;
-        };
     }
     
     private Optional<Artifact> rebuildTree(List<ArtifactEntity> entities) {

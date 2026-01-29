@@ -49,7 +49,7 @@ public class AgentQuestionAnswerFunction implements Function<AskUserQuestionTool
         BlackboardHistory history = process.last(BlackboardHistory.class);
         String historySummary = history != null ? Objects.toString(history.summary(), "") : "";
 
-        AgentModels.QuestionAnswerInterruptRequest interruptRequest =
+        AgentModels.InterruptRequest.QuestionAnswerInterruptRequest interruptRequest =
                 buildInterruptRequest(questionContext.questions(), historySummary);
 
         PermissionGate.InterruptResolution resolution =
@@ -62,11 +62,11 @@ public class AgentQuestionAnswerFunction implements Function<AskUserQuestionTool
         );
     }
 
-    private AgentModels.QuestionAnswerInterruptRequest buildInterruptRequest(
+    private AgentModels.InterruptRequest.QuestionAnswerInterruptRequest buildInterruptRequest(
             List<AskUserQuestionTool.Question> questions,
             String historySummary
     ) {
-        return AgentModels.QuestionAnswerInterruptRequest.builder()
+        return AgentModels.InterruptRequest.QuestionAnswerInterruptRequest.builder()
                 .type(com.hayden.utilitymodule.acp.events.Events.InterruptType.HUMAN_REVIEW)
                 .reason("User input required for agent decision.")
                 .choices(toStructuredChoices(questions))
@@ -75,13 +75,13 @@ public class AgentQuestionAnswerFunction implements Function<AskUserQuestionTool
                 .build();
     }
 
-    private List<AgentModels.StructuredChoice> toStructuredChoices(
+    private List<AgentModels.InterruptRequest.StructuredChoice> toStructuredChoices(
             List<AskUserQuestionTool.Question> questions
     ) {
         if (questions == null || questions.isEmpty()) {
             return List.of();
         }
-        List<AgentModels.StructuredChoice> choices = new ArrayList<>();
+        List<AgentModels.InterruptRequest.StructuredChoice> choices = new ArrayList<>();
         for (int i = 0; i < questions.size(); i++) {
             AskUserQuestionTool.Question question = questions.get(i);
             if (question == null) {
@@ -95,7 +95,7 @@ public class AgentQuestionAnswerFunction implements Function<AskUserQuestionTool
                         ? "Multiple selections allowed"
                         : context + " (multi-select)";
             }
-            choices.add(AgentModels.StructuredChoice.builder()
+            choices.add(AgentModels.InterruptRequest.StructuredChoice.builder()
                     .choiceId(choiceId)
                     .question(question.question())
                     .context(context)
@@ -135,14 +135,14 @@ public class AgentQuestionAnswerFunction implements Function<AskUserQuestionTool
 
     private Map<String, String> parseAnswers(
             List<AskUserQuestionTool.Question> questions,
-            List<AgentModels.StructuredChoice> choices,
+            List<AgentModels.InterruptRequest.StructuredChoice> choices,
             String resolutionNotes
     ) {
         if (resolutionNotes == null || resolutionNotes.isBlank()) {
             return Map.of();
         }
 
-        AgentModels.InterruptResolution interruptResolution = tryParseInterruptResolution(resolutionNotes);
+        AgentModels.InterruptRequest.InterruptResolution interruptResolution = tryParseInterruptResolution(resolutionNotes);
         if (interruptResolution != null) {
             Map<String, String> mapped = mapStructuredAnswers(choices, interruptResolution);
             if (!mapped.isEmpty()) {
@@ -172,19 +172,19 @@ public class AgentQuestionAnswerFunction implements Function<AskUserQuestionTool
         return fallback;
     }
 
-    private AgentModels.InterruptResolution tryParseInterruptResolution(String value) {
+    private AgentModels.InterruptRequest.InterruptResolution tryParseInterruptResolution(String value) {
         try {
             return agentPlatform.getPlatformServices()
                     .getObjectMapper()
-                    .readValue(value, AgentModels.InterruptResolution.class);
+                    .readValue(value, AgentModels.InterruptRequest.InterruptResolution.class);
         } catch (Exception ignored) {
             return null;
         }
     }
 
     private Map<String, String> mapStructuredAnswers(
-            List<AgentModels.StructuredChoice> choices,
-            AgentModels.InterruptResolution resolution
+            List<AgentModels.InterruptRequest.StructuredChoice> choices,
+            AgentModels.InterruptRequest.InterruptResolution resolution
     ) {
         if (choices == null || choices.isEmpty() || resolution == null) {
             return Map.of();
@@ -192,7 +192,7 @@ public class AgentQuestionAnswerFunction implements Function<AskUserQuestionTool
         Map<String, String> answers = new LinkedHashMap<>();
         Map<String, String> selected = resolution.selectedChoices();
         Map<String, String> customInputs = resolution.customInputs();
-        for (AgentModels.StructuredChoice choice : choices) {
+        for (AgentModels.InterruptRequest.StructuredChoice choice : choices) {
             if (choice == null) {
                 continue;
             }

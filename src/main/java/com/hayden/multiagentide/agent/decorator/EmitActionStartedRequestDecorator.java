@@ -11,15 +11,18 @@ import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.events.Events;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
  * Request decorator that emits ActionStartedEvent before action execution.
  * Uses Integer.MIN_VALUE ordering to ensure it runs first.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class EmitActionStartedRequestDecorator implements RequestDecorator, DispatchedAgentRequestDecorator {
@@ -57,8 +60,16 @@ public class EmitActionStartedRequestDecorator implements RequestDecorator, Disp
                 actionName
         ));
 
-        if (request instanceof AgentModels.OrchestratorRequest first) {
-            scopeService.startExecution(EmbabelUtil.extractWorkflowRunId(context.operationContext()), first.key());
+        if (request instanceof AgentModels.OrchestratorRequest first
+                && context.lastRequest() == null) {
+            String workflowRunId = EmbabelUtil.extractWorkflowRunId(context.operationContext());
+            ArtifactKey key = first.key();
+
+            if (!Objects.equals(workflowRunId, key.value())) {
+                log.error("Agent process ID must be the same as the first OrchestratorRequest.");
+            }
+
+            scopeService.startExecution(workflowRunId, key);
         }
 
         return request;

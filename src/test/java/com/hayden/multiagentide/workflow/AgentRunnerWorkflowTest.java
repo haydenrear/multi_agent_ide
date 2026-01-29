@@ -169,7 +169,7 @@ class AgentRunnerWorkflowTest extends AgentTestBase {
         workflowGraphService.completeMerge(
                 mergeNode,
                 AgentModels.MergerRouting.builder().interruptRequest(
-                        new AgentModels.MergerInterruptRequest(
+                        new AgentModels.InterruptRequest.MergerInterruptRequest(
                                 ArtifactKey.createRoot(),
                                 Events.InterruptType.HUMAN_REVIEW,
                                 "conflicts"

@@ -28,13 +28,7 @@ public class EnrichResultDecorator implements ResultDecorator {
 
     @Override
     public <T extends AgentModels.AgentResult> T decorate(T request, DecoratorContext context) {
-        if (request == null || isAlreadyEnriched(request)) {
-            return request;
-        }
         return requestEnrichment.enrich(request, context.operationContext());
     }
 
-    private boolean isAlreadyEnriched(AgentModels.AgentResult request) {
-        return request.artifactKey() != null;
-    }
 }

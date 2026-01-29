@@ -23,13 +23,7 @@ public class EnrichRequestDecorator implements RequestDecorator {
 
     @Override
     public <T extends AgentModels.AgentRequest> T decorate(T request, DecoratorContext context) {
-        if (request == null || isAlreadyEnriched(request)) {
-            return request;
-        }
         return requestEnrichment.enrich(request, context.operationContext());
     }
 
-    private boolean isAlreadyEnriched(AgentModels.AgentRequest request) {
-        return request.contextId() != null;
-    }
 }

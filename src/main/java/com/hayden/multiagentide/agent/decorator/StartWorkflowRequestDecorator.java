@@ -55,16 +55,16 @@ public class StartWorkflowRequestDecorator implements RequestDecorator, Dispatch
                 TicketOrchestratorNode parent = workflowGraphService.requireTicketOrchestrator(operationContext);
                 storeRunning(operationContext, workflowGraphService.startTicketAgent(parent, req));
             }
-            case AgentModels.ContextManagerInterruptRequest req -> workflowGraphService.handleContextManagerInterrupt(operationContext, req);
-            case AgentModels.OrchestratorInterruptRequest req -> workflowGraphService.handleOrchestratorInterrupt(operationContext, req);
-            case AgentModels.DiscoveryOrchestratorInterruptRequest req -> workflowGraphService.handleDiscoveryInterrupt(operationContext, req);
-            case AgentModels.PlanningOrchestratorInterruptRequest req -> workflowGraphService.handlePlanningInterrupt(operationContext, req);
-            case AgentModels.TicketOrchestratorInterruptRequest req -> workflowGraphService.handleTicketInterrupt(operationContext, req);
-            case AgentModels.ReviewInterruptRequest req -> workflowGraphService.handleReviewInterrupt(operationContext, req);
-            case AgentModels.MergerInterruptRequest req -> workflowGraphService.handleMergerInterrupt(operationContext, req);
-            case AgentModels.DiscoveryAgentInterruptRequest req -> handleAgentInterrupt(operationContext, req, AgentTypeHint.DISCOVERY_AGENT);
-            case AgentModels.PlanningAgentInterruptRequest req -> handleAgentInterrupt(operationContext, req, AgentTypeHint.PLANNING_AGENT);
-            case AgentModels.TicketAgentInterruptRequest req -> handleAgentInterrupt(operationContext, req, AgentTypeHint.TICKET_AGENT);
+            case AgentModels.InterruptRequest.ContextManagerInterruptRequest req -> workflowGraphService.handleContextManagerInterrupt(operationContext, req);
+            case AgentModels.InterruptRequest.OrchestratorInterruptRequest req -> workflowGraphService.handleOrchestratorInterrupt(operationContext, req);
+            case AgentModels.InterruptRequest.DiscoveryOrchestratorInterruptRequest req -> workflowGraphService.handleDiscoveryInterrupt(operationContext, req);
+            case AgentModels.InterruptRequest.PlanningOrchestratorInterruptRequest req -> workflowGraphService.handlePlanningInterrupt(operationContext, req);
+            case AgentModels.InterruptRequest.TicketOrchestratorInterruptRequest req -> workflowGraphService.handleTicketInterrupt(operationContext, req);
+            case AgentModels.InterruptRequest.ReviewInterruptRequest req -> workflowGraphService.handleReviewInterrupt(operationContext, req);
+            case AgentModels.InterruptRequest.MergerInterruptRequest req -> workflowGraphService.handleMergerInterrupt(operationContext, req);
+            case AgentModels.InterruptRequest.DiscoveryAgentInterruptRequest req -> handleAgentInterrupt(operationContext, req, AgentTypeHint.DISCOVERY_AGENT);
+            case AgentModels.InterruptRequest.PlanningAgentInterruptRequest req -> handleAgentInterrupt(operationContext, req, AgentTypeHint.PLANNING_AGENT);
+            case AgentModels.InterruptRequest.TicketAgentInterruptRequest req -> handleAgentInterrupt(operationContext, req, AgentTypeHint.TICKET_AGENT);
             default -> {
             }
         }

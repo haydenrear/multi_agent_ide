@@ -183,7 +183,7 @@ public class WorkflowGraphService {
 
     public void handleOrchestratorInterrupt(
             OperationContext context,
-            AgentModels.OrchestratorInterruptRequest request
+            AgentModels.InterruptRequest.OrchestratorInterruptRequest request
     ) {
         OrchestratorNode orchestratorNode = requireOrchestrator(context);
         handleRoutingInterrupt(orchestratorNode, request, request != null ? request.reason() : "");
@@ -191,7 +191,7 @@ public class WorkflowGraphService {
 
     public void handleContextManagerInterrupt(
             OperationContext context,
-            AgentModels.ContextManagerInterruptRequest request
+            AgentModels.InterruptRequest.ContextManagerInterruptRequest request
     ) {
         OrchestratorNode orchestratorNode = requireOrchestrator(context);
         handleRoutingInterrupt(orchestratorNode, request, request != null ? request.reason() : "");
@@ -223,7 +223,7 @@ public class WorkflowGraphService {
 
     public void handleDiscoveryInterrupt(
             OperationContext context,
-            AgentModels.DiscoveryOrchestratorInterruptRequest request
+            AgentModels.InterruptRequest.DiscoveryOrchestratorInterruptRequest request
     ) {
         resolveState(context, state -> {
             if (state.discoveryOrchestratorNodeId() == null) {
@@ -373,7 +373,7 @@ public class WorkflowGraphService {
 
     public void handlePlanningInterrupt(
             OperationContext context,
-            AgentModels.PlanningOrchestratorInterruptRequest request
+            AgentModels.InterruptRequest.PlanningOrchestratorInterruptRequest request
     ) {
         resolveState(context, state -> {
             if (state.planningOrchestratorNodeId() == null) {
@@ -532,7 +532,7 @@ public class WorkflowGraphService {
 
     public void handleTicketInterrupt(
             OperationContext context,
-            AgentModels.TicketOrchestratorInterruptRequest request
+            AgentModels.InterruptRequest.TicketOrchestratorInterruptRequest request
     ) {
         resolveState(context, state -> {
             if (state.ticketOrchestratorNodeId() == null) {
@@ -707,7 +707,7 @@ public class WorkflowGraphService {
 
     public void handleReviewInterrupt(
             OperationContext context,
-            AgentModels.ReviewInterruptRequest request
+            AgentModels.InterruptRequest.ReviewInterruptRequest request
     ) {
         resolveState(context, state -> {
             if (state.reviewNodeId() == null) {
@@ -751,7 +751,7 @@ public class WorkflowGraphService {
 
     public void handleMergerInterrupt(
             OperationContext context,
-            AgentModels.MergerInterruptRequest request
+            AgentModels.InterruptRequest.MergerInterruptRequest request
     ) {
         resolveState(context, state -> {
             if (state.mergeNodeId() == null) {

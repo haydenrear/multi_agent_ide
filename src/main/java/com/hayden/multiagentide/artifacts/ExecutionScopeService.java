@@ -77,7 +77,6 @@ public class ExecutionScopeService {
         // Emit artifact event
         emitArtifact(rootArtifact, null);
         
-        // Create required child groups
         // Register with listener
         artifactListener.registerExecution(executionKey.value(), workflowRunId);
         

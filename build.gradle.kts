@@ -134,7 +134,7 @@ tasks.test {
     } else if (project.findProperty("profile") == "acp-integration") {
         include("**/acp_tests/**")
     } else {
-        exclude("**/acp_test/**", "**/integration/**")
+        exclude("**/acp_tests/**", "**/integration/**")
     }
 
     dependsOn("processYmlFiles")

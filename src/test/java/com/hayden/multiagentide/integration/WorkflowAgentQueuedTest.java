@@ -178,7 +178,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             String contextId = ArtifactKey.createRoot().value();
             seedOrchestrator(contextId);
             queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
-                    .interruptRequest(AgentModels.OrchestratorInterruptRequest.builder()
+                    .interruptRequest(AgentModels.InterruptRequest.OrchestratorInterruptRequest.builder()
                             .type(Events.InterruptType.PAUSE)
                             .reason("User requested pause")
                             .build())
@@ -221,7 +221,7 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
             String contextId = "test-pause-continue-" + UUID.randomUUID();
             seedOrchestrator(contextId);
             queuedLlmRunner.enqueue(AgentModels.OrchestratorRouting.builder()
-                    .interruptRequest(AgentModels.OrchestratorInterruptRequest.builder()
+                    .interruptRequest(AgentModels.InterruptRequest.OrchestratorInterruptRequest.builder()
                             .type(Events.InterruptType.PAUSE)
                             .reason("User requested pause will continue")
                             .build())

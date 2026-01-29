@@ -13,7 +13,6 @@ import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.InjectedType;
 import com.embabel.agent.core.Operation;
 import com.hayden.multiagentide.agent.decorator.*;
-import com.hayden.multiagentide.embabel.EmbabelUtil;
 import com.hayden.multiagentidelib.events.DegenerateLoopException;
 import com.hayden.multiagentide.service.InterruptService;
 import com.hayden.multiagentide.tool.ToolAbstraction;
@@ -29,7 +28,6 @@ import com.hayden.multiagentidelib.agent.BlackboardHistoryService;
 import com.hayden.multiagentidelib.prompt.PromptContext;
 import com.hayden.multiagentidelib.prompt.PromptContextFactory;
 import com.hayden.utilitymodule.acp.events.Artifact;
-import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import com.hayden.utilitymodule.acp.events.EventBus;
 import com.hayden.utilitymodule.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
@@ -58,6 +56,7 @@ public interface AgentInterfaces {
 
     String ACTION_NONE = "";
     String ACTION_CONTEXT_MANAGER_STUCK = "context-manager-stuck";
+    String ACTION_CONTEXT_MANAGER = "context-manager";
     String ACTION_CONTEXT_MANAGER_INTERRUPT = "context-manager-interrupt";
     String ACTION_CONTEXT_MANAGER_ROUTE = "context-manager-route";
     String ACTION_ORCHESTRATOR_COLLECTOR = "orchestrator-collector";
@@ -92,6 +91,7 @@ public interface AgentInterfaces {
     String METHOD_HANDLE_STUCK = "handleStuck";
     String METHOD_HANDLE_CONTEXT_MANAGER_INTERRUPT = "handleContextManagerInterrupt";
     String METHOD_ROUTE_TO_CONTEXT_MANAGER = "routeToContextManager";
+    String METHOD_CONTEXT_MANAGER = "contextManagerRequest";
     String METHOD_FINAL_COLLECTOR_RESULT = "finalCollectorResult";
     String METHOD_CONSOLIDATE_WORKFLOW_OUTPUTS = "consolidateWorkflowOutputs";
     String METHOD_CONSOLIDATE_DISCOVERY_FINDINGS = "consolidateDiscoveryFindings";
@@ -262,8 +262,125 @@ public interface AgentInterfaces {
         }
 
         @Action(canRerun = true, cost = 1)
+        public AgentModels.ContextManagerResultRouting contextManagerRequest(
+                AgentModels.ContextManagerRequest request,
+                OperationContext context
+        ) {
+
+            BlackboardHistory history = BlackboardHistory.getEntireBlackboardHistory(context);
+
+            String loopSummary = Optional.ofNullable(history)
+                    .map(BlackboardHistory::summary)
+                    .orElse("No history available");
+
+            AgentModels.AgentRequest lastRequest = findLastRequest(
+                    history,
+                    a -> !(a instanceof AgentModels.InterruptRequest)
+                            && !(a instanceof AgentModels.ContextManagerRequest)
+                            && !(a instanceof AgentModels.ContextManagerRoutingRequest));
+
+            request = decorateRequest(
+                    request,
+                    context,
+                    requestDecorators,
+                    multiAgentAgentName(),
+                    ACTION_CONTEXT_MANAGER,
+                    METHOD_CONTEXT_MANAGER,
+                    lastRequest
+            );
+
+            PromptContext promptContext = buildPromptContext(
+                    AgentType.CONTEXT_MANAGER,
+                    request,
+                    lastRequest,
+                    request,
+                    context,
+                    ACTION_CONTEXT_MANAGER,
+                    METHOD_CONTEXT_MANAGER,
+                    TEMPLATE_WORKFLOW_CONTEXT_MANAGER
+            );
+
+            AgentModels.ContextManagerResultRouting routing = llmRunner.runWithTemplate(
+                    TEMPLATE_WORKFLOW_CONTEXT_MANAGER,
+                    promptContext,
+                    Map.of("reason", loopSummary),
+                    ToolContext.of(ToolAbstraction.fromToolCarrier(contextManagerTools)),
+                    AgentModels.ContextManagerResultRouting.class,
+                    context
+            );
+
+            routing = decorateRouting(
+                    routing,
+                    context,
+                    resultDecorators,
+                    multiAgentAgentName(),
+                    ACTION_CONTEXT_MANAGER,
+                    METHOD_CONTEXT_MANAGER,
+                    lastRequest
+            );
+
+            return routing;
+        }
+
+        @Action(canRerun = true)
+        public AgentModels.OrchestratorRouting coordinateWorkflow(
+                AgentModels.OrchestratorRequest input,
+                OperationContext context
+        ) {
+            AgentModels.AgentRequest lastRequest =
+                    BlackboardHistory.getLastFromHistory(context, AgentModels.AgentRequest.class);
+
+            input = AgentInterfaces.decorateRequest(
+                    input,
+                    context,
+                    requestDecorators,
+                    multiAgentAgentName(),
+                    ACTION_ORCHESTRATOR,
+                    METHOD_COORDINATE_WORKFLOW,
+                    lastRequest
+            );
+            PromptContext promptContext = buildPromptContext(
+                    AgentType.ORCHESTRATOR,
+                    input,
+                    lastRequest,
+                    input,
+                    context,
+                    ACTION_ORCHESTRATOR,
+                    METHOD_COORDINATE_WORKFLOW,
+                    TEMPLATE_WORKFLOW_ORCHESTRATOR
+            );
+
+            var model = new HashMap<String, Object>();
+
+            Optional.ofNullable(input.goal())
+                    .ifPresent(g -> model.put("goal", g));
+            Optional.ofNullable(input.phase())
+                    .ifPresent(g -> model.put("phase", g));
+
+            AgentModels.OrchestratorRouting routing = llmRunner.runWithTemplate(
+                    TEMPLATE_WORKFLOW_ORCHESTRATOR,
+                    promptContext,
+                    model,
+                    ToolContext.empty(),
+                    AgentModels.OrchestratorRouting.class,
+                    context
+            );
+
+            return AgentInterfaces.decorateRouting(
+                    routing,
+                    context,
+                    resultDecorators,
+                    multiAgentAgentName(),
+                    ACTION_ORCHESTRATOR,
+                    METHOD_COORDINATE_WORKFLOW,
+                    lastRequest
+            );
+        }
+
+
+        @Action(canRerun = true, cost = 1)
         public AgentModels.ContextManagerResultRouting handleContextManagerInterrupt(
-                @NotNull AgentModels.ContextManagerInterruptRequest request,
+                @NotNull AgentModels.InterruptRequest.ContextManagerInterruptRequest request,
                 OperationContext context
         ) {
             AgentModels.ContextManagerRequest lastRequest =
@@ -273,7 +390,7 @@ public interface AgentInterfaces {
                 throw new DegenerateLoopException(
                         "Context manager request not found - cannot recover from interrupt.",
                         METHOD_HANDLE_CONTEXT_MANAGER_INTERRUPT,
-                        AgentModels.ContextManagerInterruptRequest.class,
+                        AgentModels.InterruptRequest.ContextManagerInterruptRequest.class,
                         1
                 );
             }
@@ -298,6 +415,7 @@ public interface AgentInterfaces {
                     METHOD_HANDLE_CONTEXT_MANAGER_INTERRUPT,
                     TEMPLATE_WORKFLOW_CONTEXT_MANAGER_INTERRUPT
             );
+
             String reason = firstNonBlank(
                     request.reason(),
                     request.contextForDecision(),
@@ -728,65 +846,10 @@ public interface AgentInterfaces {
             );
         }
 
-        @Action(canRerun = true)
-        public AgentModels.OrchestratorRouting coordinateWorkflow(
-                AgentModels.OrchestratorRequest input,
-                OperationContext context
-        ) {
-            AgentModels.AgentRequest lastRequest =
-                    BlackboardHistory.getLastFromHistory(context, AgentModels.AgentRequest.class);
-
-            input = AgentInterfaces.decorateRequest(
-                    input,
-                    context,
-                    requestDecorators,
-                    multiAgentAgentName(),
-                    ACTION_ORCHESTRATOR,
-                    METHOD_COORDINATE_WORKFLOW,
-                    null
-            );
-            PromptContext promptContext = buildPromptContext(
-                    AgentType.ORCHESTRATOR,
-                    input,
-                    lastRequest,
-                    input,
-                    context,
-                    ACTION_ORCHESTRATOR,
-                    METHOD_COORDINATE_WORKFLOW,
-                    TEMPLATE_WORKFLOW_ORCHESTRATOR
-            );
-
-
-            var model = new HashMap<String, Object>();
-            Optional.ofNullable(input.goal())
-                    .ifPresent(g -> model.put("goal", g));
-            Optional.ofNullable(input.phase())
-                    .ifPresent(g -> model.put("phase", g));
-
-            AgentModels.OrchestratorRouting routing = llmRunner.runWithTemplate(
-                    TEMPLATE_WORKFLOW_ORCHESTRATOR,
-                    promptContext,
-                    model,
-                    ToolContext.empty(),
-                    AgentModels.OrchestratorRouting.class,
-                    context
-            );
-
-            return AgentInterfaces.decorateRouting(
-                    routing,
-                    context,
-                    resultDecorators,
-                    multiAgentAgentName(),
-                    ACTION_ORCHESTRATOR,
-                    METHOD_COORDINATE_WORKFLOW,
-                    lastRequest
-            );
-        }
-
 
         @Action(canRerun = true, cost = 1)
         public AgentModels.OrchestratorRouting handleOrchestratorInterrupt(
-                AgentModels.OrchestratorInterruptRequest request,
+                AgentModels.InterruptRequest.OrchestratorInterruptRequest request,
                 OperationContext context
         ) {
             OrchestratorNode originNode = workflowGraphService.requireOrchestrator(context);
@@ -798,7 +861,7 @@ public interface AgentInterfaces {
                         "Orchestrator request not found - cannot recover from interrupt."
                 );
                 throw new DegenerateLoopException("Found strange situation where OrchestratorRequest not found. Impossible state.",
-                        METHOD_HANDLE_ORCHESTRATOR_INTERRUPT, AgentModels.OrchestratorInterruptRequest.class, 1);
+                        METHOD_HANDLE_ORCHESTRATOR_INTERRUPT, AgentModels.InterruptRequest.OrchestratorInterruptRequest.class, 1);
             }
             request = AgentInterfaces.decorateRequest(
                     request,
@@ -983,7 +1046,7 @@ public interface AgentInterfaces {
 
         @Action(canRerun = true, cost = 1.0)
         public AgentModels.DiscoveryOrchestratorRouting handleDiscoveryInterrupt(
-                AgentModels.DiscoveryOrchestratorInterruptRequest request,
+                AgentModels.InterruptRequest.DiscoveryOrchestratorInterruptRequest request,
                 OperationContext context
         ) {
             DiscoveryOrchestratorNode originNode = workflowGraphService.requireDiscoveryOrchestrator(context);
@@ -997,7 +1060,7 @@ public interface AgentInterfaces {
                 throw new DegenerateLoopException(
                         "Discovery orchestrator request not found - cannot recover from interrupt.",
                         METHOD_HANDLE_DISCOVERY_INTERRUPT,
-                        AgentModels.DiscoveryOrchestratorInterruptRequest.class,
+                        AgentModels.InterruptRequest.DiscoveryOrchestratorInterruptRequest.class,
                         1
                 );
             }
@@ -1199,7 +1262,7 @@ public interface AgentInterfaces {
 
         @Action(canRerun = true, cost = 1.0)
         public AgentModels.PlanningOrchestratorRouting handlePlanningInterrupt(
-                AgentModels.PlanningOrchestratorInterruptRequest request,
+                AgentModels.InterruptRequest.PlanningOrchestratorInterruptRequest request,
                 OperationContext context
         ) {
             PlanningOrchestratorNode originNode = workflowGraphService.requirePlanningOrchestrator(context);
@@ -1215,7 +1278,7 @@ public interface AgentInterfaces {
                 throw new DegenerateLoopException(
                         "Planning orchestrator request not found - cannot recover from interrupt.",
                         METHOD_HANDLE_PLANNING_INTERRUPT,
-                        AgentModels.PlanningOrchestratorInterruptRequest.class,
+                        AgentModels.InterruptRequest.PlanningOrchestratorInterruptRequest.class,
                         1
                 );
             }
@@ -1443,7 +1506,7 @@ public interface AgentInterfaces {
 
         @Action(canRerun = true, cost = 1.0)
         public AgentModels.TicketOrchestratorRouting handleTicketInterrupt(
-                AgentModels.TicketOrchestratorInterruptRequest request,
+                AgentModels.InterruptRequest.TicketOrchestratorInterruptRequest request,
                 OperationContext context
         ) {
             TicketOrchestratorNode originNode = workflowGraphService.requireTicketOrchestrator(context);
@@ -1457,7 +1520,7 @@ public interface AgentInterfaces {
                 throw new DegenerateLoopException(
                         "Ticket orchestrator request not found - cannot recover from interrupt.",
                         METHOD_HANDLE_TICKET_INTERRUPT,
-                        AgentModels.TicketOrchestratorInterruptRequest.class,
+                        AgentModels.InterruptRequest.TicketOrchestratorInterruptRequest.class,
                         1
                 );
             }
@@ -1633,7 +1696,7 @@ public interface AgentInterfaces {
 
         @Action(canRerun = true, cost = 1.0)
         public AgentModels.ReviewRouting handleReviewInterrupt(
-                AgentModels.ReviewInterruptRequest request,
+                AgentModels.InterruptRequest.ReviewInterruptRequest request,
                 OperationContext context
         ) {
             ReviewNode originNode = workflowGraphService.requireReviewNode(context);
@@ -1647,7 +1710,7 @@ public interface AgentInterfaces {
                 throw new DegenerateLoopException(
                         "Review request not found - cannot recover from interrupt.",
                         METHOD_HANDLE_REVIEW_INTERRUPT,
-                        AgentModels.ReviewInterruptRequest.class,
+                        AgentModels.InterruptRequest.ReviewInterruptRequest.class,
                         1
                 );
             }
@@ -1963,7 +2026,7 @@ public interface AgentInterfaces {
 
         @Action(canRerun = true, cost = 1.0)
         public AgentModels.MergerRouting handleMergerInterrupt(
-                AgentModels.MergerInterruptRequest request,
+                AgentModels.InterruptRequest.MergerInterruptRequest request,
                 OperationContext context
         ) {
             MergeNode originNode = workflowGraphService.requireMergeNode(context);
@@ -1977,7 +2040,7 @@ public interface AgentInterfaces {
                 throw new DegenerateLoopException(
                         "Merger request not found - cannot recover from interrupt.",
                         METHOD_HANDLE_MERGER_INTERRUPT,
-                        AgentModels.MergerInterruptRequest.class,
+                        AgentModels.InterruptRequest.MergerInterruptRequest.class,
                         1
                 );
             }
@@ -2197,7 +2260,7 @@ public interface AgentInterfaces {
 
         @Action
         public AgentModels.TicketAgentRouting transitionToInterruptState(
-                AgentModels.TicketAgentInterruptRequest interruptRequest,
+                AgentModels.InterruptRequest.TicketAgentInterruptRequest interruptRequest,
                 OperationContext context
         ) {
             AgentModels.TicketAgentRequest lastRequest =
@@ -2206,7 +2269,7 @@ public interface AgentInterfaces {
                 throw new DegenerateLoopException(
                         "Ticket agent request not found - cannot recover from interrupt.",
                         METHOD_TRANSITION_TO_INTERRUPT_STATE,
-                        AgentModels.TicketAgentInterruptRequest.class,
+                        AgentModels.InterruptRequest.TicketAgentInterruptRequest.class,
                         1
                 );
             }
@@ -2395,7 +2458,7 @@ public interface AgentInterfaces {
 
         @Action(canRerun = true)
         public AgentModels.PlanningAgentRouting transitionToInterruptState(
-                AgentModels.PlanningAgentInterruptRequest interruptRequest,
+                AgentModels.InterruptRequest.PlanningAgentInterruptRequest interruptRequest,
                 OperationContext context
         ) {
             AgentModels.PlanningAgentRequest lastRequest =
@@ -2405,7 +2468,7 @@ public interface AgentInterfaces {
                 throw new DegenerateLoopException(
                         "Planning agent request not found - cannot recover from interrupt.",
                         METHOD_TRANSITION_TO_INTERRUPT_STATE,
-                        AgentModels.PlanningAgentInterruptRequest.class,
+                        AgentModels.InterruptRequest.PlanningAgentInterruptRequest.class,
                         1
                 );
             }
@@ -2577,7 +2640,7 @@ public interface AgentInterfaces {
 
         @Action
         public AgentModels.DiscoveryAgentRouting transitionToInterruptState(
-                AgentModels.DiscoveryAgentInterruptRequest interruptRequest,
+                AgentModels.InterruptRequest.DiscoveryAgentInterruptRequest interruptRequest,
                 OperationContext context
         ) {
 
@@ -2587,7 +2650,7 @@ public interface AgentInterfaces {
                 throw new DegenerateLoopException(
                         "Discovery agent request not found - cannot recover from interrupt.",
                         METHOD_TRANSITION_TO_INTERRUPT_STATE,
-                        AgentModels.DiscoveryAgentInterruptRequest.class,
+                        AgentModels.InterruptRequest.DiscoveryAgentInterruptRequest.class,
                         1
                 );
             }
