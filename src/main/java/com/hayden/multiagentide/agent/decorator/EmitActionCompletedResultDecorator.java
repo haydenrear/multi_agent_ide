@@ -72,17 +72,6 @@ public class EmitActionCompletedResultDecorator implements FinalResultDecorator,
                 outcomeType
         ));
 
-        if (t instanceof AgentModels.OrchestratorCollectorRouting routing
-                && routing.collectorResult() != null) {
-            eventBus.publish(new Events.GoalCompletedEvent(
-                    UUID.randomUUID().toString(),
-                    Instant.now(),
-                    nodeId,
-                    EmbabelUtil.extractWorkflowRunId(context.operationContext()),
-                    routing.collectorResult()
-            ));
-        }
-
         return t;
     }
 
@@ -111,7 +100,16 @@ public class EmitActionCompletedResultDecorator implements FinalResultDecorator,
                 outcomeType
         ));
 
-        if (t instanceof AgentModels.OrchestratorCollectorResult) {
+        if (t instanceof AgentModels.OrchestratorCollectorResult res) {
+            eventBus.publish(new Events.GoalCompletedEvent(
+                    UUID.randomUUID().toString(),
+                    Instant.now(),
+                    nodeId,
+                    EmbabelUtil.extractWorkflowRunId(context.operationContext()),
+                    res
+            ));
+
+//          make sure this happens last
             exec.completeExecution(context.operationContext().getAgentProcess().getId(), Artifact.ExecutionStatus.COMPLETED);
         }
 

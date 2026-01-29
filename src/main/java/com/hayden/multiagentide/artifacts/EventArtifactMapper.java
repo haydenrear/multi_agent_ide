@@ -2,7 +2,7 @@ package com.hayden.multiagentide.artifacts;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.utilitymodule.acp.events.Artifact;
-import com.hayden.multiagentidelib.artifact.ArtifactHashing;
+import com.hayden.utilitymodule.acp.events.ArtifactHashing;
 import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import com.hayden.utilitymodule.acp.events.MessageStreamArtifact;
 import com.hayden.utilitymodule.acp.events.Events;

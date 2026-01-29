@@ -44,16 +44,25 @@ public class ArtifactEventListener implements EventListener {
         if (!persistenceEnabled) {
             return;
         }
-        
-        if (event instanceof Events.ArtifactEvent artifactEvent) {
-            handleArtifactEvent(artifactEvent);
+
+        switch(event) {
+            case Events.ArtifactEvent artifactEvent -> handleArtifactEvent(artifactEvent);
+            case Events.NodeStreamDeltaEvent delta -> {}
+            case Events.NodeThoughtDeltaEvent delta -> {}
+            case Events.UserMessageChunkEvent delta -> {}
+            case Events.PlanUpdateEvent delta -> {}
+            default -> log.warn("Found event not subscribed to: {}", event);
         }
     }
     
     @Override
     public boolean isInterestedIn(Events.GraphEvent event) {
         return event instanceof Events.ArtifactEvent 
-                || event instanceof Events.GoalCompletedEvent;
+                || event instanceof Events.GoalCompletedEvent
+                || event instanceof Events.NodeStreamDeltaEvent
+                || event instanceof Events.NodeThoughtDeltaEvent
+                || event instanceof Events.UserMessageChunkEvent
+                || event instanceof Events.PlanUpdateEvent;
     }
     
     /**

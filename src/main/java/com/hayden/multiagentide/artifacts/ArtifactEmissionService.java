@@ -2,8 +2,7 @@ package com.hayden.multiagentide.artifacts;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.multiagentidelib.agent.AgentType;
-import com.hayden.multiagentidelib.artifact.ArtifactHashing;
+import com.hayden.utilitymodule.acp.events.ArtifactHashing;
 import com.hayden.utilitymodule.acp.events.Artifact;
 import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import com.hayden.utilitymodule.acp.events.Events;
@@ -12,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**

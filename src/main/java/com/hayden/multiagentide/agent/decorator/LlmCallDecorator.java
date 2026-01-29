@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.agent.decorator;
 
+import com.embabel.agent.api.common.OperationContext;
 import com.embabel.agent.api.common.nested.TemplateOperations;
 import com.hayden.multiagentide.tool.ToolContext;
 import com.hayden.multiagentidelib.prompt.PromptContext;
@@ -15,7 +16,9 @@ public interface LlmCallDecorator {
 
     @Builder(toBuilder = true)
     record LlmCallContext(PromptContext promptContext, ToolContext tcc,
-                          TemplateOperations templateOperations, Map<String, Object> templateArgs) {}
+                          TemplateOperations templateOperations,
+                          Map<String, Object> templateArgs,
+                          OperationContext op) {}
 
     default LlmCallContext decorate(LlmCallContext promptContext) {
         return promptContext;

@@ -30,7 +30,6 @@ public class ExecutionScopeService {
 
     private final ArtifactEventListener artifactListener;
     
-    // Active execution scopes: workflowRunId -> ExecutionScope
     private final Map<String, ExecutionScope> activeScopes = new ConcurrentHashMap<>();
     
     /**

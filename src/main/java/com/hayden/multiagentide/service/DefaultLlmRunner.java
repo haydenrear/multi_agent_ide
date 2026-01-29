@@ -60,7 +60,7 @@ public class DefaultLlmRunner implements LlmRunner {
 
         var aiQueryWithTemplate = aiQuery.withTemplate(templateName);
 
-        var llmCallContext = new LlmCallDecorator.LlmCallContext(promptContext, toolContext, aiQueryWithTemplate, model);
+        var llmCallContext = new LlmCallDecorator.LlmCallContext(promptContext, toolContext, aiQueryWithTemplate, model, context);
 
         for (var l : llmCallDecorators) {
             llmCallContext = l.decorate(llmCallContext);

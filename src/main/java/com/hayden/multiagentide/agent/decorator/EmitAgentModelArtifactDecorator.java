@@ -33,25 +33,25 @@ public class EmitAgentModelArtifactDecorator implements RequestDecorator, Result
 
     @Override
     public <T extends AgentModels.AgentResult> T decorateFinalResult(T t, FinalResultDecoratorContext context) {
-        emissionService.emitAgentModel(t, Artifact.HashContext.defaultHashContext());
+        emissionService.emitAgentModel(t, context.decoratorContext().hashContext());
         return t;
     }
 
     @Override
     public <T extends AgentModels.AgentRequest> T decorate(T t, DecoratorContext context) {
-        emissionService.emitAgentModel(t, Artifact.HashContext.defaultHashContext());
+        emissionService.emitAgentModel(t, context.hashContext());
         return t;
     }
 
     @Override
     public <T extends AgentModels.AgentResult> T decorate(T t, DecoratorContext context) {
-        emissionService.emitAgentModel(t, Artifact.HashContext.defaultHashContext());
+        emissionService.emitAgentModel(t, context.hashContext());
         return t;
     }
 
     @Override
     public <T extends AgentModels.AgentRequest> T decorateRequestResult(T t, DecoratorContext context) {
-        emissionService.emitAgentModel(t, Artifact.HashContext.defaultHashContext());
+        emissionService.emitAgentModel(t, context.hashContext());
         return t;
     }
 }
