@@ -15,10 +15,13 @@ public interface LlmCallDecorator {
     }
 
     @Builder(toBuilder = true)
-    record LlmCallContext(PromptContext promptContext, ToolContext tcc,
-                          TemplateOperations templateOperations,
-                          Map<String, Object> templateArgs,
-                          OperationContext op) {}
+    record LlmCallContext(
+            PromptContext promptContext,
+            ToolContext tcc,
+            TemplateOperations templateOperations,
+            Map<String, Object> templateArgs,
+            OperationContext op
+    ) {}
 
     default LlmCallContext decorate(LlmCallContext promptContext) {
         return promptContext;

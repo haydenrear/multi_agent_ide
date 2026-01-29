@@ -27,29 +27,6 @@ public class PromptContributionArtifactListener implements PromptContributionLis
     ) {
         var promptContributorName = promptContributor.name();
         String workflowRunId = context.currentRequest().key().value();
-        if (workflowRunId == null) {
-            log.trace("Skipping contribution artifact - no active workflow context");
-            return;
-        }
-
-        try {
-            ArtifactKey key = executionScopeService.createChildKey(
-                    workflowRunId,
-                    ExecutionScopeService.GROUP_AGENT_EXECUTION
-            );
-
-            Artifact.PromptContributionTemplate artifact = promptContributorArtifact(context, promptContributor, key, promptContributorName);
-
-            executionScopeService.emitArtifactToGroup(
-                    workflowRunId,
-                    ExecutionScopeService.GROUP_AGENT_EXECUTION,
-                    artifact
-            );
-
-        } catch (Exception e) {
-            log.warn("Failed to emit PromptContributionArtifact for {}: {}",
-                    promptContributorName, e.getMessage());
-        }
     }
 
 }

@@ -335,7 +335,6 @@ class ArtifactTreeBuilderTest {
                     .hash("template-hash-abc")
                     .templateArtifactKey(templateKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("classpath:prompts/test.txt")
                     .build();
             
             boolean added = treeBuilder.addArtifact(executionKey, template);
@@ -365,7 +364,6 @@ class ArtifactTreeBuilderTest {
                     .hash(sharedHash)
                     .templateArtifactKey(firstKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build();
             
             ArtifactKey secondKey = rootKey.createChild();
@@ -375,7 +373,6 @@ class ArtifactTreeBuilderTest {
                     .hash(sharedHash)
                     .templateArtifactKey(secondKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build();
             
             boolean firstAdded = treeBuilder.addArtifact(executionKey, first);
@@ -397,7 +394,6 @@ class ArtifactTreeBuilderTest {
                     .hash("planning-template-hash")
                     .templateArtifactKey(templateKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("classpath:prompts/workflow/planning.txt")
                     .build();
             
             treeBuilder.addArtifact(executionKey, template);
@@ -433,7 +429,6 @@ class ArtifactTreeBuilderTest {
                     .hash("discovery-hash")
                     .templateArtifactKey(templateKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build();
             
             boolean added = treeBuilder.addArtifact(executionKey, template);
@@ -502,7 +497,6 @@ class ArtifactTreeBuilderTest {
                     .hash("hash2")
                     .templateArtifactKey(templateKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build());
             
             ArtifactKey toolCallKey = groupKey.createChild();

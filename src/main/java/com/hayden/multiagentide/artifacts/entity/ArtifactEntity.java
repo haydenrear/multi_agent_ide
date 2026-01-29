@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.artifacts.entity;
 
+import com.hayden.persistence.models.JpaHibernateAuditedIded;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -30,11 +31,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder(toBuilder = true)
-public class ArtifactEntity {
-    
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class ArtifactEntity extends JpaHibernateAuditedIded {
     
     /**
      * Hierarchical artifact key (ak:ulid/ulid/...).
@@ -63,7 +60,7 @@ public class ArtifactEntity {
     /**
      * SHA-256 content hash (lowercase hex, 64 chars).
      */
-    @Column(length = 64)
+    @Column(length = 64, unique=true)
     private String contentHash;
     
     /**
@@ -107,9 +104,24 @@ public class ArtifactEntity {
     @Builder.Default
     private String schemaVersion = "0.0.1";
 
-    @Column(nullable = false)
     @ElementCollection
+    @CollectionTable(
+            name = "artifact_child_ids",
+            joinColumns = @JoinColumn(name = "artifact_id", nullable = false)
+    )
+    @Column(name = "child_id", nullable = false, length = 128)
+    @OrderColumn(name = "child_order") // only if order matters
     @Builder.Default
     private List<String> childIds = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(
+            name = "artifact_refs",
+            joinColumns = @JoinColumn(name = "artifact_id", nullable = false)
+    )
+    @Column(name = "ref", nullable = false, length = 512)
+    @OrderColumn(name = "ref_order") // optional
+    @Builder.Default
+    private List<String> refs = new ArrayList<>();
 
 }

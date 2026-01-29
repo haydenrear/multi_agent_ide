@@ -51,7 +51,7 @@ public interface ArtifactRepository extends JpaRepository<ArtifactEntity, Long> 
     /**
      * Finds artifacts by content hash (for deduplication).
      */
-    List<ArtifactEntity> findByContentHash(String contentHash);
+    Optional<ArtifactEntity> findByContentHash(String contentHash);
     
     /**
      * Finds shared template artifacts by static ID and content hash.

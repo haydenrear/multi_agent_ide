@@ -4,8 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.multiagentide.artifacts.entity.ArtifactEntity;
 import com.hayden.multiagentide.artifacts.repository.ArtifactRepository;
+import com.hayden.multiagentidelib.artifact.PromptTemplateVersion;
 import com.hayden.utilitymodule.acp.events.Artifact;
 import com.hayden.utilitymodule.acp.events.ArtifactKey;
+import com.hayden.utilitymodule.acp.events.MessageStreamArtifact;
+import com.hayden.utilitymodule.acp.events.RefArtifact;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -259,15 +262,7 @@ public class ArtifactTreeBuilder {
         
         return rebuildTree(entities);
     }
-    
-    /**
-     * Checks if a shared artifact (e.g., template) already exists.
-     */
-    public Optional<ArtifactEntity> findSharedArtifact(String templateStaticId, String contentHash) {
-        return artifactRepository.findByTemplateStaticIdAndContentHashAndSharedTrue(
-                templateStaticId, contentHash);
-    }
-    
+
     /**
      * Persists a shared artifact (e.g., template version).
      */
@@ -321,21 +316,29 @@ public class ArtifactTreeBuilder {
         if (entities.isEmpty()) {
             return Optional.empty();
         }
-        
+
         // Parse all artifacts
         Map<String, Artifact> artifactMap = new LinkedHashMap<>();
         for (ArtifactEntity entity : entities) {
-            try {
-                Artifact artifact = objectMapper.readValue(entity.getContentJson(), Artifact.class);
+            Artifact artifact = deserializeArtifact(entity);
+            if (artifact != null) {
                 artifactMap.put(entity.getArtifactKey(), artifact);
-            } catch (JsonProcessingException e) {
-                log.error("Failed to deserialize artifact: {}", entity.getArtifactKey(), e);
             }
         }
-        
+
         // Find root (depth 1)
         return artifactMap.values().stream()
                 .filter(a -> a.artifactKey().isRoot())
                 .findFirst();
+    }
+
+    private Artifact deserializeArtifact(ArtifactEntity entity) {
+        String type = entity.getArtifactType();
+        try {
+            return objectMapper.readValue(entity.getContentJson(), Artifact.class);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to deserialize artifact: {} (type: {})", entity.getArtifactKey(), type, e);
+            return null;
+        }
     }
 }

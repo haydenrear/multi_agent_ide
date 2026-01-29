@@ -214,7 +214,6 @@ class ArtifactEventListenerTest {
                     .hash("template-hash-123")
                     .templateArtifactKey(templateKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build();
             
             Events.ArtifactEvent event = createArtifactEvent(templateKey, template);
@@ -240,7 +239,6 @@ class ArtifactEventListenerTest {
                     .hash("hash-1")
                     .templateArtifactKey(template1Key)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build();
             
             ArtifactKey template2Key = rootKey.createChild();
@@ -250,7 +248,6 @@ class ArtifactEventListenerTest {
                     .hash("hash-2")
                     .templateArtifactKey(template2Key)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build();
             
             listener.onEvent(createArtifactEvent(template1Key, template1));
@@ -370,7 +367,6 @@ class ArtifactEventListenerTest {
                     .hash("lifecycle-hash")
                     .templateArtifactKey(templateKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build();
             listener.onEvent(createArtifactEvent(templateKey, template));
             

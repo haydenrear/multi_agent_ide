@@ -26,6 +26,8 @@ dependencies {
     implementation(project(":commit-diff-context"))
     implementation(project(":commit-diff-model"))
     implementation(project(":multi_agent_ide_lib"))
+    implementation(project(":persistence"))
+    implementation(project(":jpa-persistence"))
     implementation("org.springframework.boot:spring-boot-starter-security")
 }
 

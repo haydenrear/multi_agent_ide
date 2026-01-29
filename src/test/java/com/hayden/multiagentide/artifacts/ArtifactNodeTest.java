@@ -312,7 +312,6 @@ class ArtifactNodeTest {
                     .hash("template-hash-123")
                     .templateArtifactKey(childKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build();
             
             ArtifactNode.AddResult result = rootNode.addArtifact(template);
@@ -337,7 +336,6 @@ class ArtifactNodeTest {
                     .hash(sharedHash)
                     .templateArtifactKey(firstKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build();
             
             ArtifactKey secondKey = rootKey.createChild();
@@ -347,7 +345,6 @@ class ArtifactNodeTest {
                     .hash(sharedHash)
                     .templateArtifactKey(secondKey)
                     .lastUpdatedAt(Instant.now())
-                    .sourceLocation("test")
                     .build();
             
             rootNode.addArtifact(first);
