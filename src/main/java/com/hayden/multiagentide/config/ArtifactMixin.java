@@ -34,7 +34,8 @@ public interface ArtifactMixin {
         @JsonSubTypes.Type(value = MessageStreamArtifact.class, name = "MessageStream"),
         // Templated types (extends Artifact)
         @JsonSubTypes.Type(value = Artifact.PromptContributionTemplate.class, name = "PromptContribution"),
-        @JsonSubTypes.Type(value = PromptTemplateVersion.class, name = "PromptTemplateVersion")
+        @JsonSubTypes.Type(value = PromptTemplateVersion.class, name = "PromptTemplateVersion"),
+        @JsonSubTypes.Type(value = Artifact.ArtifactDbRef.class, name = "ArtifactDbRef")
     })
     interface WithTypeInfo {}
 }

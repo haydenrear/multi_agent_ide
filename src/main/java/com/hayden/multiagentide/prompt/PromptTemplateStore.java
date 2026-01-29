@@ -1,5 +1,7 @@
 package com.hayden.multiagentide.prompt;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.multiagentide.artifacts.entity.ArtifactEntity;
 import com.hayden.multiagentide.artifacts.repository.ArtifactRepository;
 import com.hayden.utilitymodule.acp.events.ArtifactKey;
@@ -29,6 +31,8 @@ import java.util.stream.Stream;
 public class PromptTemplateStore {
     
     private final ArtifactRepository artifactRepository;
+
+    private final ObjectMapper objectMapper;
     
     // In-memory cache: templateStaticId -> (contentHash -> PromptTemplateVersion)
     private final Map<String, Map<String, PromptTemplateVersion>> templateCache = new ConcurrentHashMap<>();
@@ -105,7 +109,7 @@ public class PromptTemplateStore {
         
         // Check persistence
         List<ArtifactEntity> versions = artifactRepository
-                .findByTemplateStaticIdAndSharedTrueOrderByCreatedAtDesc(staticId);
+                .findByTemplateStaticIdAndSharedTrueOrderByCreatedTimeDesc(staticId);
         
         if (versions.isEmpty()) {
             return Optional.empty();
@@ -184,7 +188,6 @@ public class PromptTemplateStore {
                 .contentHash(template.contentHash().orElse(null))
                 .contentJson(template.templateText()) // Store raw text
                 .templateStaticId(template.templateStaticId())
-                .createdAt(template.lastUpdatedAt())
                 .depth(1)
                 .childIds(
                         StreamUtil.toStream(template.children()).flatMap(a -> Stream.ofNullable(a.artifactKey()))
@@ -195,13 +198,10 @@ public class PromptTemplateStore {
     }
     
     private PromptTemplateVersion fromEntity(ArtifactEntity entity) {
-        return PromptTemplateVersion.fromPersisted(
-                entity.getTemplateStaticId(),
-                entity.getContentJson(), // Raw template text
-                entity.getContentHash(),
-                new ArtifactKey(entity.getArtifactKey()),
-                entity.getCreatedAt(),
-                null // sourceLocation not stored in entity
-        );
+        try {
+            return objectMapper.readValue(entity.getContentJson(), PromptTemplateVersion.class);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

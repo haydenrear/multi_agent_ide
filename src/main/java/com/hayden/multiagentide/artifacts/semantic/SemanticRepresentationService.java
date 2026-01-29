@@ -196,7 +196,6 @@ public class SemanticRepresentationService {
                         .derivationRecipeId(rep.derivationRecipeId())
                         .derivationRecipeVersion(rep.derivationRecipeVersion())
                         .modelRef(rep.modelRef())
-                        .createdAt(rep.createdAt() != null ? rep.createdAt() : Instant.now())
                         .payloadType(toEntityPayloadType(rep.payloadType()));
         
         // Quality metadata as JSON
@@ -256,7 +255,6 @@ public class SemanticRepresentationService {
                 .derivationRecipeId(entity.getDerivationRecipeId())
                 .derivationRecipeVersion(entity.getDerivationRecipeVersion())
                 .modelRef(entity.getModelRef())
-                .createdAt(entity.getCreatedAt())
                 .qualityMetadata(qualityMetadata)
                 .payloadType(payloadType)
                 .payload(payload)

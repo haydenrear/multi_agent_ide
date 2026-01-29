@@ -1,6 +1,7 @@
 package com.hayden.multiagentide.artifacts.entity;
 
 import com.hayden.persistence.models.JpaHibernateAuditedIded;
+import com.hayden.utilitymodule.acp.events.ArtifactKey;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -36,31 +37,31 @@ public class ArtifactEntity extends JpaHibernateAuditedIded {
     /**
      * Hierarchical artifact key (ak:ulid/ulid/...).
      */
-    @Column(nullable = false, unique = true, length = 512)
+    @Column(nullable = false, unique = true, length = 30_000)
     private String artifactKey;
     
     /**
      * Parent artifact key (null for root).
      */
-    @Column(length = 512)
+    @Column(length = 30_000)
     private String parentKey;
     
     /**
      * Root execution key for this artifact tree.
      */
-    @Column(nullable = false, length = 128)
+    @Column(nullable = false, length = 30_000)
     private String executionKey;
     
     /**
      * Artifact type discriminator.
      */
-    @Column(nullable = false, length = 64)
+    @Column(nullable = false, length = 30_000)
     private String artifactType;
     
     /**
      * SHA-256 content hash (lowercase hex, 64 chars).
      */
-    @Column(length = 64, unique=true)
+    @Column(length = 30_000, unique=true)
     private String contentHash;
     
     /**
@@ -68,19 +69,7 @@ public class ArtifactEntity extends JpaHibernateAuditedIded {
      */
     @Column(columnDefinition = "TEXT")
     private String contentJson;
-    
-    /**
-     * Node ID this artifact is associated with.
-     */
-    @Column(length = 128)
-    private String nodeId;
-    
-    /**
-     * Creation timestamp (derived from artifact key).
-     */
-    @Column(nullable = false)
-    private Instant createdAt;
-    
+
     /**
      * Depth in the artifact tree (1 = root).
      */
@@ -90,7 +79,7 @@ public class ArtifactEntity extends JpaHibernateAuditedIded {
     /**
      * For template artifacts: the stable template static ID.
      */
-    @Column(length = 256)
+    @Column(length = 30_000)
     private String templateStaticId;
     
     /**
@@ -109,7 +98,7 @@ public class ArtifactEntity extends JpaHibernateAuditedIded {
             name = "artifact_child_ids",
             joinColumns = @JoinColumn(name = "artifact_id", nullable = false)
     )
-    @Column(name = "child_id", nullable = false, length = 128)
+    @Column(name = "child_id", nullable = false, length = 30_000)
     @OrderColumn(name = "child_order") // only if order matters
     @Builder.Default
     private List<String> childIds = new ArrayList<>();
@@ -122,6 +111,13 @@ public class ArtifactEntity extends JpaHibernateAuditedIded {
     @Column(name = "ref", nullable = false, length = 512)
     @OrderColumn(name = "ref_order") // optional
     @Builder.Default
-    private List<String> refs = new ArrayList<>();
+    private List<String> artifactKeyRefs = new ArrayList<>();
+
+    public void addRef(ArtifactKey ref) {
+        if (artifactKeyRefs == null)
+            artifactKeyRefs = new ArrayList<>();
+
+        artifactKeyRefs.add(ref.value());
+    }
 
 }

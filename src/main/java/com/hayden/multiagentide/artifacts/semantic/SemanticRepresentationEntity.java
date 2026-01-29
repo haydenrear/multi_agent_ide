@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.artifacts.semantic;
 
+import com.hayden.persistence.models.JpaHibernateAuditedIded;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,7 +18,7 @@ import java.time.Instant;
                 @Index(name = "idx_semantic_target", columnList = "target_artifact_key"),
                 @Index(name = "idx_semantic_recipe", columnList = "derivation_recipe_id"),
                 @Index(name = "idx_semantic_type", columnList = "payload_type"),
-                @Index(name = "idx_semantic_created", columnList = "created_at")
+                @Index(name = "idx_semantic_created", columnList = "created_time")
         },
         uniqueConstraints = {
                 @UniqueConstraint(name = "uq_semantic_key", columnNames = "semantic_key")
@@ -27,11 +28,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class SemanticRepresentationEntity {
-    
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class SemanticRepresentationEntity extends JpaHibernateAuditedIded {
     
     /**
      * Unique identifier for this semantic representation.
@@ -42,7 +39,7 @@ public class SemanticRepresentationEntity {
     /**
      * The artifact key this representation is attached to.
      */
-    @Column(name = "target_artifact_key", nullable = false, length = 512)
+    @Column(name = "target_artifact_key", nullable = false, length = 30_000)
     private String targetArtifactKey;
     
     /**
@@ -62,12 +59,6 @@ public class SemanticRepresentationEntity {
      */
     @Column(name = "model_ref", length = 256)
     private String modelRef;
-    
-    /**
-     * When this representation was created.
-     */
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
     
     /**
      * Quality metadata as JSON.
@@ -106,12 +97,5 @@ public class SemanticRepresentationEntity {
         CLASSIFICATION,
         NAMED_ENTITIES,
         CUSTOM
-    }
-    
-    @PrePersist
-    public void prePersist() {
-        if (createdAt == null) {
-            createdAt = Instant.now();
-        }
     }
 }

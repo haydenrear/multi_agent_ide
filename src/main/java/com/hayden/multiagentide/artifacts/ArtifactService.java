@@ -5,12 +5,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.multiagentide.artifacts.entity.ArtifactEntity;
 import com.hayden.multiagentide.artifacts.repository.ArtifactRepository;
 import com.hayden.utilitymodule.acp.events.Artifact;
+import com.hayden.utilitymodule.acp.events.ArtifactKey;
+import com.hayden.utilitymodule.acp.events.Templated;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.net.nntp.Article;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Service for managing artifact persistence and retrieval.
@@ -27,22 +32,26 @@ public class ArtifactService {
     private final ArtifactRepository artifactRepository;
     private final ObjectMapper objectMapper;
 
-    /**
-     * Finds an artifact by its content hash.
-     * Used for deduplication - if the same content has been stored before,
-     * we can retrieve it instead of creating a new artifact.
-     *
-     * @param contentHash SHA-256 hash of the artifact content
-     * @return Optional containing the artifact if found
-     */
     @Transactional(readOnly = true)
-    public Optional<Artifact> findByContentHash(String contentHash) {
+    public Optional<Artifact> decorateDuplicate(String contentHash, @NotNull ArtifactKey artifact) {
         if (contentHash == null || contentHash.isEmpty()) {
             return Optional.empty();
         }
 
         return artifactRepository.findByContentHash(contentHash)
-                .flatMap(this::deserializeArtifact);
+                .map(ae -> {
+                    ae.addRef(artifact);
+                    return artifactRepository.save(ae);
+                })
+                .flatMap(this::deserializeArtifact)
+                .map( a -> switch(a) {
+                    case Templated t ->
+//                          use a random hash for this one as it's a ref
+                            new Artifact.TemplateDbRef(artifact, t.templateStaticId(), UUID.randomUUID().toString(), t);
+                    case Artifact t ->
+//                          use a random hash for this one as it's a ref
+                            new Artifact.ArtifactDbRef(artifact, UUID.randomUUID().toString(), t);
+                });
     }
 
     /**
@@ -69,43 +78,6 @@ public class ArtifactService {
         }
     }
 
-    /**
-     * Serializes an Artifact to JSON for storage.
-     *
-     * @param artifact The artifact to serialize
-     * @return JSON string representation
-     * @throws JsonProcessingException if serialization fails
-     */
-    public String serializeArtifact(Artifact artifact) throws JsonProcessingException {
-        return objectMapper.writeValueAsString(artifact);
-    }
-
-    /**
-     * Checks if an artifact with the given content hash already exists.
-     *
-     * @param contentHash SHA-256 hash of the artifact content
-     * @return true if an artifact with this hash exists
-     */
-    @Transactional(readOnly = true)
-    public boolean existsByContentHash(String contentHash) {
-        if (contentHash == null || contentHash.isEmpty()) {
-            return false;
-        }
-
-        return artifactRepository.findByContentHash(contentHash).isPresent();
-    }
-
-    /**
-     * Finds an artifact by its artifact key.
-     *
-     * @param artifactKey The hierarchical artifact key
-     * @return Optional containing the artifact if found
-     */
-    @Transactional(readOnly = true)
-    public Optional<Artifact> findByArtifactKey(String artifactKey) {
-        return artifactRepository.findByArtifactKey(artifactKey)
-                .flatMap(this::deserializeArtifact);
-    }
 
     /**
      * Saves an artifact entity to the repository.

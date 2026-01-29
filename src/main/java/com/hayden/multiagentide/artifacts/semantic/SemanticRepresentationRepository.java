@@ -34,29 +34,6 @@ public interface SemanticRepresentationRepository extends JpaRepository<Semantic
     );
     
     /**
-     * Find representations by derivation recipe.
-     */
-    List<SemanticRepresentationEntity> findByDerivationRecipeId(String derivationRecipeId);
-    
-    /**
-     * Find representations by derivation recipe and version.
-     */
-    List<SemanticRepresentationEntity> findByDerivationRecipeIdAndDerivationRecipeVersion(
-            String derivationRecipeId,
-            String derivationRecipeVersion
-    );
-    
-    /**
-     * Find representations by payload type.
-     */
-    List<SemanticRepresentationEntity> findByPayloadType(SemanticRepresentationEntity.PayloadType payloadType);
-    
-    /**
-     * Find representations created after a specific time.
-     */
-    List<SemanticRepresentationEntity> findByCreatedAtAfter(Instant after);
-    
-    /**
      * Find representations for artifacts with a specific key prefix.
      * Useful for finding all semantics within an execution tree.
      */
@@ -78,21 +55,11 @@ public interface SemanticRepresentationRepository extends JpaRepository<Semantic
     void deleteByTargetArtifactKey(String targetArtifactKey);
     
     /**
-     * Delete all representations with a specific derivation recipe.
-     */
-    void deleteByDerivationRecipeId(String derivationRecipeId);
-    
-    /**
-     * Count representations by payload type.
-     */
-    long countByPayloadType(SemanticRepresentationEntity.PayloadType payloadType);
-    
-    /**
      * Find the most recent representation for a target artifact of a given type.
      */
     @Query("SELECT s FROM SemanticRepresentationEntity s " +
            "WHERE s.targetArtifactKey = :targetKey AND s.payloadType = :payloadType " +
-           "ORDER BY s.createdAt DESC LIMIT 1")
+           "ORDER BY s.createdTime DESC LIMIT 1")
     Optional<SemanticRepresentationEntity> findLatestByTargetAndType(
             @Param("targetKey") String targetArtifactKey,
             @Param("payloadType") SemanticRepresentationEntity.PayloadType payloadType

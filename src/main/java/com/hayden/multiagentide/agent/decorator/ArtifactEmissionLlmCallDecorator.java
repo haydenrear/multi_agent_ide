@@ -87,18 +87,15 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
         }
 
         // Check if artifact with this hash already exists
-        Optional<Artifact> existingArtifact = artifactService.findByContentHash(hash);
+        Optional<Artifact> existingArtifact = artifactService.decorateDuplicate(hash, artifactKey);
 
         if (existingArtifact.isPresent()) {
             @SuppressWarnings("unchecked")
             Artifact existing = existingArtifact.get();
             
-            // Update the artifact key to the current execution context
-            Artifact reused = updateArtifactKey(existing, artifactKey);
-            
-            log.debug("Reusing existing artifact with hash: {} and type: {}", 
+            log.debug("Reusing existing artifact with hash: {} and type: {}",
                     hash, existing.artifactType());
-            return reused;
+            return existing;
         }
 
         // Create new artifact
@@ -106,27 +103,6 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
         log.debug("Created new artifact with hash: {} and type: {}", 
                 hash, newArtifact.artifactType());
         return newArtifact;
-    }
-
-    /**
-     * Updates the artifact key while preserving the rest of the artifact structure.
-     * Uses the 'with' methods from Lombok builders.
-     */
-    private Artifact updateArtifactKey(Artifact artifact, ArtifactKey newKey) {
-        // Use pattern matching to handle each artifact type
-//        TODO: needs to be wrapped in a TemplateArtifact with a TemplateRef, containing the ArtifactKey the hash, and the value
-//              and then this has a random hash created, and json-ignore the value. Then, when loading from the database, we retrieve
-//              and set the ref-ed template manually. Additionally, when we save, we load the referenced template and add the artifact key
-//              of the TemplateRef as a ref in refs
-        return switch (artifact) {
-            case Artifact.PromptContributionTemplate a -> a.withArtifactKey(newKey);
-            case Artifact.ToolPrompt a -> a.withArtifactKey(newKey);
-            case PromptTemplateVersion a -> a.withTemplateArtifactKey(newKey);
-            default -> {
-                log.error("Found non-template artifact duplicated in database {}.", artifact);
-                yield artifact;
-            }
-        };
     }
 
     /**

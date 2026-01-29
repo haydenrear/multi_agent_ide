@@ -30,12 +30,7 @@ public interface ArtifactRepository extends JpaRepository<ArtifactEntity, Long> 
      * Finds all artifacts in an execution tree.
      */
     List<ArtifactEntity> findByExecutionKeyOrderByArtifactKey(String executionKey);
-    
-    /**
-     * Finds direct children of a parent artifact.
-     */
-    List<ArtifactEntity> findByParentKeyOrderByArtifactKey(String parentKey);
-    
+
     /**
      * Finds all artifacts under a key prefix (subtree).
      */
@@ -62,30 +57,25 @@ public interface ArtifactRepository extends JpaRepository<ArtifactEntity, Long> 
     /**
      * Finds all versions of a template family.
      */
-    List<ArtifactEntity> findByTemplateStaticIdAndSharedTrueOrderByCreatedAtDesc(
+    List<ArtifactEntity> findByTemplateStaticIdAndSharedTrueOrderByCreatedTimeDesc(
             String templateStaticId);
     
     /**
      * Finds all templates under a static ID prefix (template family).
      */
-    @Query("SELECT a FROM ArtifactEntity a WHERE a.templateStaticId LIKE :prefix% AND a.shared = true ORDER BY a.templateStaticId, a.createdAt DESC")
+    @Query("SELECT a FROM ArtifactEntity a WHERE a.templateStaticId LIKE :prefix% AND a.shared = true ORDER BY a.templateStaticId, a.createdTime DESC")
     List<ArtifactEntity> findTemplatesByStaticIdPrefix(@Param("prefix") String staticIdPrefix);
-    
-    /**
-     * Counts artifacts in an execution tree.
-     */
-    long countByExecutionKey(String executionKey);
     
     /**
      * Finds executions within a time range.
      */
-    @Query("SELECT DISTINCT a.executionKey FROM ArtifactEntity a WHERE a.depth = 1 AND a.createdAt BETWEEN :start AND :end ORDER BY a.createdAt DESC")
+    @Query("SELECT DISTINCT a.executionKey FROM ArtifactEntity a WHERE a.depth = 1 AND a.createdTime BETWEEN :start AND :end ORDER BY a.createdTime DESC")
     List<String> findExecutionKeysBetween(@Param("start") Instant start, @Param("end") Instant end);
     
     /**
      * Finds root execution artifacts.
      */
-    @Query("SELECT a FROM ArtifactEntity a WHERE a.depth = 1 AND a.artifactType = 'Execution' ORDER BY a.createdAt DESC")
+    @Query("SELECT a FROM ArtifactEntity a WHERE a.depth = 1 AND a.artifactType = 'Execution' ORDER BY a.createdTime DESC")
     List<ArtifactEntity> findAllExecutions();
 
     /**

@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -236,6 +237,10 @@ public class ArtifactTreeBuilder {
             root.collectAll()
                     .stream()
                     .map(a -> toEntity(executionKey, a))
+                    .collect(Collectors.groupingBy(ArtifactEntity::getContentHash))
+                    .entrySet()
+                    .stream()
+                    .flatMap(e -> e.getValue().stream().findAny().stream())
                     .toList());
     }
 
@@ -294,8 +299,6 @@ public class ArtifactTreeBuilder {
                 .artifactType(artifact.artifactType())
                 .contentHash(artifact.contentHash().orElse(null))
                 .contentJson(contentJson)
-                .nodeId(artifact.artifactKey().value())
-                .createdAt(key.extractTimestamp())
                 .depth(key.depth())
                 .shared(false)
                 .childIds(
