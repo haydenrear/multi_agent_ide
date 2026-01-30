@@ -1,1 +1,0 @@
-Need to be able to detect these, with degenerate loop policies - will exist in blackboard history, then throw it.

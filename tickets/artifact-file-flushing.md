@@ -1,2 +1,0 @@
-
-When an artifact is received and added to artifact-tree builder, to support restarts and fault-tolerance, and failures, because we only write ArtifactEntity to the database at the end of the process, and we'd like to support restart.
