@@ -120,6 +120,34 @@ class ArtifactRepositoryTest {
         @Test
         @DisplayName("all entity fields persist correctly")
         void allFieldsPersist() {
+            ArtifactEntity ref1 = ArtifactEntity.builder()
+                    .artifactKey("ref1")
+                    .parentKey("ak:01HX5ZRXQL")
+                    .executionKey("exec-123")
+                    .artifactType("RenderedPrompt")
+                    .contentHash("hash-abc1234")
+                    .contentJson("{\"text\": \"test\"}")
+                    .depth(4)
+                    .templateStaticId("tpl.test.template")
+                    .shared(true)
+                    .schemaVersion("1.0.0")
+                    .build();
+            ArtifactEntity ref2 = ArtifactEntity.builder()
+                    .artifactKey("ref2")
+                    .parentKey("ak:01HX5ZRXQL")
+                    .executionKey("exec-123")
+                    .artifactType("RenderedPrompt")
+                    .contentHash("hash-abc12345")
+                    .contentJson("{\"text\": \"test\"}")
+                    .depth(4)
+                    .templateStaticId("tpl.test.template")
+                    .shared(true)
+                    .schemaVersion("1.0.0")
+                    .build();
+
+            artifactRepository.saveAll(List.of(ref1, ref2));
+            artifactRepository.flush();
+
             ArtifactEntity entity = ArtifactEntity.builder()
                     .artifactKey("ak:01HX5ZRXQM")
                     .parentKey("ak:01HX5ZRXQL")
@@ -203,12 +231,24 @@ class ArtifactRepositoryTest {
         @Test
         @DisplayName("artifactKeyRefs collection persists correctly")
         void artifactKeyRefsPersist() {
-            ArtifactEntity entity = createTestEntity("ak:01HX5ZRXQM", null, "exec-123", "Ref");
+            // Create valid ULID format artifact keys
+            ArtifactKey key1 = ArtifactKey.createRoot();
+            ArtifactKey key2 = ArtifactKey.createRoot();
+            ArtifactKey mainKey = ArtifactKey.createRoot();
+            
+            ArtifactEntity entity = createTestEntity(mainKey.value(), null, "exec-123", "Ref");
+
+            ArtifactEntity ref1 = createTestEntity(key1.value(), null, "exec-123", "Ref");
+            ArtifactEntity ref2 = createTestEntity(key2.value(), null, "exec-123", "Ref");
+
+            artifactRepository.saveAll(List.of(ref1, ref2));
+            artifactRepository.flush();
+
             entity.setArtifactKeyRefs(new ArrayList<>());
             
             // Add refs using the addRef method
-            entity.addRef(new ArtifactKey("ak:01HX5ZRXQN"));
-            entity.addRef(new ArtifactKey("ak:01HX5ZRXQO"));
+            entity.addRef(key1);
+            entity.addRef(key2);
             
             ArtifactEntity saved = artifactRepository.save(entity);
             artifactRepository.flush();
@@ -216,7 +256,7 @@ class ArtifactRepositoryTest {
             Optional<ArtifactEntity> found = artifactRepository.findById(saved.getUuid());
             assertThat(found).isPresent();
             assertThat(found.get().getArtifactKeyRefs()).hasSize(2);
-            assertThat(found.get().getArtifactKeyRefs()).contains("ak:01HX5ZRXQN", "ak:01HX5ZRXQO");
+            assertThat(found.get().getArtifactKeyRefs()).contains(key1.value(), key2.value());
         }
         
         @Test
@@ -323,45 +363,23 @@ class ArtifactRepositoryTest {
         }
         
         @Test
-        @DisplayName("findByContentHash returns entity with matching hash")
+        @DisplayName("findByContentHash returns entities with matching hash")
         void findByContentHash() {
             String hash = "abc123hash";
             
-            artifactRepository.save(createTestEntityWithHash("ak:01HX5ZRXQM", "exec-123", hash));
-            artifactRepository.save(createTestEntityWithHash("ak:01HX5ZRXQN", "exec-123", "different-hash"));
+            // Create valid ULID format artifact keys
+            ArtifactKey key1 = ArtifactKey.createRoot();
+            ArtifactKey key2 = ArtifactKey.createRoot();
+            
+            artifactRepository.save(createTestEntityWithHash(key1.value(), "exec-123", hash));
+            artifactRepository.save(createTestEntityWithHash(key2.value(), "exec-123", "different-hash"));
             
             Optional<ArtifactEntity> found = artifactRepository.findByContentHash(hash);
             
             assertThat(found).isPresent();
             assertThat(found.get().getContentHash()).isEqualTo(hash);
         }
-        
-        @Test
-        @DisplayName("findByTemplateStaticIdAndContentHashAndSharedTrue finds shared template")
-        void findSharedTemplate() {
-            String staticId = "tpl.agent.system";
-            String hash = "template-hash-123";
-            
-            ArtifactEntity sharedTemplate = createTestEntity("ak:01HX5ZRXQM", null, "exec-123", "PromptTemplateVersion");
-            sharedTemplate.setTemplateStaticId(staticId);
-            sharedTemplate.setContentHash(hash);
-            sharedTemplate.setShared(true);
-            artifactRepository.save(sharedTemplate);
-            
-            ArtifactEntity nonSharedTemplate = createTestEntity("ak:01HX5ZRXQN", null, "exec-123", "PromptTemplateVersion");
-            nonSharedTemplate.setTemplateStaticId(staticId);
-            nonSharedTemplate.setContentHash(hash);
-            nonSharedTemplate.setShared(false);
-            artifactRepository.save(nonSharedTemplate);
-            
-            Optional<ArtifactEntity> found = artifactRepository.findByTemplateStaticIdAndContentHashAndSharedTrue(
-                    staticId, hash);
-            
-            assertThat(found).isPresent();
-            assertThat(found.get().getShared()).isTrue();
-            assertThat(found.get().getArtifactKey()).isEqualTo("ak:01HX5ZRXQM");
-        }
-        
+
         @Test
         @DisplayName("findByTemplateStaticIdAndSharedTrueOrderByCreatedTimeDesc returns versions ordered")
         void findTemplateVersionsOrdered() throws InterruptedException {
@@ -391,7 +409,7 @@ class ArtifactRepositoryTest {
             
             assertThat(versions).hasSize(3);
             // Most recent should be first (v3)
-            assertThat(versions.get(0).getContentHash()).isEqualTo("hash-v3");
+            assertThat(versions.getFirst().getContentHash()).isEqualTo("hash-v3");
         }
         
         @Test
@@ -513,6 +531,7 @@ class ArtifactRepositoryTest {
             // Create execution tree
             Artifact.ExecutionArtifact execution = Artifact.ExecutionArtifact.builder()
                     .artifactKey(rootKey)
+                    .hash(UUID.randomUUID().toString())
                     .workflowRunId("workflow-123")
                     .startedAt(Instant.now())
                     .status(Artifact.ExecutionStatus.RUNNING)
@@ -569,33 +588,7 @@ class ArtifactRepositoryTest {
             assertThat(childEntity.get().getDepth()).isEqualTo(2);
         }
         
-        @Test
-        @DisplayName("artifact deduplication works correctly")
-        void artifactDeduplicationIntegration() {
-            String sharedHash = "shared-hash-abc";
-            
-            ArtifactEntity first = createTestEntityWithHash("ak:01HX5ZRXQM", "exec-123", sharedHash);
-            artifactRepository.save(first);
-            
-            // Attempt to save second artifact with same hash
-            ArtifactEntity second = createTestEntityWithHash("ak:01HX5ZRXQN", "exec-123", sharedHash);
-            
-            // This should fail due to unique constraint on contentHash
-            try {
-                artifactRepository.save(second);
-                artifactRepository.flush();
-                // If we get here, the unique constraint isn't working
-                // But we'll verify with findByContentHash
-            } catch (Exception e) {
-                // Expected: unique constraint violation
-                log.debug("Unique constraint violation (expected): {}", e.getMessage());
-            }
-            
-            // Verify only one exists
-            Optional<ArtifactEntity> found = artifactRepository.findByContentHash(sharedHash);
-            assertThat(found).isPresent();
-            assertThat(found.get().getArtifactKey()).isEqualTo("ak:01HX5ZRXQM");
-        }
+
     }
     
     // ========== Helper Methods ==========

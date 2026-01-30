@@ -7,6 +7,7 @@ import com.hayden.commitdiffcontext.cdc_config.SkipSetFromSessionHeader;
 import com.hayden.commitdiffcontext.cdc_utils.SetFromHeader;
 import com.hayden.commitdiffcontext.mcp.ToolCarrier;
 import com.hayden.commitdiffmodel.config.DisableGraphQl;
+import com.hayden.persistence.config.JpaConfig;
 import com.hayden.utilitymodule.mcp.ctx.McpRequestContext;
 import com.hayden.utilitymodule.schema.DelegatingSchemaReplacer;
 import com.hayden.utilitymodule.schema.SpecialJsonSchemaGenerator;
@@ -56,7 +57,7 @@ import java.util.stream.Collectors;
 
 @Configuration
 @Import({DelegatingSchemaReplacer.class, SpecialJsonSchemaGenerator.class, SpecialMethodToolCallbackProviderFactory.class, SkipInSchemaFilter.class,
-         DisableGraphQl.class, SkipMcpToolContextFilter.class, SkipSetFromSessionHeader.class})
+         DisableGraphQl.class, SkipMcpToolContextFilter.class, SkipSetFromSessionHeader.class, JpaConfig.class})
 @Slf4j
 @EnableConfigurationProperties({McpServerProperties.class, McpServerChangeNotificationProperties.class})
 public class SpringMcpConfig {

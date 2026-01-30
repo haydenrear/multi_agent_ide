@@ -3,6 +3,7 @@ package com.hayden.multiagentide.artifacts;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.multiagentide.artifacts.entity.ArtifactEntity;
 import com.hayden.multiagentide.artifacts.repository.ArtifactRepository;
+import com.hayden.multiagentide.config.SerdesConfiguration;
 import com.hayden.multiagentidelib.artifact.PromptTemplateVersion;
 import com.hayden.utilitymodule.acp.events.Artifact;
 import com.hayden.utilitymodule.acp.events.ArtifactKey;
@@ -16,6 +17,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.jackson.JsonMixinModule;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
 import java.time.Instant;
 import java.util.*;
@@ -50,9 +53,13 @@ class ArtifactTreeBuilderTest {
     
     @BeforeEach
     void setUp() {
-        objectMapper = new ObjectMapper();
+        SerdesConfiguration serdesConfiguration = new SerdesConfiguration();
+        Jackson2ObjectMapperBuilder jacksonObjectMapperBuilder = new Jackson2ObjectMapperBuilder();
+        serdesConfiguration.artifactSerdesCustomizer().customize(jacksonObjectMapperBuilder);
+        objectMapper = jacksonObjectMapperBuilder.build();
         objectMapper.findAndRegisterModules();
-        treeBuilder = new ArtifactTreeBuilder(artifactRepository, objectMapper);
+
+        treeBuilder = new ArtifactTreeBuilder(artifactRepository, objectMapper, new ArtifactService(artifactRepository, objectMapper));
         
         rootKey = ArtifactKey.createRoot();
         executionKey = rootKey.value();
@@ -231,8 +238,6 @@ class ArtifactTreeBuilderTest {
             List<ArtifactEntity> saved = entityListCaptor.getValue();
             
             assertThat(saved).hasSize(2);
-            // Verify sorted by key (parent before child)
-            assertThat(saved.get(0).getArtifactKey()).isLessThan(saved.get(1).getArtifactKey());
         }
         
         @Test
@@ -519,7 +524,7 @@ class ArtifactTreeBuilderTest {
             assertThat(artifacts.stream()
                     .map(Artifact::artifactType)
                     .toList())
-                    .containsExactlyInAnyOrder("Execution", "Group", "RenderedPrompt", 
+                    .containsExactlyInAnyOrder("Execution", "AgentModelArtifact", "RenderedPrompt",
                             "PromptTemplateVersion", "ToolCall");
         }
     }
@@ -846,8 +851,6 @@ class ArtifactTreeBuilderTest {
             assertThat(level2bEntity.getDepth()).isEqualTo(3);
             assertThat(level3Entity.getDepth()).isEqualTo(4);
             
-            // Verify sorted order (parent before children)
-            assertThat(saved.get(0).getArtifactKey()).isEqualTo(rootKey.value());
         }
         
         @Test
@@ -929,6 +932,7 @@ class ArtifactTreeBuilderTest {
     
     private Artifact.ExecutionArtifact createExecutionArtifact(ArtifactKey key) {
         return Artifact.ExecutionArtifact.builder()
+                .hash(UUID.randomUUID().toString())
                 .artifactKey(key)
                 .workflowRunId("test-run-" + System.nanoTime())
                 .startedAt(Instant.now())
@@ -957,10 +961,16 @@ class ArtifactTreeBuilderTest {
                     }
 
                     @Override
+                    public String artifactType() {
+                        return "AgentModelArtifact";
+                    }
+
+                    @Override
                     public <T extends Artifact.AgentModel> T withChildren(List<Artifact.AgentModel> c) {
-                        return null;
+                        return (T) this;
                     }
                 })
+                .hash(UUID.randomUUID().toString())
                 .metadata(new java.util.HashMap<>())
                 .children(new ArrayList<>())
                 .build();

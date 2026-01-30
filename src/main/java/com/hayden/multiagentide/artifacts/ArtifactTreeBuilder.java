@@ -5,11 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.multiagentide.artifacts.entity.ArtifactEntity;
 import com.hayden.multiagentide.artifacts.repository.ArtifactRepository;
 import com.hayden.multiagentidelib.artifact.PromptTemplateVersion;
-import com.hayden.utilitymodule.acp.events.Artifact;
-import com.hayden.utilitymodule.acp.events.ArtifactKey;
-import com.hayden.utilitymodule.acp.events.MessageStreamArtifact;
-import com.hayden.utilitymodule.acp.events.RefArtifact;
+import com.hayden.utilitymodule.acp.events.*;
 import com.hayden.utilitymodule.stream.StreamUtil;
+import jakarta.persistence.PersistenceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -42,6 +40,7 @@ public class ArtifactTreeBuilder {
     
     private final ArtifactRepository artifactRepository;
     private final ObjectMapper objectMapper;
+    private final ArtifactService artifactService;
 
     private final Map<String, ArtifactNode> executionTrees = new ConcurrentHashMap<>();
     
@@ -214,7 +213,7 @@ public class ArtifactTreeBuilder {
             return Optional.empty();
         }
         
-        doPersist(executionKey, root);
+        artifactService.doPersist(executionKey, root);
         return Optional.of(root.buildArtifactTree());
     }
 
@@ -229,22 +228,10 @@ public class ArtifactTreeBuilder {
             return;
         }
 
-        doPersist(executionKey, root);
+        artifactService.doPersist(executionKey, root);
     }
 
-    private void doPersist(String executionKey, ArtifactNode root) {
-        artifactRepository.saveAll(
-            root.collectAll()
-                    .stream()
-                    .map(a -> toEntity(executionKey, a))
-                    .collect(Collectors.groupingBy(ArtifactEntity::getContentHash))
-                    .entrySet()
-                    .stream()
-                    .flatMap(e -> e.getValue().stream().findAny().stream())
-                    .toList());
-    }
 
-    
     /**
      * Clears the in-memory state for an execution.
      * Call this only when you're done with the execution and want to free memory.
@@ -278,35 +265,6 @@ public class ArtifactTreeBuilder {
     }
     
     // ========== Private Helpers ==========
-    
-    private ArtifactEntity toEntity(String executionKey, Artifact artifact) {
-        ArtifactKey key = artifact.artifactKey();
-        
-        String contentJson;
-        try {
-            contentJson = objectMapper.writeValueAsString(artifact);
-        } catch (JsonProcessingException e) {
-            log.error("Failed to serialize artifact: {}", key, e);
-            contentJson = "{}";
-        }
-        
-        String parentKey = key.parent().map(ArtifactKey::value).orElse(null);
-        
-        return ArtifactEntity.builder()
-                .artifactKey(key.value())
-                .parentKey(parentKey)
-                .executionKey(executionKey)
-                .artifactType(artifact.artifactType())
-                .contentHash(artifact.contentHash().orElse(null))
-                .contentJson(contentJson)
-                .depth(key.depth())
-                .shared(false)
-                .childIds(
-                        StreamUtil.toStream(artifact.children()).flatMap(a -> Stream.ofNullable(a.artifactKey()))
-                                .flatMap(ak -> StreamUtil.toStream(ak.value()))
-                                .toList())
-                .build();
-    }
     
     private Optional<Artifact> rebuildTree(List<ArtifactEntity> entities) {
         if (entities.isEmpty()) {

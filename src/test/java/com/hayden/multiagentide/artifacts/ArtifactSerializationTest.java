@@ -82,6 +82,7 @@ class ArtifactSerializationTest {
                     .finishedAt(Instant.now())
                     .status(Artifact.ExecutionStatus.COMPLETED)
                     .metadata(Map.of("env", "test", "version", "1.0"))
+                    .hash(UUID.randomUUID().toString())
                     .children(new ArrayList<>())
                     .build();
             
@@ -522,7 +523,7 @@ class ArtifactSerializationTest {
             
             assertThat(resultInterrupt.reason()).contains("clarification on authentication");
             assertThat(resultInterrupt.choices()).hasSize(1);
-            assertThat(resultInterrupt.choices().get(0).choiceId()).isEqualTo("authMethod");
+            assertThat(resultInterrupt.choices().get(0).choiceId()).isEqualTo("tpl.choice.authMethod");
             assertThat(resultInterrupt.choices().get(0).options()).containsKey("jwt");
         }
         
@@ -593,6 +594,8 @@ class ArtifactSerializationTest {
             
             AgentModels.DiscoveryCuration curation = AgentModels.DiscoveryCuration.builder()
                     .artifactKey(curationKey)
+                    .discoveryReports(List.of())
+                    .recommendations(List.of())
                     .build();
             
             Artifact.AgentModelArtifact artifact = (Artifact.AgentModelArtifact) curation.toArtifact(Artifact.HashContext.defaultHashContext());
@@ -716,13 +719,14 @@ class ArtifactSerializationTest {
                     .contextId(resultKey)
                     .output("Test output")
                     .build();
-            artifactTreeBuilder.addArtifact(executionKey, (Artifact.AgentModelArtifact) result.toArtifact(Artifact.HashContext.defaultHashContext()));
+            artifactTreeBuilder.addArtifact(executionKey, result.toArtifact(Artifact.HashContext.defaultHashContext()));
             
             ArtifactKey curationKey = resultKey.createChild();
             AgentModels.DiscoveryCuration curation = AgentModels.DiscoveryCuration.builder()
                     .artifactKey(curationKey)
+                    .discoveryReports(new ArrayList<>())
                     .build();
-            artifactTreeBuilder.addArtifact(executionKey, (Artifact.AgentModelArtifact) curation.toArtifact(Artifact.HashContext.defaultHashContext()));
+            artifactTreeBuilder.addArtifact(executionKey, curation.toArtifact(Artifact.HashContext.defaultHashContext()));
             
             artifactTreeBuilder.persistExecution(executionKey);
             
@@ -739,7 +743,7 @@ class ArtifactSerializationTest {
             Optional<ArtifactEntity> curationEntity = artifactRepository.findByArtifactKey(curationKey.value());
             Optional<Artifact> deserializedCuration = artifactService.deserializeArtifact(curationEntity.get());
             assertThat(deserializedCuration).isPresent();
-            
+
             Artifact.AgentModelArtifact curationArtifact = (Artifact.AgentModelArtifact) deserializedCuration.get();
             AgentModels.DiscoveryCuration deserializedCurationModel = 
                     (AgentModels.DiscoveryCuration) curationArtifact.agentModel();

@@ -3,14 +3,16 @@ databaseChangeLog:
       id: 001-create-artifact-table
       author: hayden
       changes:
-
         - createTable:
             tableName: artifact
             columns:
-
               - column:
                   name: created_time
                   type: TIMESTAMP
+
+              - column:
+                  name: referenced_artifact_key
+                  type: VARCHAR(30000)
 
               - column:
                   name: updated_time
@@ -89,7 +91,6 @@ databaseChangeLog:
                   constraints:
                     nullable: false
 
-
         - createIndex:
             tableName: artifact
             indexName: idx_artifact_key
@@ -132,12 +133,10 @@ databaseChangeLog:
               - column:
                   name: created_time
 
-
   - changeSet:
       id: 002-create-artifact-child-ids-table
       author: hayden
       changes:
-
         - createTable:
             tableName: artifact_child_ids
             columns:
@@ -158,7 +157,6 @@ databaseChangeLog:
                   type: INTEGER
                   constraints:
                     nullable: false
-
 
         - addPrimaryKey:
             tableName: artifact_child_ids
@@ -184,29 +182,27 @@ databaseChangeLog:
             columnNames: artifact_id, child_id
             constraintName: uq_artifact_child_ids_parent_child
 
-        - addForeignKeyConstraint:
-            baseTableName: artifact_child_ids
-            baseColumnNames: artifact_id
-            referencedTableName: artifact
-            referencedColumnNames: uuid
-            constraintName: fk_child_ids_parent_artifact
-            onDelete: CASCADE
+#        - addForeignKeyConstraint:
+#            baseTableName: artifact_child_ids
+#            baseColumnNames: artifact_id
+#            referencedTableName: artifact
+#            referencedColumnNames: uuid
+#            constraintName: fk_child_ids_parent_artifact
+#            onDelete: CASCADE
 
-        - addForeignKeyConstraint:
-            baseTableName: artifact_child_ids
-            baseColumnNames: child_id
-            referencedTableName: artifact
-            referencedColumnNames: artifact_key
-            constraintName: fk_child_ids_child_artifact_key
-            onDelete: RESTRICT
-            onUpdate: CASCADE
-
+#        - addForeignKeyConstraint:
+#            baseTableName: artifact_child_ids
+#            baseColumnNames: child_id
+#            referencedTableName: artifact
+#            referencedColumnNames: artifact_key
+#            constraintName: fk_child_ids_child_artifact_key
+#            onDelete: RESTRICT
+#            onUpdate: CASCADE
 
   - changeSet:
       id: 003-create-artifact-refs-table
       author: hayden
       changes:
-
         - createTable:
             tableName: artifact_refs
             columns:
@@ -227,7 +223,6 @@ databaseChangeLog:
                   type: INTEGER
                   constraints:
                     nullable: false
-
 
         - addPrimaryKey:
             tableName: artifact_refs
@@ -274,7 +269,6 @@ databaseChangeLog:
       id: 004-create-semantic-representations-table
       author: hayden
       changes:
-
         - createTable:
             tableName: semantic_representations
             columns:
@@ -384,3 +378,4 @@ databaseChangeLog:
             constraintName: fk_semantic_target_artifact_key
             onDelete: RESTRICT
             onUpdate: CASCADE
+

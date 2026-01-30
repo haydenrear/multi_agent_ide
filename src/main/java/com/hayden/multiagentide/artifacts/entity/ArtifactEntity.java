@@ -57,7 +57,10 @@ public class ArtifactEntity extends JpaHibernateAuditedIded {
      */
     @Column(nullable = false, length = 30_000)
     private String artifactType;
-    
+
+    @Column(nullable = false, length = 30_000)
+    private String referencedArtifactKey;
+
     /**
      * SHA-256 content hash (lowercase hex, 64 chars).
      */
@@ -113,11 +116,16 @@ public class ArtifactEntity extends JpaHibernateAuditedIded {
     @Builder.Default
     private List<String> artifactKeyRefs = new ArrayList<>();
 
-    public void addRef(ArtifactKey ref) {
+
+    public void addRef(String ref) {
         if (artifactKeyRefs == null)
             artifactKeyRefs = new ArrayList<>();
 
-        artifactKeyRefs.add(ref.value());
+        artifactKeyRefs.add(ref);
+    }
+
+    public void addRef(ArtifactKey ref) {
+        addRef(ref.value());
     }
 
 }

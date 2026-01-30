@@ -7,6 +7,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,9 +71,13 @@ public interface ArtifactRepository extends JpaRepository<ArtifactEntity, Long> 
     /**
      * Finds executions within a time range.
      */
-    @Query("SELECT DISTINCT a.executionKey FROM ArtifactEntity a WHERE a.depth = 1 AND a.createdTime BETWEEN :start AND :end ORDER BY a.createdTime DESC")
-    List<String> findExecutionKeysBetween(@Param("start") Instant start, @Param("end") Instant end);
-    
+    @Query("SELECT a.executionKey FROM ArtifactEntity a WHERE a.depth = 1 AND a.createdTime BETWEEN :start AND :end ORDER BY a.createdTime DESC")
+    List<String> findExecutionKeysBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    default List<String> findExecutionKeysBetween(@Param("start") Instant start, @Param("end") Instant end) {
+        return findExecutionKeysBetween(LocalDateTime.ofInstant(start, ZoneId.systemDefault()), LocalDateTime.ofInstant(end, ZoneId.systemDefault())) ;
+    }
+
     /**
      * Finds root execution artifacts.
      */
