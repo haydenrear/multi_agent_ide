@@ -72,6 +72,7 @@ public class ExecutionScopeService {
                 .status(Artifact.ExecutionStatus.RUNNING)
                 .metadata(Map.of())
                 .children(new ArrayList<>())
+                .hash(workflowRunId + "_" + UUID.randomUUID())
                 .build();
         
         // Emit artifact event

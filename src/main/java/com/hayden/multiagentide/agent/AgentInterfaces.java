@@ -1869,7 +1869,7 @@ public interface AgentInterfaces {
                     // Pass the discovery curation directly to planning orchestrator
                     AgentModels.PlanningOrchestratorRequest planningRequest = AgentModels.PlanningOrchestratorRequest.builder()
                             .goal(request.consolidatedOutput())
-                            .discoveryCuration(request.discoveryCuration())
+                            .discoveryCuration(request.discoveryCollectorContext())
                             .build();
                     yield AgentModels.DiscoveryCollectorRouting.builder()
                             .planningRequest(planningRequest)
@@ -1879,7 +1879,7 @@ public interface AgentInterfaces {
                     AgentModels.OrchestratorRequest orchestratorRequest = AgentModels.OrchestratorRequest.builder()
                             .goal(request.consolidatedOutput())
                             .phase(request.collectorDecision().requestedPhase())
-                            .discoveryCuration(request.discoveryCuration())
+                            .discoveryCuration(request.discoveryCollectorContext())
                             .build();
 
                     yield AgentModels.DiscoveryCollectorRouting.builder()
@@ -1920,7 +1920,7 @@ public interface AgentInterfaces {
                             .goal(request.consolidatedOutput())
                             .phase(request.collectorDecision().requestedPhase())
                             .discoveryCuration(request.discoveryCollectorResult() != null
-                                    ? request.discoveryCollectorResult().discoveryCuration()
+                                    ? request.discoveryCollectorResult().discoveryCollectorContext()
                                     : null)
                             .planningCuration(request.planningCollectorResult() != null
                                     ? request.planningCollectorResult().planningCuration()
