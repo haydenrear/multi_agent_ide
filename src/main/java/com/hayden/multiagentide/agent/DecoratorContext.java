@@ -2,7 +2,7 @@ package com.hayden.multiagentide.agent;
 
 import com.embabel.agent.api.common.OperationContext;
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.utilitymodule.acp.events.Artifact;
+import com.hayden.acp_cdc_ai.acp.events.Artifact;
 
 /**
  * Context passed to decorators containing action metadata.

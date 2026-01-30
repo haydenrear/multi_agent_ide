@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.artifacts.entity;
 
 import com.hayden.persistence.models.JpaHibernateAuditedIded;
-import com.hayden.utilitymodule.acp.events.ArtifactKey;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import jakarta.persistence.*;
 import lombok.*;
 

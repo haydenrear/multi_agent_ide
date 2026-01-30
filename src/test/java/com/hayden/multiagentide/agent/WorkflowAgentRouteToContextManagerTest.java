@@ -9,7 +9,7 @@ import com.hayden.multiagentidelib.prompt.ContextIdService;
 import com.hayden.multiagentidelib.prompt.PromptAssembly;
 import com.hayden.multiagentidelib.prompt.PromptContextFactory;
 import com.hayden.multiagentidelib.service.RequestEnrichment;
-import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.acp_cdc_ai.acp.events.EventBus;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

@@ -1,6 +1,6 @@
 package com.hayden.multiagentide.config;
 
-import com.hayden.utilitymodule.acp.events.Artifact;
+import com.hayden.acp_cdc_ai.acp.events.Artifact;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

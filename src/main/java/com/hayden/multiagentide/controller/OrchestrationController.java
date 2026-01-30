@@ -3,7 +3,7 @@ package com.hayden.multiagentide.controller;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import java.util.UUID;
 
-import com.hayden.utilitymodule.acp.events.ArtifactKey;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

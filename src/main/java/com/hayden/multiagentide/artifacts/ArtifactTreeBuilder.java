@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.multiagentide.artifacts.entity.ArtifactEntity;
 import com.hayden.multiagentide.artifacts.repository.ArtifactRepository;
 import com.hayden.multiagentidelib.artifact.PromptTemplateVersion;
-import com.hayden.utilitymodule.acp.events.*;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import jakarta.persistence.PersistenceException;
 import lombok.RequiredArgsConstructor;
@@ -55,8 +54,8 @@ public class ArtifactTreeBuilder {
      * @param artifact The artifact to add
      * @return true if added successfully, false if duplicate (key or hash)
      */
-    public boolean addArtifact(String executionKey, Artifact artifact) {
-        ArtifactKey key = artifact.artifactKey();
+    public boolean addArtifact(String executionKey, com.hayden.acp_cdc_ai.acp.events.Artifact artifact) {
+        com.hayden.acp_cdc_ai.acp.events.ArtifactKey key = artifact.artifactKey();
         
         // Get or create the execution tree
         ArtifactNode root = executionTrees.get(executionKey);
@@ -107,7 +106,7 @@ public class ArtifactTreeBuilder {
      * Handles artifacts whose parent is not yet in the tree.
      * Since we have the invariant that messages come in order, this should be rare.
      */
-    private boolean handleOrphanArtifact(String executionKey, Artifact artifact) {
+    private boolean handleOrphanArtifact(String executionKey, com.hayden.acp_cdc_ai.acp.events.Artifact artifact) {
         // For now, log and reject - in production we might want to buffer these
         log.error("Orphan artifact detected (parent not found): {} - this violates ordering invariant", 
                 artifact.artifactKey());
@@ -118,14 +117,14 @@ public class ArtifactTreeBuilder {
     /**
      * Gets an artifact from the in-memory tree.
      */
-    public Optional<Artifact> getArtifact(String executionKey, String artifactKeyStr) {
+    public Optional<com.hayden.acp_cdc_ai.acp.events.Artifact> getArtifact(String executionKey, String artifactKeyStr) {
         ArtifactNode root = executionTrees.get(executionKey);
         if (root == null) {
             return Optional.empty();
         }
         
         try {
-            ArtifactKey artifactKey = new ArtifactKey(artifactKeyStr);
+            com.hayden.acp_cdc_ai.acp.events.ArtifactKey artifactKey = new com.hayden.acp_cdc_ai.acp.events.ArtifactKey(artifactKeyStr);
             ArtifactNode node = root.findNode(artifactKey);
             return node != null ? Optional.of(node.getArtifact()) : Optional.empty();
         } catch (IllegalArgumentException e) {
@@ -137,7 +136,7 @@ public class ArtifactTreeBuilder {
     /**
      * Gets all artifacts in an execution (in-memory).
      */
-    public Collection<Artifact> getExecutionArtifacts(String executionKey) {
+    public Collection<com.hayden.acp_cdc_ai.acp.events.Artifact> getExecutionArtifacts(String executionKey) {
         ArtifactNode root = executionTrees.get(executionKey);
         if (root == null) {
             return Collections.emptyList();
@@ -152,7 +151,7 @@ public class ArtifactTreeBuilder {
         return Optional.ofNullable(executionTrees.get(executionKey));
     }
 
-    public Optional<Artifact> buildRemoveArtifactTree(String executionKey) {
+    public Optional<com.hayden.acp_cdc_ai.acp.events.Artifact> buildRemoveArtifactTree(String executionKey) {
         ArtifactNode root = executionTrees.remove(executionKey);
         if (root == null) {
             return Optional.empty();
@@ -167,7 +166,7 @@ public class ArtifactTreeBuilder {
      * @param executionKey The execution key
      * @return The root artifact with children, or empty if no tree exists
      */
-    public Optional<Artifact> buildArtifactTree(String executionKey) {
+    public Optional<com.hayden.acp_cdc_ai.acp.events.Artifact> buildArtifactTree(String executionKey) {
         ArtifactNode root = executionTrees.get(executionKey);
         if (root == null) {
             return Optional.empty();
@@ -178,7 +177,7 @@ public class ArtifactTreeBuilder {
     /**
      * Checks if a sibling with the given hash exists under a parent key.
      */
-    public boolean hasSiblingWithHash(String executionKey, ArtifactKey parentKey, String contentHash) {
+    public boolean hasSiblingWithHash(String executionKey, com.hayden.acp_cdc_ai.acp.events.ArtifactKey parentKey, String contentHash) {
         ArtifactNode root = executionTrees.get(executionKey);
         if (root == null) {
             return false;
@@ -192,7 +191,7 @@ public class ArtifactTreeBuilder {
         return parentNode.hasSiblingWithHash(contentHash);
     }
 
-    public Optional<Artifact> persistRemoveExecution(String executionKey) {
+    public Optional<com.hayden.acp_cdc_ai.acp.events.Artifact> persistRemoveExecution(String executionKey) {
         var toRemove = persistExecutionTree(executionKey) ;
         this.executionTrees.remove(executionKey);
         return toRemove;
@@ -206,7 +205,7 @@ public class ArtifactTreeBuilder {
      * @return The root artifact with all children populated, or empty if no tree exists
      */
     @Transactional
-    public Optional<Artifact> persistExecutionTree(String executionKey) {
+    public Optional<com.hayden.acp_cdc_ai.acp.events.Artifact> persistExecutionTree(String executionKey) {
         ArtifactNode root = executionTrees.get(executionKey);
         if (root == null) {
             log.warn("No execution tree found for key: {}", executionKey);
@@ -246,7 +245,7 @@ public class ArtifactTreeBuilder {
      * Loads an execution tree from the database.
      */
     @Transactional(readOnly = true)
-    public Optional<Artifact> loadExecution(String executionKey) {
+    public Optional<com.hayden.acp_cdc_ai.acp.events.Artifact> loadExecution(String executionKey) {
         List<ArtifactEntity> entities = artifactRepository.findByExecutionKeyOrderByArtifactKey(executionKey);
         if (entities.isEmpty()) {
             return Optional.empty();
@@ -266,15 +265,15 @@ public class ArtifactTreeBuilder {
     
     // ========== Private Helpers ==========
     
-    private Optional<Artifact> rebuildTree(List<ArtifactEntity> entities) {
+    private Optional<com.hayden.acp_cdc_ai.acp.events.Artifact> rebuildTree(List<ArtifactEntity> entities) {
         if (entities.isEmpty()) {
             return Optional.empty();
         }
 
         // Parse all artifacts
-        Map<String, Artifact> artifactMap = new LinkedHashMap<>();
+        Map<String, com.hayden.acp_cdc_ai.acp.events.Artifact> artifactMap = new LinkedHashMap<>();
         for (ArtifactEntity entity : entities) {
-            Artifact artifact = deserializeArtifact(entity);
+            com.hayden.acp_cdc_ai.acp.events.Artifact artifact = deserializeArtifact(entity);
             if (artifact != null) {
                 artifactMap.put(entity.getArtifactKey(), artifact);
             }
@@ -286,10 +285,10 @@ public class ArtifactTreeBuilder {
                 .findFirst();
     }
 
-    private Artifact deserializeArtifact(ArtifactEntity entity) {
+    private com.hayden.acp_cdc_ai.acp.events.Artifact deserializeArtifact(ArtifactEntity entity) {
         String type = entity.getArtifactType();
         try {
-            return objectMapper.readValue(entity.getContentJson(), Artifact.class);
+            return objectMapper.readValue(entity.getContentJson(), com.hayden.acp_cdc_ai.acp.events.Artifact.class);
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize artifact: {} (type: {})", entity.getArtifactKey(), type, e);
             return null;

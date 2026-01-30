@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.infrastructure;
 
-import com.hayden.utilitymodule.acp.events.EventListener;
-import com.hayden.utilitymodule.acp.events.Events;
+import com.hayden.acp_cdc_ai.acp.events.EventListener;
+import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentide.orchestration.ComputationGraphOrchestrator;
 import java.util.Optional;

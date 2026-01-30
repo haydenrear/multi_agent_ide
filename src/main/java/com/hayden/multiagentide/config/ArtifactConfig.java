@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.config;
 
 import com.hayden.multiagentide.artifacts.ArtifactEventListener;
-import com.hayden.utilitymodule.acp.events.EventBus;
+import com.hayden.acp_cdc_ai.acp.events.EventBus;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":multi_agent_ide_lib"))
     implementation(project(":persistence"))
     implementation(project(":jpa-persistence"))
+    implementation(project(":acp-cdc-ai"))
     implementation("org.springframework.boot:spring-boot-starter-security")
 }
 

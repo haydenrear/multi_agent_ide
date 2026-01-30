@@ -4,7 +4,7 @@ import com.hayden.multiagentide.agent.DecoratorContext;
 import com.hayden.multiagentide.artifacts.ArtifactEmissionService;
 import com.hayden.multiagentide.artifacts.ExecutionScopeService;
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.utilitymodule.acp.events.Artifact;
+import com.hayden.acp_cdc_ai.acp.events.Artifact;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

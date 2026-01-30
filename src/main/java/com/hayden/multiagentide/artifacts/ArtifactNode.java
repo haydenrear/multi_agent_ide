@@ -1,7 +1,7 @@
 package com.hayden.multiagentide.artifacts;
 
-import com.hayden.utilitymodule.acp.events.Artifact;
-import com.hayden.utilitymodule.acp.events.ArtifactKey;
+import com.hayden.acp_cdc_ai.acp.events.Artifact;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import com.mysema.commons.lang.Assert;
 import lombok.Getter;

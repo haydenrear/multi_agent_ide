@@ -67,7 +67,7 @@ public class AgentQuestionAnswerFunction implements Function<AskUserQuestionTool
             String historySummary
     ) {
         return AgentModels.InterruptRequest.QuestionAnswerInterruptRequest.builder()
-                .type(com.hayden.utilitymodule.acp.events.Events.InterruptType.HUMAN_REVIEW)
+                .type(com.hayden.acp_cdc_ai.acp.events.Events.InterruptType.HUMAN_REVIEW)
                 .reason("User input required for agent decision.")
                 .choices(toStructuredChoices(questions))
                 .confirmationItems(List.of())

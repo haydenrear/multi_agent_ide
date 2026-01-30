@@ -1,11 +1,11 @@
 package com.hayden.multiagentide.artifacts;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hayden.utilitymodule.acp.events.Artifact;
-import com.hayden.utilitymodule.acp.events.ArtifactHashing;
-import com.hayden.utilitymodule.acp.events.ArtifactKey;
-import com.hayden.utilitymodule.acp.events.MessageStreamArtifact;
-import com.hayden.utilitymodule.acp.events.Events;
+import com.hayden.acp_cdc_ai.acp.events.Artifact;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactHashing;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
+import com.hayden.acp_cdc_ai.acp.events.MessageStreamArtifact;
+import com.hayden.acp_cdc_ai.acp.events.Events;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

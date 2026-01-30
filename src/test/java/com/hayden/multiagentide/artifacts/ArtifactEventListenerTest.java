@@ -2,11 +2,11 @@ package com.hayden.multiagentide.artifacts;
 
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.artifact.PromptTemplateVersion;
-import com.hayden.utilitymodule.acp.events.Artifact;
-import com.hayden.utilitymodule.acp.events.ArtifactKey;
-import com.hayden.utilitymodule.acp.events.EventBus;
-import com.hayden.utilitymodule.acp.events.EventListener;
-import com.hayden.utilitymodule.acp.events.Events;
+import com.hayden.acp_cdc_ai.acp.events.Artifact;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
+import com.hayden.acp_cdc_ai.acp.events.EventBus;
+import com.hayden.acp_cdc_ai.acp.events.EventListener;
+import com.hayden.acp_cdc_ai.acp.events.Events;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

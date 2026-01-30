@@ -13,11 +13,10 @@ import com.hayden.multiagentidelib.model.nodes.InterruptContext
 import com.hayden.multiagentidelib.model.nodes.InterruptNode
 import com.hayden.multiagentidelib.model.nodes.Interruptible
 import com.hayden.multiagentidelib.model.nodes.ReviewNode
-import com.hayden.utilitymodule.acp.events.ArtifactKey
-import com.hayden.utilitymodule.acp.events.EventBus
-import com.hayden.utilitymodule.acp.events.Events
-import com.hayden.utilitymodule.permission.IPermissionGate
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey
+import com.hayden.acp_cdc_ai.acp.events.EventBus
+import com.hayden.acp_cdc_ai.acp.events.Events
+import com.hayden.acp_cdc_ai.permission.IPermissionGate
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement

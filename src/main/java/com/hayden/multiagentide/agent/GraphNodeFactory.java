@@ -1,8 +1,8 @@
 package com.hayden.multiagentide.agent;
 
 import com.hayden.multiagentidelib.agent.AgentModels;
-import com.hayden.utilitymodule.acp.events.ArtifactKey;
-import com.hayden.utilitymodule.acp.events.Events;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
+import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.multiagentidelib.model.nodes.*;
 import java.time.Instant;
 import java.util.ArrayList;

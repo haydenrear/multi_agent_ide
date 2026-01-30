@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-import static com.hayden.utilitymodule.acp.AcpChatModel.MCP_SESSION_HEADER;
+import static com.hayden.acp_cdc_ai.acp.AcpChatModel.MCP_SESSION_HEADER;
 
 @Component
 @RequiredArgsConstructor

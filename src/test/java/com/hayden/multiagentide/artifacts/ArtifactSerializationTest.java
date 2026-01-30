@@ -7,8 +7,8 @@ import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.agent.PreviousContext;
 import com.hayden.multiagentidelib.agent.UpstreamContext;
 import com.hayden.multiagentidelib.artifact.PromptTemplateVersion;
-import com.hayden.utilitymodule.acp.events.Artifact;
-import com.hayden.utilitymodule.acp.events.ArtifactKey;
+import com.hayden.acp_cdc_ai.acp.events.Artifact;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,22 +51,24 @@ class ArtifactSerializationTest {
     
     private String executionKey;
     private ArtifactKey rootKey;
-    
+
     @BeforeEach
-    void setUp() {
+    void performArtifactSerializationSetup() {
         rootKey = ArtifactKey.createRoot();
         executionKey = rootKey.value();
         
         // Clean up any previous test data
         artifactRepository.deleteAll();
+        artifactRepository.flush();
+        assertThat(artifactRepository.count()).isZero();
     }
     
     @AfterEach
-    void tearDown() {
+    void performArtifactSerializationTeardown() {
         artifactRepository.deleteAll();
+        artifactRepository.flush();
+        assertThat(artifactRepository.count()).isZero();
     }
-    
-    // ========== Core Artifact Type Tests ==========
     
     @Nested
     @DisplayName("Core Artifact Serialization")
@@ -490,7 +492,7 @@ class ArtifactSerializationTest {
             AgentModels.InterruptRequest.OrchestratorInterruptRequest interrupt = 
                     AgentModels.InterruptRequest.OrchestratorInterruptRequest.builder()
                             .contextId(interruptKey)
-                            .type(com.hayden.utilitymodule.acp.events.Events.InterruptType.HUMAN_REVIEW)
+                            .type(com.hayden.acp_cdc_ai.acp.events.Events.InterruptType.HUMAN_REVIEW)
                             .reason("Need clarification on authentication method")
                             .choices(List.of(
                                     new AgentModels.InterruptRequest.StructuredChoice(
@@ -645,7 +647,7 @@ class ArtifactSerializationTest {
                     .contextId(parentKey)
                     .consolidatedOutput("Consolidated discovery results")
                     .collectorDecision(new AgentModels.CollectorDecision(
-                            com.hayden.utilitymodule.acp.events.Events.CollectorDecisionType.ADVANCE_PHASE,
+                            com.hayden.acp_cdc_ai.acp.events.Events.CollectorDecisionType.ADVANCE_PHASE,
                             "All discoveries complete",
                             "planning"
                     ))
@@ -684,7 +686,7 @@ class ArtifactSerializationTest {
             
             assertThat(resultCollector.consolidatedOutput()).isEqualTo("Consolidated discovery results");
             assertThat(resultCollector.decision().decisionType()).isEqualTo(
-                    com.hayden.utilitymodule.acp.events.Events.CollectorDecisionType.ADVANCE_PHASE);
+                    com.hayden.acp_cdc_ai.acp.events.Events.CollectorDecisionType.ADVANCE_PHASE);
         }
         
         @Test

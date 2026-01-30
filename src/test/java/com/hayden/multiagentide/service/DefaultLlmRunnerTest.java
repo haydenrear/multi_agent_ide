@@ -13,7 +13,7 @@ import com.hayden.multiagentide.tool.ToolContext;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.agent.AgentType;
 import com.hayden.multiagentidelib.prompt.PromptContext;
-import com.hayden.utilitymodule.acp.events.ArtifactKey;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.mockito.Answers;
