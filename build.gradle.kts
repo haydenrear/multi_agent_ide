@@ -25,10 +25,10 @@ dependencies {
     implementation("org.jspecify:jspecify:1.0.0")
     implementation(project(":commit-diff-context"))
     implementation(project(":commit-diff-model"))
-    implementation(project(":multi_agent_ide_lib"))
+    implementation(project(":multi_agent_ide_java_parent:multi_agent_ide_lib"))
     implementation(project(":persistence"))
     implementation(project(":jpa-persistence"))
-    implementation(project(":acp-cdc-ai"))
+    implementation(project(":multi_agent_ide_java_parent:acp-cdc-ai"))
     implementation("org.springframework.boot:spring-boot-starter-security")
 }
 
