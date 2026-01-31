@@ -1966,6 +1966,7 @@ public interface AgentInterfaces {
                 );
             }
             blackboardHistoryService.registerAndHideInput(context, METHOD_HANDLE_TICKET_COLLECTOR_BRANCH, request);
+
             // Get upstream curations from context for routing back
             AgentModels.TicketOrchestratorRequest lastTicketOrchestratorRequest =
                     BlackboardHistory.getLastFromHistory(context, AgentModels.TicketOrchestratorRequest.class);
