@@ -1,0 +1,2 @@
+{"timestamp":"2026-02-01T23:21:18.475954Z","level":"INFO","fields":{"message":"CLI command executed","counter.goose.cli_commands":1,"command":"acp"},"target":"goose_cli::cli"}
+{"timestamp":"2026-02-01T23:21:18.476002Z","level":"INFO","fields":{"message":"listening on stdio"},"target":"goose_acp::server"}
