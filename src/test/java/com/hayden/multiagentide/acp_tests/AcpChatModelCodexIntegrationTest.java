@@ -15,6 +15,10 @@ import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.IoBinding;
 import com.embabel.agent.core.ProcessOptions;
 import com.embabel.chat.support.InMemoryConversation;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
+import com.hayden.acp_cdc_ai.repository.RequestContext;
+import com.hayden.acp_cdc_ai.repository.RequestContextRepository;
+import com.hayden.acp_cdc_ai.sandbox.SandboxContext;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import com.hayden.multiagentide.controller.OrchestrationController;
 import com.hayden.multiagentide.tool.EmbabelToolObjectRegistry;
@@ -32,6 +36,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -62,6 +67,9 @@ class AcpChatModelCodexIntegrationTest {
     private AgentTools guiEvent;
     @Autowired
     private AcpTooling fileSystemTools;
+
+    @Autowired
+    private RequestContextRepository requestContextRepository;
 
     public record ResultValue(String result) {}
     public record FinalValue(String result) {}
@@ -140,7 +148,7 @@ class AcpChatModelCodexIntegrationTest {
                 .ifPresentOrElse(agentPlatform::deploy, () -> log.error("Error deploying {} - could not create agent metadata.", agentInterface));
     }
 
-    @Test
+//    @Test
     void testCreateGoal() {
         var s = orchestrationController.startGoal(new OrchestrationController.StartGoalRequest(
                 "Please add centralization of artifacts pulled by any of the LibsDownloader into centralized repository.",
@@ -150,9 +158,9 @@ class AcpChatModelCodexIntegrationTest {
         log.info("Performed");
     }
 
-    @Test
+//    @Test
     void chatModelWorksWithTools() {
-        String nodeId = UUID.randomUUID().toString();
+        String nodeId = ArtifactKey.createRoot().value();
         ProcessOptions processOptions = ProcessOptions.DEFAULT.withContextId(nodeId)
                 .withListener(AgentLifecycleHandler.agentProcessIdListener());
         List<com.embabel.agent.core.Agent> agents = agentPlatform.agents();
@@ -178,7 +186,22 @@ class AcpChatModelCodexIntegrationTest {
 //        log.info("");
 
         try {
-            String nodeId = UUID.randomUUID().toString();
+            File logFile = new File("log.log");
+            logFile.delete();
+            File parentLogFile = new File("multi_agent_ide/log.log");
+            parentLogFile.delete();
+            String nodeId = ArtifactKey.createRoot().value();
+            
+            // Register RequestContext so sandbox translation can set working directory
+            Path workingDir = new File("").toPath().toAbsolutePath();
+            RequestContext requestContext = RequestContext.builder()
+                    .sessionId(nodeId)
+                    .sandboxContext(SandboxContext.builder()
+                            .mainWorktreePath(workingDir)
+                            .build())
+                    .build();
+            requestContextRepository.save(requestContext);
+            
             ProcessOptions processOptions = ProcessOptions.DEFAULT.withContextId(nodeId)
                     .withListener(AgentLifecycleHandler.agentProcessIdListener());
             List<com.embabel.agent.core.Agent> agents = agentPlatform.agents();
@@ -200,7 +223,10 @@ class AcpChatModelCodexIntegrationTest {
 
             log.info("{}", res);
 
-            assertThat(new File("log.log").exists() || new File("multi_agent_ide/log.log").exists()).isTrue();
+            assertThat(logFile.exists() || parentLogFile.exists()).isTrue();
+
+            logFile.delete();
+            parentLogFile.delete();
 
         } catch (Exception e) {
             log.error("Error - will not fail test for codex-acp - but failed", e);

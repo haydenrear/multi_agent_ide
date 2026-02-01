@@ -45,7 +45,7 @@ class ArtifactTreeBuilderTest {
     private ArtifactTreeBuilder treeBuilder;
     
     @Captor
-    private ArgumentCaptor<List<ArtifactEntity>> entityListCaptor;
+    private ArgumentCaptor<ArtifactEntity> entityListCaptor;
     
     private String executionKey;
     private ArtifactKey rootKey;
@@ -234,8 +234,8 @@ class ArtifactTreeBuilderTest {
             
             treeBuilder.persistExecution(executionKey);
             
-            verify(artifactRepository).saveAll(entityListCaptor.capture());
-            List<ArtifactEntity> saved = entityListCaptor.getValue();
+            verify(artifactRepository, times(2)).save(entityListCaptor.capture());
+            List<ArtifactEntity> saved = entityListCaptor.getAllValues();
             
             assertThat(saved).hasSize(2);
         }
@@ -307,8 +307,8 @@ class ArtifactTreeBuilderTest {
             
             treeBuilder.persistExecution(executionKey);
             
-            verify(artifactRepository).saveAll(entityListCaptor.capture());
-            List<ArtifactEntity> saved = entityListCaptor.getValue();
+            verify(artifactRepository, times(2)).save(entityListCaptor.capture());
+            List<ArtifactEntity> saved = entityListCaptor.getAllValues();
             
             ArtifactEntity childEntity = saved.stream()
                     .filter(e -> e.getArtifactKey().equals(childKey.value()))
@@ -317,7 +317,7 @@ class ArtifactTreeBuilderTest {
             
             assertThat(childEntity.getParentKey()).isEqualTo(rootKey.value());
             assertThat(childEntity.getExecutionKey()).isEqualTo(executionKey);
-            assertThat(childEntity.getArtifactType()).isEqualTo("RenderedPrompt");
+            assertThat(childEntity.getArtifactType()).isEqualTo(Artifact.RenderedPromptArtifact.class.getSimpleName());
             assertThat(childEntity.getContentHash()).isEqualTo("content-hash-123");
             assertThat(childEntity.getDepth()).isEqualTo(2);
             assertThat(childEntity.getShared()).isFalse();
@@ -404,8 +404,8 @@ class ArtifactTreeBuilderTest {
             treeBuilder.addArtifact(executionKey, template);
             treeBuilder.persistExecution(executionKey);
             
-            verify(artifactRepository).saveAll(entityListCaptor.capture());
-            List<ArtifactEntity> saved = entityListCaptor.getValue();
+            verify(artifactRepository, times(2)).save(entityListCaptor.capture());
+            List<ArtifactEntity> saved = entityListCaptor.getAllValues();
             
             ArtifactEntity templateEntity = saved.stream()
                     .filter(e -> e.getArtifactKey().equals(templateKey.value()))
@@ -524,8 +524,8 @@ class ArtifactTreeBuilderTest {
             assertThat(artifacts.stream()
                     .map(Artifact::artifactType)
                     .toList())
-                    .containsExactlyInAnyOrder("Execution", "AgentModelArtifact", "RenderedPrompt",
-                            "PromptTemplateVersion", "ToolCall");
+                    .containsExactlyInAnyOrder(Artifact.ExecutionArtifact.class.getSimpleName(), Artifact.AgentModelArtifact.class.getSimpleName(), Artifact.RenderedPromptArtifact.class.getSimpleName(),
+                            PromptTemplateVersion.class.getSimpleName(), Artifact.ToolCallArtifact.class.getSimpleName());
         }
     }
     
@@ -826,8 +826,8 @@ class ArtifactTreeBuilderTest {
             // Persist and capture entities
             treeBuilder.persistExecution(executionKey);
             
-            verify(artifactRepository).saveAll(entityListCaptor.capture());
-            List<ArtifactEntity> saved = entityListCaptor.getValue();
+            verify(artifactRepository, times(5)).save(entityListCaptor.capture());
+            List<ArtifactEntity> saved = entityListCaptor.getAllValues();
             
             // Verify entities have correct parent keys
             assertThat(saved).hasSize(5);
