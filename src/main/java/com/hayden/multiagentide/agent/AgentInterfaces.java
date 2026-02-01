@@ -149,7 +149,7 @@ public interface AgentInterfaces {
 
     String multiAgentAgentName();
 
-    String WORKFLOW_AGENT_NAME = "WorkflowAgent";
+    String WORKFLOW_AGENT_NAME = WorkflowAgent.class.getName();
 
     AgentInterfaces WORKFLOW_AGENT = () -> WORKFLOW_AGENT_NAME;
     AgentInterfaces ORCHESTRATOR_AGENT = WORKFLOW_AGENT;
