@@ -167,7 +167,7 @@ public class InterruptService {
                         runInterruptAgentReview(context, promptContext, result.reviewContent());
                 String feedback = reviewResult != null ? reviewResult.output() : "";
                 permissionGate.resolveInterrupt(result.interruptId(), "agent-review", feedback, reviewResult);
-                yield  feedback;
+                yield feedback;
             }
         };
     }
