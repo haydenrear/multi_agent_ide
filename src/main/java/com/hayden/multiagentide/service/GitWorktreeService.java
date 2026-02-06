@@ -19,10 +19,7 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.MergeCommand;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.ObjectId;
-import org.eclipse.jgit.lib.Ref;
-import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.lib.*;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileBasedConfig;
@@ -1306,15 +1303,21 @@ public class GitWorktreeService implements WorktreeService {
     // ======== PRIVATE HELPERS ========
 
     private void cloneRepository(String repositoryUrl, Path worktreePath, String baseBranch) throws GitAPIException, IOException {
-        CloneCommand clone = Git.cloneRepository()
-                .setURI(repositoryUrl)
-                .setDirectory(worktreePath.toFile())
-                .setCloneSubmodules(true);
-        try (Git git = clone.call()) {
-            if (baseBranch != null && !baseBranch.isBlank() && !Objects.equals(git.getRepository().getBranch(), baseBranch)) {
-                git.checkout().setName(baseBranch).call();
+        try(Repository build = RepoUtil.findRepo(Paths.get(repositoryUrl))) {
+            CloneCommand clone = Git.cloneRepository()
+                    .setURI(build.getDirectory().toString())
+                    .setDirectory(worktreePath.toFile())
+                    .setCloneSubmodules(true);
+
+            try (
+                    Git git = clone.call()
+            ) {
+                if (baseBranch != null && !baseBranch.isBlank() && !Objects.equals(git.getRepository().getBranch(), baseBranch)) {
+                    git.checkout().setName(baseBranch).call();
+                }
             }
         }
+
 
         var updating = RepoUtil.updateSubmodulesRecursively(worktreePath);
         log.debug("Updated submodules {}", updating);
