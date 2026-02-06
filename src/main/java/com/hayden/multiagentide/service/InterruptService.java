@@ -14,8 +14,6 @@ import com.hayden.multiagentidelib.model.nodes.ReviewNode;
 import java.util.Map;
 import java.util.Objects;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -164,7 +162,7 @@ public class InterruptService {
                         result.reviewContent()
                 );
                 AgentModels.ReviewAgentResult reviewResult =
-                        runInterruptAgentReview(context, promptContext, result.reviewContent());
+                        runInterruptAgentReview(context, promptContext, result, request);
                 String feedback = reviewResult != null ? reviewResult.output() : "";
                 permissionGate.resolveInterrupt(result.interruptId(), "agent-review", feedback, reviewResult);
                 yield feedback;
@@ -195,21 +193,24 @@ public class InterruptService {
     private AgentModels.ReviewAgentResult runInterruptAgentReview(
             OperationContext context,
             PromptContext promptContext,
-            String reviewContent
+            InterruptData result,
+            AgentModels.InterruptRequest reviewContent
     ) {
-        AgentModels.ReviewRouting routing = llmRunner.runWithTemplate(
+//       decorate with request, update to have a request
+        AgentModels.ReviewAgentResult routing = llmRunner.runWithTemplate(
                 "workflow/review",
                 promptContext,
                 Map.of(
-                        "content", Objects.toString(reviewContent, ""),
+                        "content", Objects.toString(result.reviewContent, ""),
                         "criteria", REVIEW_CRITERIA,
                         "returnRoute", "interrupt"
                 ),
                 ToolContext.empty(),
-                AgentModels.ReviewRouting.class,
+                AgentModels.ReviewAgentResult.class,
                 context
         );
-        return routing != null ? routing.reviewResult() : null;
+
+        return routing;
     }
     
 
