@@ -112,9 +112,7 @@ public class GitWorktreeService implements WorktreeService {
                 worktreeRepository.save(submoduleContext);
             }
             return context;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to create main worktree: " + e.getMessage(), e);
-        } catch (GitAPIException e) {
+        } catch (IOException | GitAPIException e) {
             throw new RuntimeException("Failed to create main worktree: " + e.getMessage(), e);
         }
     }
@@ -653,28 +651,27 @@ public class GitWorktreeService implements WorktreeService {
         if (childSubmodule == null || initialParent == null) {
             return;
         }
-        WorktreeContext currentParent = initialParent;
-        SubmoduleWorktreeContext currentChild = childSubmodule;
-        Set<String> visited = new HashSet<>();
 
-        while (currentParent != null && currentChild != null) {
-            if (!visited.add(currentParent.worktreeId())) {
-                break;
+        updateSubmodulePointerIfChanged(initialParent, childSubmodule.submoduleName());
+
+        // Walk up the filesystem from the child's path, committing dirty submodule
+        // pointers at each ancestor git repo. This handles nested submodules correctly
+        // even when the WorktreeRepository parent chain is flat.
+        Path childPath = childSubmodule.worktreePath();
+        if (childPath == null) {
+            return;
+        }
+
+        Path current = childPath.toAbsolutePath().normalize();
+        Set<Path> committed = new HashSet<>();
+        Path ancestor = current.getParent();
+        while (ancestor != null && ancestor.getNameCount() > 0) {
+            if (Files.exists(ancestor.resolve(".git")) && Files.exists(ancestor.resolve(".gitmodules"))) {
+                if (committed.add(ancestor)) {
+                    commitDirtySubmodulePointers(ancestor);
+                }
             }
-
-            updateSubmodulePointerIfChanged(currentParent, currentChild.submoduleName());
-
-            if (currentParent instanceof SubmoduleWorktreeContext parentSubmodule) {
-                currentChild = parentSubmodule;
-                String nextParentId = parentSubmodule.parentWorktreeId() != null
-                        ? parentSubmodule.parentWorktreeId()
-                        : parentSubmodule.mainWorktreeId();
-                currentParent = nextParentId != null
-                        ? worktreeRepository.findById(nextParentId).orElse(null)
-                        : null;
-            } else {
-                break;
-            }
+            ancestor = ancestor.getParent();
         }
     }
 
@@ -1068,33 +1065,15 @@ public class GitWorktreeService implements WorktreeService {
             }
         }
 
-        if (mainWorktree.submoduleWorktrees() != null) {
-            for (SubmoduleWorktreeContext sub : mainWorktree.submoduleWorktrees()) {
-                String subWorktreePath = normalizePath(sub.worktreePath());
-                Path sourceSubPath = Path.of(sourcePath).resolve(sub.submoduleName());
-                String sourceSubPathStr = normalizePath(sourceSubPath);
-
-                if (subWorktreePath != null && sourceSubPathStr != null) {
-                    boolean subContained = parentContainsChildHeadByPath(
-                            subWorktreePath, sourceSubPathStr
-                    );
-                    if (!subContained) {
-                        boolean alreadyPresent = result.conflicts() != null && result.conflicts().stream()
-                                .filter(c -> c != null && c.filePath() != null)
-                                .anyMatch(c -> Objects.equals(c.filePath(), sub.submoduleName()));
-                        if (!alreadyPresent) {
-                            additionalConflicts.add(new MergeResult.MergeConflict(
-                                    sub.submoduleName(),
-                                    "missing-commit",
-                                    "",
-                                    "",
-                                    "",
-                                    sub.submoduleName()
-                            ));
-                        }
-                    }
-                }
-            }
+        // Recursively discover submodules from the filesystem (not from
+        // mainWorktree.submoduleWorktrees() which may have incorrect nesting).
+        Path worktreePathObj = mainWorktree.worktreePath();
+        Path sourcePathObj = Path.of(sourcePath);
+        if (worktreePathObj != null) {
+            collectSubmoduleConflictsRecursive(
+                    worktreePathObj, sourcePathObj, "",
+                    additionalConflicts, result.conflicts()
+            );
         }
 
         if (additionalConflicts.isEmpty()) {
@@ -1124,6 +1103,61 @@ public class GitWorktreeService implements WorktreeService {
                 message,
                 result.mergedAt()
         );
+    }
+
+    private void collectSubmoduleConflictsRecursive(Path worktreePath, Path sourcePath,
+                                                      String parentRelPath,
+                                                      List<MergeResult.MergeConflict> additionalConflicts,
+                                                      List<MergeResult.MergeConflict> existingConflicts) {
+        List<String> submoduleNames;
+        try {
+            submoduleNames = getSubmoduleNames(worktreePath);
+        } catch (Exception e) {
+            return;
+        }
+
+        for (String submoduleName : submoduleNames) {
+            Path worktreeSubPath;
+            Path sourceSubPath;
+            String relPath = parentRelPath == null || parentRelPath.isBlank()
+                    ? submoduleName
+                    : parentRelPath + "/" + submoduleName;
+            try {
+                worktreeSubPath = getSubmodulePath(worktreePath, submoduleName);
+                sourceSubPath = getSubmodulePath(sourcePath, submoduleName);
+            } catch (Exception e) {
+                continue;
+            }
+
+            String worktreeSubStr = normalizePath(worktreeSubPath);
+            String sourceSubStr = normalizePath(sourceSubPath);
+
+            if (worktreeSubStr != null && sourceSubStr != null) {
+                boolean subContained = parentContainsChildHeadByPath(worktreeSubStr, sourceSubStr);
+                if (!subContained) {
+                    boolean alreadyPresent = existingConflicts != null && existingConflicts.stream()
+                            .filter(c -> c != null && c.filePath() != null)
+                            .anyMatch(c -> Objects.equals(c.filePath(), relPath));
+                    boolean alreadyAdded = additionalConflicts.stream()
+                            .filter(c -> c != null && c.filePath() != null)
+                            .anyMatch(c -> Objects.equals(c.filePath(), relPath));
+                    if (!alreadyPresent && !alreadyAdded) {
+                        additionalConflicts.add(new MergeResult.MergeConflict(
+                                relPath,
+                                "missing-commit",
+                                "",
+                                "",
+                                "",
+                                formatSubmodulePath(relPath)
+                        ));
+                    }
+                }
+            }
+
+            // Recurse into nested submodules
+            collectSubmoduleConflictsRecursive(worktreeSubPath, sourceSubPath, relPath,
+                    additionalConflicts, existingConflicts);
+        }
     }
 
     @Override
@@ -1566,7 +1600,7 @@ public class GitWorktreeService implements WorktreeService {
                     formatSubmodulePath(relPath),
                     childBranch,
                     parentBranch,
-                    sourceParentOfParent
+                    sourcePath
             ));
         }
     }
@@ -1653,7 +1687,7 @@ public class GitWorktreeService implements WorktreeService {
                     formatSubmodulePath(relPath),
                     childBranch,
                     parentBranch,
-                    parentOfParentPath
+                    parentPath
             ));
         }
     }
