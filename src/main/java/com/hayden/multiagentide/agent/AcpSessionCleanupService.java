@@ -8,6 +8,8 @@ import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -28,7 +30,14 @@ import java.util.UUID;
 public class AcpSessionCleanupService implements EventListener {
 
     private final AcpSessionManager sessionManager;
-    private final EventBus eventBus;
+
+    private EventBus eventBus;
+
+    @Autowired
+    @Lazy
+    public void setEventBus(EventBus eventBus) {
+        this.eventBus = eventBus;
+    }
 
     @Override
     public String listenerId() {
