@@ -56,6 +56,10 @@ class PermissionGate(
         return pendingRequests.values.toList()
     }
 
+    override fun pendingInterruptRequests(): List<IPermissionGate.PendingInterruptRequest> {
+        return pendingInterrupts.values.toList()
+    }
+
     override fun publishRequest(
         requestId: String,
         originNodeId: String,
@@ -219,7 +223,7 @@ class PermissionGate(
         )
     }
 
-    fun publishInterrupt(
+    override fun publishInterrupt(
         interruptId: String,
         originNodeId: String,
         type: Events.InterruptType,
@@ -304,6 +308,26 @@ class PermissionGate(
         return runBlocking {
             awaitInterrupt(interruptId)
         }
+    }
+
+    override fun resolveInterrupt(
+        interruptId: String,
+        resolutionType: String?,
+        resolutionNotes: String?,
+        reviewResult: IPermissionGate.InterruptResult?
+    ): Boolean {
+        val rr: AgentModels.ReviewAgentResult? = if (reviewResult != null)
+            AgentModels.ReviewAgentResult(
+                reviewResult.contextId,
+                reviewResult.upstreamArtifactKey,
+                reviewResult.assessmentStatus,
+                reviewResult.feedback,
+                reviewResult.suggestions,
+                reviewResult.contentLinks,
+                reviewResult.output)
+            else null
+
+        return resolveInterrupt(interruptId, resolutionType, resolutionNotes,  rr)
     }
 
     fun resolveInterrupt(
