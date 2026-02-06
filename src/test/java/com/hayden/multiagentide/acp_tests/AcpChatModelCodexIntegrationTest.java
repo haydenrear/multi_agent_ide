@@ -266,56 +266,66 @@ class AcpChatModelCodexIntegrationTest {
 
     private void startPermissionConsole() {
         CompletableFuture.runAsync(() -> {
-            var reader = new BufferedReader(new InputStreamReader(System.in));
-            while (true) {
-                if (!permissionGateAdapter.pendingPermissionRequests().isEmpty()) {
-                    permissionGateAdapter.pendingPermissionRequests()
-                            .forEach(request -> {
-                                System.out.printf("Found permission request: %s%n", request);
-                                System.out.println("Options:");
-                                var permissions = request.getPermissions();
-                                for (int i = 0; i < permissions.size(); i++) {
-                                    var option = permissions.get(i);
-                                    System.out.printf("  %d. %s (%s)%n", i + 1, option.getName(), option.getKind());
-                                }
-                                System.out.print("Select option [1.." + permissions.size() + "], optionType, or 'cancel': ");
-                                try {
-                                    var input = reader.readLine();
-                                    if (input == null || input.isBlank()) {
-                                        permissionGateAdapter.resolveSelected(
-                                                request.getRequestId(),
-                                                permissions.getFirst()
-                                        );
-                                        return;
+            try(var reader = new BufferedReader(new InputStreamReader(System.in))) {
+                while (true) {
+                    if (!permissionGateAdapter.pendingPermissionRequests().isEmpty()) {
+                        permissionGateAdapter.pendingPermissionRequests()
+                                .forEach(request -> {
+                                    System.out.printf("Found permission request: %s%n", request);
+                                    System.out.println("Options:");
+                                    var permissions = request.getPermissions();
+                                    for (int i = 0; i < permissions.size(); i++) {
+                                        var option = permissions.get(i);
+                                        System.out.printf("  %d. %s (%s)%n", i + 1, option.getName(), option.getKind());
                                     }
-                                    var trimmed = input.trim();
-                                    if ("cancel".equalsIgnoreCase(trimmed)) {
-                                        permissionGateAdapter.resolveCancelled(request.getRequestId());
-                                        return;
-                                    }
+                                    System.out.print("Select option [1.." + permissions.size() + "], optionType, or 'cancel': ");
                                     try {
-                                        int index = Integer.parseInt(trimmed);
-                                        if (index >= 1 && index <= permissions.size()) {
-                                            var selected = permissions.get(index - 1);
-                                            permissionGateAdapter.resolveSelected(request.getRequestId(), selected);
+                                        var input = reader.readLine();
+                                        if (input == null || input.isBlank()) {
+                                            permissionGateAdapter.resolveSelected(
+                                                    request.getRequestId(),
+                                                    permissions.getFirst()
+                                            );
                                             return;
                                         }
-                                    } catch (NumberFormatException ignored) {
+                                        var trimmed = input.trim();
+                                        if ("cancel".equalsIgnoreCase(trimmed)) {
+                                            permissionGateAdapter.resolveCancelled(request.getRequestId());
+                                            return;
+                                        }
+                                        try {
+                                            int index = Integer.parseInt(trimmed);
+                                            if (index >= 1 && index <= permissions.size()) {
+                                                var selected = permissions.get(index - 1);
+                                                permissionGateAdapter.resolveSelected(request.getRequestId(), selected);
+                                                return;
+                                            }
+                                        } catch (
+                                                NumberFormatException ignored) {
+                                        }
+                                        permissionGateAdapter.resolveSelected(request.getRequestId(), trimmed);
+                                    } catch (
+                                            IOException e) {
+                                        throw new RuntimeException(e);
                                     }
-                                    permissionGateAdapter.resolveSelected(request.getRequestId(), trimmed);
-                                } catch (IOException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            });
-                }
+                                });
+                    }
 
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return;
+                    try {
+                        Thread.sleep(500);
+                    } catch (
+                            InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
                 }
+            } catch (IOException e) {
+                log.error("Error on system in: {}.", e.getMessage(), e);
+                throw new RuntimeException(e);
             }
+        }).exceptionally(t -> {
+            log.error("Found that error!", t);
+            return null;
         });
     }
 }
