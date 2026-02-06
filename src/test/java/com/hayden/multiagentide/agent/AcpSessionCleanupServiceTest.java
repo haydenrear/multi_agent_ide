@@ -32,7 +32,8 @@ class AcpSessionCleanupServiceTest {
     void setUp() {
         sessionManager = mock(AcpSessionManager.class, RETURNS_DEEP_STUBS);
         when(sessionManager.getSessionContexts()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>());
-        cleanupService = new AcpSessionCleanupService(sessionManager, eventBus);
+        cleanupService = new AcpSessionCleanupService(sessionManager);
+        cleanupService.setEventBus(eventBus);
     }
 
     private AcpSessionManager.AcpSessionContext mockSessionContext() {

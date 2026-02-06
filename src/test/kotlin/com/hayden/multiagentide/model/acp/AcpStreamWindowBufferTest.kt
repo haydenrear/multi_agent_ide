@@ -281,7 +281,8 @@ class AcpStreamWindowBufferTest {
     }
 
     private fun createSessionContext(bus: RecordingEventBus): AcpSessionManager.AcpSessionContext {
-        val manager = AcpSessionManager(bus)
+        val manager = AcpSessionManager()
+        manager.eventBus = bus
         val scope = CoroutineScope(Dispatchers.Unconfined)
         val transport = mock(Transport::class.java)
         val protocol = mock(Protocol::class.java)
