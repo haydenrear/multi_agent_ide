@@ -112,7 +112,7 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
     ) {
         try {
             // Get the artifact key for the agent execution group
-            ArtifactKey groupKey = promptContext.currentRequest().artifactKey();
+            ArtifactKey groupKey = promptContext.currentRequest().contextId();
 
             // Create child key for this prompt
             ArtifactKey promptKey = groupKey.createChild();

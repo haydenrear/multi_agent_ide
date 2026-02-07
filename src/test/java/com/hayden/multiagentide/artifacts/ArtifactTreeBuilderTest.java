@@ -8,6 +8,7 @@ import com.hayden.multiagentidelib.artifact.PromptTemplateVersion;
 import com.hayden.acp_cdc_ai.acp.events.Artifact;
 import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import lombok.Builder;
+import lombok.With;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -539,8 +540,9 @@ class ArtifactTreeBuilderTest {
          * Test AgentModel implementation for testing purposes.
          */
         @Builder(toBuilder = true)
+        @With
         record TestAgentModel(
-                ArtifactKey key,
+                ArtifactKey contextId,
                 String name,
                 String content,
                 List<Artifact.AgentModel> children
@@ -550,7 +552,12 @@ class ArtifactTreeBuilderTest {
             public String computeHash(Artifact.HashContext hashContext) {
                 return hashContext.hash(name + ":" + content);
             }
-            
+
+            @Override
+            public ArtifactKey key() {
+                return contextId;
+            }
+
             @Override
             public String artifactType() {
                 return "TestAgentModel";
@@ -965,6 +972,11 @@ class ArtifactTreeBuilderTest {
                     @Override
                     public String artifactType() {
                         return "AgentModelArtifact";
+                    }
+
+                    @Override
+                    public Artifact.AgentModel withContextId(ArtifactKey key) {
+                        return this;
                     }
 
                     @Override
