@@ -1555,7 +1555,7 @@ public interface AgentInterfaces {
                         1
                 );
             }
-            blackboardHistoryService.registerAndHideInput(context, METHOD_FINALIZE_TICKET_ORCHESTRATOR, input);
+            blackboardHistoryService.register(context, METHOD_FINALIZE_TICKET_ORCHESTRATOR, input);
             AgentModels.OrchestratorCollectorResult result = new AgentModels.OrchestratorCollectorResult(
                     input.output(),
                     new AgentModels.CollectorDecision(Events.CollectorDecisionType.ADVANCE_PHASE, "", ""));
@@ -2049,7 +2049,7 @@ public interface AgentInterfaces {
                         1
                 );
             }
-            blackboardHistoryService.registerAndHideInput(context, METHOD_HANDLE_TICKET_COLLECTOR_BRANCH, request);
+            blackboardHistoryService.register(context, METHOD_HANDLE_TICKET_COLLECTOR_BRANCH, request);
 
             // Get upstream curations from context for routing back
             AgentModels.TicketOrchestratorRequest lastTicketOrchestratorRequest =
@@ -2127,7 +2127,7 @@ public interface AgentInterfaces {
                         1
                 );
             }
-            blackboardHistoryService.registerAndHideInput(context, METHOD_HANDLE_DISCOVERY_COLLECTOR_BRANCH, request);
+            blackboardHistoryService.register(context, METHOD_HANDLE_DISCOVERY_COLLECTOR_BRANCH, request);
             AgentModels.DiscoveryCollectorRouting routing = switch (request.collectorDecision().decisionType()) {
                 case ROUTE_BACK -> {
                     AgentModels.DiscoveryOrchestratorRequest discoveryRequest = AgentModels.DiscoveryOrchestratorRequest.builder()
@@ -2185,7 +2185,7 @@ public interface AgentInterfaces {
                         1
                 );
             }
-            blackboardHistoryService.registerAndHideInput(context, METHOD_HANDLE_ORCHESTRATOR_COLLECTOR_BRANCH, request);
+            blackboardHistoryService.register(context, METHOD_HANDLE_ORCHESTRATOR_COLLECTOR_BRANCH, request);
             AgentModels.OrchestratorCollectorRouting routing = switch (request.collectorDecision().decisionType()) {
                 case ROUTE_BACK -> {
                     AgentModels.OrchestratorRequest orchestratorRequest = AgentModels.OrchestratorRequest.builder()
@@ -2240,7 +2240,7 @@ public interface AgentInterfaces {
                         1
                 );
             }
-            blackboardHistoryService.registerAndHideInput(context, METHOD_HANDLE_PLANNING_COLLECTOR_BRANCH, request);
+            blackboardHistoryService.register(context, METHOD_HANDLE_PLANNING_COLLECTOR_BRANCH, request);
             // Get discovery curation from prior planning orchestrator request
             AgentModels.PlanningOrchestratorRequest lastPlanningOrchestratorRequest =
                     BlackboardHistory.getLastFromHistory(context, AgentModels.PlanningOrchestratorRequest.class);
