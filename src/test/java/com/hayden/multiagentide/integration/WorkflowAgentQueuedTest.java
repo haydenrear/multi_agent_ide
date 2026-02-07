@@ -3,7 +3,6 @@ package com.hayden.multiagentide.integration;
 import com.embabel.agent.api.common.PlannerType;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.ProcessOptions;
-import com.hayden.commitdiffcontext.git.res.Git;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.WorkflowGraphService;
 import com.hayden.multiagentide.artifacts.ArtifactEventListener;
@@ -17,7 +16,6 @@ import com.hayden.multiagentide.repository.GraphRepository;
 import com.hayden.multiagentide.repository.WorktreeRepository;
 import com.hayden.multiagentide.service.GitWorktreeService;
 import com.hayden.multiagentide.service.LlmRunner;
-import com.hayden.multiagentide.service.WorktreeService;
 import com.hayden.multiagentide.support.AgentTestBase;
 import com.hayden.multiagentide.support.QueuedLlmRunner;
 import com.hayden.multiagentide.support.TestEventListener;
@@ -27,6 +25,7 @@ import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import com.hayden.acp_cdc_ai.acp.events.EventBus;
 import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.multiagentidelib.model.merge.MergeDescriptor;
+import com.hayden.multiagentidelib.model.merge.MergeDirection;
 import com.hayden.multiagentidelib.model.nodes.*;
 import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentidelib.model.worktree.WorktreeContext;
@@ -182,17 +181,32 @@ class WorkflowAgentQueuedTest extends AgentTestBase {
                 .branchSubmoduleWorktree(any(), any(), any());
 
         Mockito.when(worktreeService.attachWorktreesToDiscoveryRequests(any(AgentModels.DiscoveryAgentRequests.class), anyString()))
-                .thenAnswer(inv -> inv.getArgument(0));
+                .thenAnswer(inv -> {
+                    AgentModels.DiscoveryAgentRequests d = inv.getArgument(0);
+                    return d.toBuilder()
+                            .requests(d.requests().stream().map(dar -> dar.withWorktreeContext(d.worktreeContext())).toList())
+                            .build();
+                });
         Mockito.when(worktreeService.attachWorktreesToPlanningRequests(any(AgentModels.PlanningAgentRequests.class), anyString()))
-                .thenAnswer(inv -> inv.getArgument(0));
+                .thenAnswer(inv -> {
+                    AgentModels.PlanningAgentRequests d = inv.getArgument(0);
+                    return d.toBuilder()
+                            .requests(d.requests().stream().map(dar -> dar.withWorktreeContext(d.worktreeContext())).toList())
+                            .build();
+                });
         Mockito.when(worktreeService.attachWorktreesToTicketRequests(any(AgentModels.TicketAgentRequests.class), anyString()))
-                .thenAnswer(inv -> inv.getArgument(0));
+                .thenAnswer(inv -> {
+                    AgentModels.TicketAgentRequests d = inv.getArgument(0);
+                    return d.toBuilder()
+                            .requests(d.requests().stream().map(dar -> dar.withWorktreeContext(d.worktreeContext())).toList())
+                            .build();
+                });
         Mockito.when(worktreeService.mergeChildToTrunk(any(WorktreeSandboxContext.class), any(WorktreeSandboxContext.class)))
-                        .thenAnswer(inv -> MergeDescriptor.builder().build());
+                        .thenAnswer(inv -> MergeDescriptor.builder().mergeDirection(MergeDirection.CHILD_TO_TRUNK).build());
         Mockito.when(worktreeService.mergeTrunkToChild(any(WorktreeSandboxContext.class), any(WorktreeSandboxContext.class)))
-                .thenAnswer(inv -> MergeDescriptor.builder().build());
+                .thenAnswer(inv -> MergeDescriptor.builder().mergeDirection(MergeDirection.TRUNK_TO_CHILD).build());
         Mockito.when(worktreeService.finalMergeToSourceDescriptor(anyString()))
-                .thenAnswer(inv -> MergeDescriptor.builder().build());
+                .thenAnswer(inv -> MergeDescriptor.builder().mergeDirection(MergeDirection.WORKTREE_TO_SOURCE).build());
 
         artifactRepository.deleteAll();
         artifactRepository.flush();
