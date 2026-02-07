@@ -26,7 +26,7 @@ import java.util.Optional;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class WorktreeContextRequestDecorator implements RequestDecorator {
+public class WorktreeContextRequestDecorator implements RequestDecorator, DispatchedAgentRequestDecorator {
 
     private final GraphRepository graphRepository;
     private final WorktreeRepository worktreeRepository;
@@ -39,7 +39,7 @@ public class WorktreeContextRequestDecorator implements RequestDecorator {
 
     @Override
     public <T extends AgentModels.AgentRequest> T decorate(T request, DecoratorContext context) {
-        if (request == null) {
+        if (request == null || request.worktreeContext() != null) {
             return request;
         }
 

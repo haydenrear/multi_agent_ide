@@ -20,11 +20,11 @@ public class DispatchedAgentRequestEnrichmentDecorator implements DispatchedAgen
     @Override
     public <T extends AgentModels.AgentRequest> T decorate(T request, DecoratorContext context) {
         return switch (request) {
-            case AgentModels.InterruptRequest.DiscoveryAgentDispatchInterruptRequest d ->
+            case AgentModels.InterruptRequest.DiscoveryAgentInterruptRequest d ->
                     requestEnrichment.enrich((T) d, context.operationContext());
-            case AgentModels.InterruptRequest.PlanningAgentDispatchInterruptRequest d ->
+            case AgentModels.InterruptRequest.PlanningAgentInterruptRequest d ->
                     requestEnrichment.enrich((T) d, context.operationContext());
-            case AgentModels.InterruptRequest.TicketAgentDispatchInterruptRequest d ->
+            case AgentModels.InterruptRequest.TicketAgentInterruptRequest d ->
                     requestEnrichment.enrich((T) d, context.operationContext());
             default -> request;
         };
