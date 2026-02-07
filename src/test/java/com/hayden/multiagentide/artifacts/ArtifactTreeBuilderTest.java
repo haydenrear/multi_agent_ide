@@ -60,10 +60,10 @@ class ArtifactTreeBuilderTest {
         objectMapper = jacksonObjectMapperBuilder.build();
         objectMapper.findAndRegisterModules();
 
-        treeBuilder = new ArtifactTreeBuilder(artifactRepository, objectMapper, new ArtifactService(artifactRepository));
+        ArtifactService artifactService = new ArtifactService(artifactRepository);
+        artifactService.configure();
+        treeBuilder = new ArtifactTreeBuilder(artifactRepository, objectMapper, artifactService);
 
-
-        
         rootKey = ArtifactKey.createRoot();
         executionKey = rootKey.value();
         rootArtifact = createExecutionArtifact(rootKey);
@@ -99,10 +99,11 @@ class ArtifactTreeBuilderTest {
 
         @Test
         @DisplayName("addArtifact rejects duplicate key")
-        void addArtifactRejectsDuplicateKey() {
+        void addArtifactRejectsDuplicateKeyDuplicateHash() {
             treeBuilder.addArtifact(executionKey, rootArtifact);
             
             Artifact.ExecutionArtifact duplicate = createExecutionArtifact(rootKey);
+            duplicate = duplicate.toBuilder().hash(rootArtifact.hash()).build();
             boolean added = treeBuilder.addArtifact(executionKey, duplicate);
             
             assertThat(added).isFalse();

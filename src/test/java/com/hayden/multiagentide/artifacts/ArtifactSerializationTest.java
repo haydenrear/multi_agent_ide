@@ -468,7 +468,7 @@ class ArtifactSerializationTest {
             ArtifactKey contributionKey = rootKey.createChild();
             
             Artifact.PromptContributionTemplate contribution = Artifact.PromptContributionTemplate.builder()
-                    .artifactKey(contributionKey)
+                    .templateArtifactKey(contributionKey)
                     .contributorName("ContextContributor")
                     .priority(100)
                     .agentTypes(List.of("orchestrator", "discovery"))
@@ -499,7 +499,7 @@ class ArtifactSerializationTest {
             ArtifactKey toolPromptKey = rootKey.createChild();
             
             Artifact.ToolPrompt toolPrompt = Artifact.ToolPrompt.builder()
-                    .artifactKey(toolPromptKey)
+                    .templateArtifactKey(toolPromptKey)
                     .toolCallName("searchCodebase")
                     .toolDescription("Search the codebase for files matching a pattern")
                     .hash("tool-prompt-hash")
@@ -525,7 +525,7 @@ class ArtifactSerializationTest {
             ArtifactKey skillPromptKey = rootKey.createChild();
             
             Artifact.SkillPrompt skillPrompt = Artifact.SkillPrompt.builder()
-                    .artifactKey(skillPromptKey)
+                    .templateArtifactKey(skillPromptKey)
                     .skillName("codeReview")
                     .skillDescription("Review code changes and provide feedback on quality and best practices")
                     .hash("skill-prompt-hash")
