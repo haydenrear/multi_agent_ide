@@ -1,0 +1,7 @@
+logging.config: classpath:logback-multi-agent-ide.xml
+
+multi-agent-ide:
+  cli:
+    repository-url: ${CLI_REPOSITORY_URL:}
+    base-branch: ${CLI_BASE_BRANCH:main}
+    title: ${CLI_TITLE:CLI Goal}
