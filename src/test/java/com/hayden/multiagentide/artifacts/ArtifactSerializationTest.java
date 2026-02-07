@@ -806,7 +806,7 @@ class ArtifactSerializationTest {
             
             PreviousContext.DiscoveryAgentPreviousContext previousContext = 
                     PreviousContext.DiscoveryAgentPreviousContext.builder()
-                            .artifactKey(contextKey)
+                            .contextId(contextKey)
                             .previousContextId(contextKey)
                             .serializedOutput("Previous output")
                             .attemptNumber(1)
@@ -836,7 +836,7 @@ class ArtifactSerializationTest {
             ArtifactKey curationKey = rootKey.createChild();
             
             AgentModels.DiscoveryCuration curation = AgentModels.DiscoveryCuration.builder()
-                    .artifactKey(curationKey)
+                    .contextId(curationKey)
                     .discoveryReports(List.of())
                     .recommendations(List.of())
                     .build();
@@ -895,11 +895,11 @@ class ArtifactSerializationTest {
                     .discoveryCollectorContext(
                             UpstreamContext.DiscoveryCollectorContext
                                     .builder()
-                                    .artifactKey(c)
+                                    .contextId(c)
                                     .selectionRationale("okay")
                                     .curation(
                                             AgentModels.DiscoveryCuration.builder()
-                                                    .artifactKey(c.createChild())
+                                                    .contextId(c.createChild())
                                                     .build()
                                     )
                                     .build()
@@ -966,7 +966,7 @@ class ArtifactSerializationTest {
             
             ArtifactKey curationKey = resultKey.createChild();
             AgentModels.DiscoveryCuration curation = AgentModels.DiscoveryCuration.builder()
-                    .artifactKey(curationKey)
+                    .contextId(curationKey)
                     .discoveryReports(new ArrayList<>())
                     .build();
             artifactTreeBuilder.addArtifact(executionKey, curation.toArtifact(Artifact.HashContext.defaultHashContext()));
