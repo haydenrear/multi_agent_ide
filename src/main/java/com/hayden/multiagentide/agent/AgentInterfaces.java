@@ -1155,17 +1155,15 @@ public interface AgentInterfaces {
 
                 context.addObject(input);
 
-                AgentModels.DiscoveryAgentRouting response = runSubProcess(
+                AgentModels.DiscoveryAgentResult response = runSubProcess(
                         context,
                         request,
                         discoveryDispatchAgent,
-                        AgentModels.DiscoveryAgentRouting.class
+                        AgentModels.DiscoveryAgentResult.class
                 );
 
-                AgentModels.DiscoveryAgentResult agentResult = response != null ? response.agentResult() : null;
-                if (agentResult != null) {
-                    discoveryResults.add(agentResult);
-                }
+                AgentModels.DiscoveryAgentResult agentResult = response;
+                discoveryResults.add(agentResult);
             }
 
             var d = AgentModels.DiscoveryAgentResults.builder()
@@ -1393,17 +1391,14 @@ public interface AgentInterfaces {
 
                 context.addObject(input);
 
-                AgentModels.PlanningAgentRouting response = runSubProcess(
+                AgentModels.PlanningAgentResult response = runSubProcess(
                         context,
                         request,
                         planningDispatchAgent,
-                        AgentModels.PlanningAgentRouting.class
+                        AgentModels.PlanningAgentResult.class
                 );
 
-                AgentModels.PlanningAgentResult agentResult = response != null ? response.agentResult() : null;
-                if (agentResult != null) {
-                    planningResults.add(agentResult);
-                }
+                planningResults.add(response);
             }
 
             AgentModels.PlanningAgentResults planningAgentResults = AgentModels.PlanningAgentResults.builder()
@@ -1679,18 +1674,14 @@ public interface AgentInterfaces {
 
                 context.addObject(input);
 
-                AgentModels.TicketAgentRouting response = runSubProcess(
+                AgentModels.TicketAgentResult agentResult = runSubProcess(
                         context,
                         request,
                         ticketDispatchAgent,
-                        AgentModels.TicketAgentRouting.class
+                        AgentModels.TicketAgentResult.class
                 );
 
-                AgentModels.TicketAgentResult agentResult = response != null ? response.agentResult() : null;
-
-                if (agentResult != null) {
-                    ticketResults.add(agentResult);
-                }
+                ticketResults.add(agentResult);
             }
 
             var ticketAgentResults = AgentModels.TicketAgentResults.builder()
@@ -2377,6 +2368,7 @@ public interface AgentInterfaces {
             }
             context.addObject(request);
             T result = context.asSubProcess(outputClass, agent);
+            context.hide(result);
             return result;
         }
 
