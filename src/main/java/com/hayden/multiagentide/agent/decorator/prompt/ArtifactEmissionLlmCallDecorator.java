@@ -1,7 +1,8 @@
 package com.hayden.multiagentide.agent.decorator.prompt;
 
-import com.embabel.agent.api.common.nested.TemplateOperations;
 import com.embabel.agent.api.tool.Tool;
+import com.embabel.common.textio.template.CompiledTemplate;
+import com.embabel.common.textio.template.TemplateRenderer;
 import com.google.common.collect.Lists;
 import com.hayden.multiagentide.artifacts.ArtifactService;
 import com.hayden.multiagentide.artifacts.ExecutionScopeService;
@@ -58,8 +59,7 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
         }
 
         PromptContext promptContext = context.promptContext();
-        TemplateOperations templateOps = context.templateOperations();
-        emitRenderedPrompt(promptContext, templateOps, context);
+        emitRenderedPrompt(promptContext, context, context.op().agentPlatform().getPlatformServices().getTemplateRenderer());
         return context;
     }
 
@@ -107,9 +107,8 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
      */
     private void emitRenderedPrompt(
             PromptContext promptContext,
-            TemplateOperations templateOps,
-            LlmCallContext llmCallContext
-    ) {
+            LlmCallContext llmCallContext,
+            TemplateRenderer templateRenderer) {
         try {
             // Get the artifact key for the agent execution group
             ArtifactKey groupKey = promptContext.currentRequest().contextId();
@@ -118,7 +117,7 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
             ArtifactKey promptKey = groupKey.createChild();
 
             // Extract rendered text from template operations or prompt context
-            String renderedText = extractRenderedText(templateOps, llmCallContext);
+            String renderedText = extractRenderedText(templateRenderer, llmCallContext);
 
             if (renderedText == null)
                 return;
@@ -469,12 +468,15 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
     /**
      * Extracts the rendered text from template operations or builds it from prompt context.
      */
-    private String extractRenderedText(TemplateOperations templateOps, LlmCallContext llmCallContext) {
+    private String extractRenderedText(TemplateRenderer templateOps, LlmCallContext llmCallContext) {
         if (templateOps == null) {
             return null;
         }
 
-        return templateOps.generateText(llmCallContext.templateArgs());
+        CompiledTemplate compiledTemplate = templateOps.compileLoadedTemplate(llmCallContext.promptContext().templateName());
+
+        return compiledTemplate
+                .render(llmCallContext.templateArgs());
     }
 
 
