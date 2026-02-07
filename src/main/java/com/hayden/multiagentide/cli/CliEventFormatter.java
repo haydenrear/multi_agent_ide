@@ -1,6 +1,9 @@
 package com.hayden.multiagentide.cli;
 
+import com.hayden.acp_cdc_ai.acp.events.Artifact;
 import com.hayden.acp_cdc_ai.acp.events.Events;
+import com.hayden.multiagentidelib.agent.AgentContext;
+import com.hayden.multiagentidelib.agent.AgentModels;
 
 import java.util.List;
 import java.util.Map;
@@ -58,7 +61,7 @@ public class CliEventFormatter {
             case Events.PermissionRequestedEvent e -> format("PERMISSION", e, "requestId=" + e.requestId() + " toolCallId=" + e.toolCallId());
             case Events.PermissionResolvedEvent e -> format("PERMISSION", e, "requestId=" + e.requestId() + " outcome=" + summarize(e.outcome()));
             case Events.GoalCompletedEvent e -> format("GOAL", e, "workflowId=" + summarize(e.workflowId()));
-            case Events.ArtifactEvent e -> format("ARTIFACT", e, "type=" + summarize(e.artifactType()) + " key=" + e.artifactKey());
+            case Events.ArtifactEvent e -> formatArtifactEvent(e);
         };
     }
 
@@ -160,6 +163,250 @@ public class CliEventFormatter {
         String details = "worktreeId=" + summarize(event.worktreeId())
                 + " type=" + summarize(event.worktreeType());
         return format("WORKTREE", event, details);
+    }
+
+    private String formatArtifactEvent(Events.ArtifactEvent event) {
+        Artifact artifact = event.artifact();
+        if (artifact instanceof Artifact.AgentModelArtifact agentModelArtifact) {
+            return formatAgentModelArtifact(event, agentModelArtifact);
+        }
+        String details = "type=" + summarize(event.artifactType())
+                + " key=" + event.artifactKey()
+                + " artifact=" + summarize(artifact == null ? null : artifact.getClass().getSimpleName());
+        return format("ARTIFACT", event, details);
+    }
+
+    private String formatAgentModelArtifact(Events.ArtifactEvent event, Artifact.AgentModelArtifact artifact) {
+        String details = "type=" + summarize(event.artifactType())
+                + " key=" + event.artifactKey()
+                + " " + formatAgentModel(artifact.agentModel());
+        return format("ARTIFACT", event, details);
+    }
+
+    private String formatAgentModel(Artifact.AgentModel model) {
+        if (model == null) {
+            return "model=none";
+        }
+        return switch (model) {
+            case AgentModels.InterruptRequest interrupt -> "interrupt=" + formatInterruptRequest(interrupt);
+            case AgentModels.AgentRequest request -> "request=" + formatAgentRequest(request);
+            case AgentModels.AgentResult result -> "result=" + formatAgentResult(result);
+            case AgentContext context -> "context=" + formatAgentContext(context);
+            default -> "model=" + summarize(model.getClass().getSimpleName());
+        };
+    }
+
+    private String formatAgentRequest(AgentModels.AgentRequest request) {
+        String summary = summarize(request.prettyPrintInterruptContinuation());
+        return switch (request) {
+            case AgentModels.OrchestratorRequest r ->
+                    "OrchestratorRequest goal=" + summarize(r.goal())
+                            + " phase=" + summarize(r.phase())
+                            + " summary=" + summary;
+            case AgentModels.OrchestratorCollectorRequest r ->
+                    "OrchestratorCollectorRequest goal=" + summarize(r.goal())
+                            + " phase=" + summarize(r.phase())
+                            + " summary=" + summary;
+            case AgentModels.DiscoveryOrchestratorRequest r ->
+                    "DiscoveryOrchestratorRequest goal=" + summarize(r.goal())
+                            + " summary=" + summary;
+            case AgentModels.DiscoveryAgentRequests r ->
+                    "DiscoveryAgentRequests goal=" + summarize(r.goal())
+                            + " requests=" + countOf(r.requests())
+                            + " summary=" + summary;
+            case AgentModels.DiscoveryAgentRequest r ->
+                    "DiscoveryAgentRequest goal=" + summarize(r.goal())
+                            + " subdomain=" + summarize(r.subdomainFocus())
+                            + " summary=" + summary;
+            case AgentModels.DiscoveryCollectorRequest r ->
+                    "DiscoveryCollectorRequest goal=" + summarize(r.goal())
+                            + " summary=" + summary;
+            case AgentModels.PlanningOrchestratorRequest r ->
+                    "PlanningOrchestratorRequest goal=" + summarize(r.goal())
+                            + " summary=" + summary;
+            case AgentModels.PlanningAgentRequests r ->
+                    "PlanningAgentRequests goal=" + summarize(r.goal())
+                            + " requests=" + countOf(r.requests())
+                            + " summary=" + summary;
+            case AgentModels.PlanningAgentRequest r ->
+                    "PlanningAgentRequest goal=" + summarize(r.goal())
+                            + " summary=" + summary;
+            case AgentModels.PlanningCollectorRequest r ->
+                    "PlanningCollectorRequest goal=" + summarize(r.goal())
+                            + " summary=" + summary;
+            case AgentModels.TicketOrchestratorRequest r ->
+                    "TicketOrchestratorRequest goal=" + summarize(r.goal())
+                            + " summary=" + summary;
+            case AgentModels.TicketAgentRequests r ->
+                    "TicketAgentRequests goal=" + summarize(r.goal())
+                            + " requests=" + countOf(r.requests())
+                            + " summary=" + summary;
+            case AgentModels.TicketAgentRequest r ->
+                    "TicketAgentRequest ticket=" + summarize(r.ticketDetails())
+                            + " path=" + summarize(r.ticketDetailsFilePath())
+                            + " summary=" + summary;
+            case AgentModels.TicketCollectorRequest r ->
+                    "TicketCollectorRequest goal=" + summarize(r.goal())
+                            + " summary=" + summary;
+            case AgentModels.ContextManagerRoutingRequest r ->
+                    "ContextManagerRoutingRequest type=" + summarize(r.type())
+                            + " reason=" + summarize(r.reason())
+                            + " summary=" + summary;
+            case AgentModels.ContextManagerRequest r ->
+                    "ContextManagerRequest type=" + summarize(r.type())
+                            + " reason=" + summarize(r.reason())
+                            + " goal=" + summarize(r.goal())
+                            + " summary=" + summary;
+            case AgentModels.MergerRequest r ->
+                    "MergerRequest summary=" + summarize(r.mergeSummary())
+                            + " conflicts=" + summarize(r.conflictFiles())
+                            + " summary=" + summary;
+            case AgentModels.ReviewRequest r ->
+                    "ReviewRequest criteria=" + summarize(r.criteria())
+                            + " content=" + summarize(r.content())
+                            + " summary=" + summary;
+            case AgentModels.ResultsRequest r ->
+                    "ResultsRequest mergeAggregation=" + summarize(r.mergeAggregation())
+                            + " results=" + countOf(r.childResults())
+                            + " summary=" + summary;
+            case AgentModels.InterruptRequest r -> "InterruptRequest summary=" + summary;
+        };
+    }
+
+    private String formatAgentResult(AgentModels.AgentResult result) {
+        String summary = summarize(result.prettyPrint());
+        return switch (result) {
+            case AgentModels.OrchestratorAgentResult r -> "OrchestratorAgentResult summary=" + summary;
+            case AgentModels.OrchestratorCollectorResult r ->
+                    "OrchestratorCollectorResult decision=" + summarize(r.decision())
+                            + " summary=" + summary;
+            case AgentModels.DiscoveryOrchestratorResult r -> "DiscoveryOrchestratorResult summary=" + summary;
+            case AgentModels.DiscoveryCollectorResult r ->
+                    "DiscoveryCollectorResult decision=" + summarize(r.decision())
+                            + " summary=" + summary;
+            case AgentModels.DiscoveryAgentResult r ->
+                    "DiscoveryAgentResult children=" + countOf(r.children())
+                            + " summary=" + summary;
+            case AgentModels.PlanningOrchestratorResult r -> "PlanningOrchestratorResult summary=" + summary;
+            case AgentModels.PlanningCollectorResult r ->
+                    "PlanningCollectorResult decision=" + summarize(r.decision())
+                            + " summary=" + summary;
+            case AgentModels.PlanningAgentResult r ->
+                    "PlanningAgentResult children=" + countOf(r.children())
+                            + " summary=" + summary;
+            case AgentModels.TicketOrchestratorResult r -> "TicketOrchestratorResult summary=" + summary;
+            case AgentModels.TicketCollectorResult r ->
+                    "TicketCollectorResult decision=" + summarize(r.decision())
+                            + " summary=" + summary;
+            case AgentModels.TicketAgentResult r ->
+                    "TicketAgentResult summary=" + summary;
+            case AgentModels.ReviewAgentResult r ->
+                    "ReviewAgentResult summary=" + summary;
+            case AgentModels.MergerAgentResult r ->
+                    "MergerAgentResult summary=" + summary;
+        };
+    }
+
+    private String formatAgentContext(AgentContext context) {
+        String summary = summarize(context.prettyPrint());
+        return switch (context) {
+            case AgentModels.DiscoveryCuration c ->
+                    "DiscoveryCuration reports=" + countOf(c.discoveryReports())
+                            + " recommendations=" + countOf(c.recommendations())
+                            + " summary=" + summary;
+            case AgentModels.PlanningCuration c ->
+                    "PlanningCuration tickets=" + countOf(c.finalizedTickets())
+                            + " results=" + countOf(c.planningAgentResults())
+                            + " summary=" + summary;
+            case AgentModels.TicketCuration c ->
+                    "TicketCuration results=" + countOf(c.ticketAgentResults())
+                            + " followUps=" + countOf(c.followUps())
+                            + " summary=" + summary;
+            default -> """
+                    %s
+                    Context summary=%s
+                    """.formatted(context.getClass().getSimpleName(), summary);
+        };
+    }
+
+    private String formatInterruptRequest(AgentModels.InterruptRequest request) {
+        String base = "type=" + summarize(request.type())
+                + " reason=" + summarize(request.reason())
+                + " context=" + summarize(request.contextForDecision())
+                + " choices=" + countOf(request.choices())
+                + " confirmations=" + countOf(request.confirmationItems());
+        return switch (request) {
+            case AgentModels.InterruptRequest.OrchestratorInterruptRequest r ->
+                    "OrchestratorInterruptRequest " + base
+                            + " phase=" + summarize(r.phase())
+                            + " goal=" + summarize(r.goal());
+            case AgentModels.InterruptRequest.OrchestratorCollectorInterruptRequest r ->
+                    "OrchestratorCollectorInterruptRequest " + base
+                            + " phaseDecision=" + summarize(r.phaseDecision())
+                            + " phaseOptions=" + countOf(r.phaseOptions());
+            case AgentModels.InterruptRequest.DiscoveryOrchestratorInterruptRequest r ->
+                    "DiscoveryOrchestratorInterruptRequest " + base
+                            + " scope=" + summarize(r.scope())
+                            + " subdomains=" + countOf(r.subdomainPartitioning());
+            case AgentModels.InterruptRequest.DiscoveryAgentInterruptRequest r ->
+                    "DiscoveryAgentInterruptRequest " + base
+                            + " codeFindings=" + summarize(r.codeFindings())
+                            + " files=" + countOf(r.fileReferences());
+            case AgentModels.InterruptRequest.DiscoveryCollectorInterruptRequest r ->
+                    "DiscoveryCollectorInterruptRequest " + base
+                            + " consolidation=" + summarize(r.consolidationDecisions())
+                            + " recommendations=" + countOf(r.recommendations());
+            case AgentModels.InterruptRequest.DiscoveryAgentDispatchInterruptRequest r ->
+                    "DiscoveryAgentDispatchInterruptRequest " + base
+                            + " assignments=" + countOf(r.agentAssignments())
+                            + " routing=" + summarize(r.routingRationale());
+            case AgentModels.InterruptRequest.PlanningOrchestratorInterruptRequest r ->
+                    "PlanningOrchestratorInterruptRequest " + base
+                            + " ticketDecomposition=" + summarize(r.ticketDecomposition())
+                            + " scope=" + summarize(r.planningScope());
+            case AgentModels.InterruptRequest.PlanningAgentInterruptRequest r ->
+                    "PlanningAgentInterruptRequest " + base
+                            + " ticketDesign=" + summarize(r.ticketDesign())
+                            + " proposedTickets=" + countOf(r.proposedTickets());
+            case AgentModels.InterruptRequest.PlanningCollectorInterruptRequest r ->
+                    "PlanningCollectorInterruptRequest " + base
+                            + " ticketConsolidation=" + summarize(r.ticketConsolidation())
+                            + " consolidatedTickets=" + countOf(r.consolidatedTickets());
+            case AgentModels.InterruptRequest.PlanningAgentDispatchInterruptRequest r ->
+                    "PlanningAgentDispatchInterruptRequest " + base
+                            + " assignments=" + countOf(r.agentAssignments())
+                            + " routing=" + summarize(r.routingRationale());
+            case AgentModels.InterruptRequest.TicketOrchestratorInterruptRequest r ->
+                    "TicketOrchestratorInterruptRequest " + base
+                            + " scope=" + summarize(r.implementationScope())
+                            + " strategy=" + summarize(r.executionStrategy());
+            case AgentModels.InterruptRequest.TicketAgentInterruptRequest r ->
+                    "TicketAgentInterruptRequest " + base
+                            + " approach=" + summarize(r.implementationApproach())
+                            + " files=" + countOf(r.filesToModify());
+            case AgentModels.InterruptRequest.TicketCollectorInterruptRequest r ->
+                    "TicketCollectorInterruptRequest " + base
+                            + " status=" + summarize(r.completionStatus())
+                            + " followUps=" + countOf(r.followUps());
+            case AgentModels.InterruptRequest.TicketAgentDispatchInterruptRequest r ->
+                    "TicketAgentDispatchInterruptRequest " + base
+                            + " assignments=" + countOf(r.agentAssignments())
+                            + " routing=" + summarize(r.routingRationale());
+            case AgentModels.InterruptRequest.ReviewInterruptRequest r ->
+                    "ReviewInterruptRequest " + base
+                            + " criteria=" + summarize(r.reviewCriteria())
+                            + " recommendation=" + summarize(r.approvalRecommendation());
+            case AgentModels.InterruptRequest.MergerInterruptRequest r ->
+                    "MergerInterruptRequest " + base
+                            + " conflictFiles=" + countOf(r.conflictFiles())
+                            + " mergeApproach=" + summarize(r.mergeApproach());
+            case AgentModels.InterruptRequest.ContextManagerInterruptRequest r ->
+                    "ContextManagerInterruptRequest " + base
+                            + " findings=" + summarize(r.contextFindings())
+                            + " sources=" + countOf(r.sourceReferences());
+            case AgentModels.InterruptRequest.QuestionAnswerInterruptRequest r ->
+                    "QuestionAnswerInterruptRequest " + base;
+        };
     }
 
     private String formatFallback(Events.GraphEvent event) {
