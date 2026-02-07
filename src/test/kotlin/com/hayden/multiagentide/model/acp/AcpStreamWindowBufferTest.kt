@@ -227,7 +227,7 @@ class AcpStreamWindowBufferTest {
         )
 
         parseGenerationsFromAcpEvent(Event.SessionUpdateEvent(plan), sessionContext, "node-1")
-        assertTrue(bus.events.isEmpty())
+        assertTrue(bus.events.size == 1)
         parseGenerationsFromAcpEvent(Event.SessionUpdateEvent(mode), sessionContext, "node-1")
         assertTrue(bus.events.any { it is Events.PlanUpdateEvent })
         parseGenerationsFromAcpEvent(Event.SessionUpdateEvent(commands), sessionContext, "node-1")

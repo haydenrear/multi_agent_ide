@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -52,45 +53,35 @@ public class ArtifactService {
 
     @Transactional
     public void doPersist(String executionKey, ArtifactNode root) {
-        var allArtifacts = root.collectAll();
+        var collected = new ArrayList<>(root.collectAll());
 
-
-        var groupedByKey = allArtifacts.stream()
+        var groupedByKey = collected.stream()
                 .filter(a -> a.artifactKey() != null && StringUtils.isNotBlank(a.artifactKey().value()))
                 .collect(Collectors.groupingBy(Artifact::artifactKey));
 
-        var refsToSave = new ArrayList<Artifact>();
-        var refsToSkip = new ArrayList<Artifact>();
-
-        Function<Artifact, Artifact> toUpdate = s -> s;
+        // records are special
+        Map<Artifact, Artifact> updates = new IdentityHashMap<>();
 
         for (var entry : groupedByKey.entrySet()) {
-            if (entry.getValue().size() > 1) {
-                var f = entry.getValue().getFirst();
-                if (!entry.getValue().stream().allMatch(art -> art.contentHash().orElse("").equals(f.contentHash().orElse("")))) {
-                    toUpdate = toUpdate.andThen(art -> {
-                        for (var e : entry.getValue().subList(1, entry.getValue().size()) ) {
-                            if (e == art) {
-                                return e.withArtifactKey(e.artifactKey().createChild());
-                            }
-                        }
+            var list = entry.getValue();
+            updates.put(list.getFirst(), list.getFirst());
 
-                        return art;
-                    }) ;
-                } else {
-                    refsToSkip.addAll(entry.getValue().subList(1, entry.getValue().size()));
+            if (list.size() <= 1)
+                continue;
+
+            // decide allSameHash using “present+nonblank” logic
+            if (!entry.getValue().stream().allMatch(art -> art.contentHash().orElse("").equals(list.getFirst().contentHash().orElse("")))) {
+                for (int i = 1; i < list.size(); i++) {
+                    var e = list.get(i);
+                    updates.put(e, e.withArtifactKey(e.artifactKey().createChild()));
                 }
             }
         }
 
-        allArtifacts = allArtifacts.stream()
-                .filter(a -> refsToSkip.stream().noneMatch(art -> art == a))
-                .map(toUpdate)
-                .collect(Collectors.toCollection(ArrayList::new));
+        var allArtifacts = new ArrayList<>(updates.values());
 
         // Group by content hash to find duplicates
         var groupedByHash = allArtifacts.stream()
-                .filter(a -> a.artifactKey() != null && StringUtils.isNotBlank(a.artifactKey().value()))
                 .map(a -> {
                     if (a.contentHash().isPresent() && StringUtils.isNotBlank(a.contentHash().get()))
                         return a;
@@ -98,6 +89,8 @@ public class ArtifactService {
                     return a.withHash(UUID.randomUUID().toString());
                 })
                 .collect(Collectors.groupingBy(a -> a.contentHash().orElseThrow()));
+
+        var refsToSave = new ArrayList<Artifact>();
 
         for (var entry : groupedByHash.entrySet()) {
             var contentHash = entry.getKey();
@@ -120,7 +113,6 @@ public class ArtifactService {
                 var original = artifacts.getFirst();
                 ArtifactEntity entity = toEntity(executionKey, original);
                 artifactRepository.save(entity);
-                artifactRepository.flush();
 
                 // decorateDuplicate the rest
                 for (int i = 1; i < artifacts.size(); i++) {
@@ -136,8 +128,6 @@ public class ArtifactService {
                 refsToSave.stream()
                         .map(a -> toEntity(executionKey, a))
                         .toList());
-
-        artifactRepository.flush();
 
         // Update the original artifacts with their ref keys
         for (var refEntity : savedRefs) {
@@ -175,7 +165,7 @@ public class ArtifactService {
                             yield Optional.of(new Artifact.TemplateDbRef(artifact, t.templateStaticId(), UUID.randomUUID().toString(), t, new ArrayList<>(t.children()), new HashMap<>(t.metadata()), t.artifactType()));
                         }
 
-                        yield Optional.empty();
+                        yield Optional.of(new Artifact.TemplateDbRef(artifact.createChild(), t.templateStaticId(), UUID.randomUUID().toString(), t, new ArrayList<>(t.children()), new HashMap<>(t.metadata()), t.artifactType()));
                     }
                     case Artifact t ->{
 //                      use a random hash for this one as it's a ref
@@ -183,7 +173,7 @@ public class ArtifactService {
                             yield Optional.of(new Artifact.ArtifactDbRef(artifact, UUID.randomUUID().toString(), t, new ArrayList<>(t.children()), new HashMap<>(t.metadata()), t.artifactType()));
                         }
 
-                        yield Optional.empty();
+                        yield Optional.of(new Artifact.ArtifactDbRef(artifact.createChild(), UUID.randomUUID().toString(), t, new ArrayList<>(t.children()), new HashMap<>(t.metadata()), t.artifactType()));
                     }
                 });
     }

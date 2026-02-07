@@ -392,7 +392,7 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
         
         return getOrCreateArtifact(
                 () -> Artifact.ToolPrompt.builder()
-                        .artifactKey(artifactKey)
+                        .templateArtifactKey(artifactKey)
                         .toolCallName(toolDescription.name())
                         .toolDescription(fullDescription)
                         .hash(hash)
@@ -436,7 +436,7 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
 
         return getOrCreateArtifact(
                 () -> Artifact.SkillPrompt.builder()
-                        .artifactKey(artifactKey)
+                        .templateArtifactKey(artifactKey)
                         .skillName(skillDescription.name())
                         .skillDescription(fullDescription)
                         .activationText(skillDescription.activationText())
@@ -531,7 +531,7 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
 
         return getOrCreateArtifact(
                 () -> Artifact.PromptContributionTemplate.builder()
-                        .artifactKey(key)
+                        .templateArtifactKey(key)
                         .contributorName(promptContributorName)
                         .templateText(contributedText)
                         .hash(hash)
