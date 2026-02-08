@@ -8,12 +8,16 @@ import com.hayden.acp_cdc_ai.permission.IPermissionGate;
 import com.hayden.multiagentide.cli.CliEventFormatter;
 import com.hayden.multiagentide.repository.EventStreamRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jline.terminal.Terminal;
+import org.jline.terminal.Size;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
+import org.springframework.messaging.support.GenericMessage;
 import org.springframework.shell.component.view.TerminalUI;
 import org.springframework.shell.component.view.TerminalUIBuilder;
+import org.springframework.shell.component.view.control.View;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -22,8 +26,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
+@Slf4j
 @Component
 @Profile("cli")
 @RequiredArgsConstructor
@@ -42,6 +49,8 @@ public class TuiSession implements EventListener {
     private final Object stateLock = new Object();
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final TuiStateReducer reducer = new TuiStateReducer();
+    private static final int DEFAULT_COLUMNS = 80;
+    private static final int DEFAULT_ROWS = 24;
 
     private EventBus eventBus;
 
@@ -55,6 +64,7 @@ public class TuiSession implements EventListener {
     private TuiState state;
     private final Map<String, Boolean> startedSessions = new LinkedHashMap<>();
     private volatile int eventListHeight = 10;
+    private final AtomicLong lastUiWakeNanos = new AtomicLong(0L);
 
     @Autowired
     @Lazy
@@ -77,6 +87,7 @@ public class TuiSession implements EventListener {
         try {
             this.shellSessionId = UUID.randomUUID().toString();
             ensureInitialState();
+            syncTerminalSizeAtStartup();
 
             this.terminalUi = new TerminalUIBuilder(terminal).build();
             this.rootView = new TuiTerminalView(
@@ -84,16 +95,101 @@ public class TuiSession implements EventListener {
                     eventFormatter,
                     eventStreamRepository,
                     new ViewController(),
-                    height -> eventListHeight = Math.max(1, height)
+                    height -> eventListHeight = Math.max(1, height),
+                    this::setModalView,
+                    this::configureDynamicView
             );
+
             terminalUi.configure(rootView);
             terminalUi.setRoot(rootView, true);
+            terminalUi.setFocus(rootView);
             terminalUi.run();
         } finally {
             running.set(false);
+            if (terminalUi != null) {
+                terminalUi.setModal(null);
+            }
             terminalUi = null;
             rootView = null;
         }
+    }
+
+    private void syncTerminalSizeAtStartup() {
+        Size resolved = resolveStartupTerminalSize();
+        if (resolved == null) {
+            return;
+        }
+        try {
+            terminal.setSize(resolved);
+        } catch (Exception e) {
+            log.debug("Failed to set startup terminal size: {}", e.getMessage());
+        }
+    }
+
+    private Size resolveStartupTerminalSize() {
+        Size terminalSize = safeSize(terminal::getSize);
+        Size bufferSize = safeSize(terminal::getBufferSize);
+
+        int terminalColumns = dimension(terminalSize, true);
+        int terminalRows = dimension(terminalSize, false);
+        int bufferColumns = dimension(bufferSize, true);
+        int bufferRows = dimension(bufferSize, false);
+        int envColumns = readEnvDimension("COLUMNS");
+        int envRows = readEnvDimension("LINES");
+
+        int columns = terminalColumns;
+        int rows = terminalRows;
+
+        if (columns <= 0 || rows <= 0) {
+            columns = firstPositive(terminalColumns, bufferColumns, envColumns, DEFAULT_COLUMNS);
+            rows = firstPositive(terminalRows, bufferRows, envRows, DEFAULT_ROWS);
+        } else if (columns == DEFAULT_COLUMNS && rows == DEFAULT_ROWS) {
+            int altColumns = firstPositive(bufferColumns, envColumns);
+            int altRows = firstPositive(bufferRows, envRows);
+            if (altColumns > 0 && altRows > 0 && (altColumns != columns || altRows != rows)) {
+                columns = altColumns;
+                rows = altRows;
+            }
+        }
+
+        return new Size(firstPositive(columns, DEFAULT_COLUMNS), firstPositive(rows, DEFAULT_ROWS));
+    }
+
+    private Size safeSize(Supplier<Size> supplier) {
+        try {
+            return supplier.get();
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private int dimension(Size size, boolean columns) {
+        if (size == null) {
+            return 0;
+        }
+        return columns ? size.getColumns() : size.getRows();
+    }
+
+    private int readEnvDimension(String key) {
+        String value = System.getenv(key);
+        if (value == null || value.isBlank()) {
+            return 0;
+        }
+        try {
+            int parsed = Integer.parseInt(value.trim());
+            return parsed > 0 ? parsed : 0;
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private int firstPositive(int... values) {
+        for (int value : values) {
+            if (value > 0) {
+                return value;
+            }
+        }
+        return 0;
     }
 
     @Override
@@ -112,7 +208,7 @@ public class TuiSession implements EventListener {
             return;
         }
 
-        Events.AddMessageEvent queuedMessage = null;
+        Events.AddMessageEvent queuedMessage;
         synchronized (stateLock) {
             TuiViewport viewport = new TuiViewport(Math.max(1, eventListHeight));
             state = reducer.reduce(state, event, viewport, resolveSessionId(event));
@@ -120,11 +216,41 @@ public class TuiSession implements EventListener {
         }
 
         if (terminalUi != null) {
-            terminalUi.redraw();
+            requestRedraw();
         }
         if (queuedMessage != null) {
             eventBus.publish(queuedMessage);
         }
+    }
+
+    private void setModalView(View view) {
+        if (terminalUi == null) {
+            return;
+        }
+        if (view != null) {
+            terminalUi.configure(view);
+        }
+        terminalUi.setModal(view);
+        if (view != null) {
+            terminalUi.setFocus(view);
+        } else if (rootView != null) {
+            terminalUi.setFocus(rootView);
+        }
+        requestRedraw();
+    }
+
+    private void configureDynamicView(View view) {
+        if (terminalUi == null || view == null) {
+            return;
+        }
+        terminalUi.configure(view);
+    }
+
+    private void requestRedraw() {
+        if (terminalUi == null) {
+            return;
+        }
+        terminalUi.redraw();
     }
 
     private void ensureInitialState() {
@@ -328,6 +454,11 @@ public class TuiSession implements EventListener {
         @Override
         public void moveSelection(int delta) {
             synchronized (stateLock) {
+                if (activeSessionState().detailOpen() && rootView != null) {
+                    rootView.scrollDetail(delta);
+                    requestRedraw();
+                    return;
+                }
                 if (state.focus() == TuiFocus.SESSION_LIST) {
                     moveSessionSelection(delta);
                     return;
@@ -361,6 +492,7 @@ public class TuiSession implements EventListener {
             synchronized (stateLock) {
                 if (state.focus() == TuiFocus.CHAT_INPUT) {
                     publishInteraction(new Events.ChatInputSubmitted(activeSessionState().chatInput()));
+                    publishInteraction(new Events.ChatInputChanged("", 0));
                     return;
                 }
                 if (state.focus() == TuiFocus.SESSION_LIST) {
@@ -474,11 +606,24 @@ public class TuiSession implements EventListener {
                 }
             }
         }
+
+        @Override
+        public void selectSession(String sessionId) {
+            synchronized (stateLock) {
+                if (sessionId != null && !sessionId.isBlank()) {
+                    publishInteraction(new Events.SessionSelected(sessionId));
+                }
+            }
+        }
     }
 
     public TuiState snapshotForTests() {
         synchronized (stateLock) {
             return state;
         }
+    }
+
+    public int eventListHeightForTests() {
+        return eventListHeight;
     }
 }

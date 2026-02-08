@@ -21,6 +21,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.UUID
@@ -30,9 +32,11 @@ import java.util.function.Predicate
 @Service
 class PermissionGate(
     private val graphRepository: GraphRepository,
-    private val orchestrator: ComputationGraphOrchestrator,
-    private val eventBus: EventBus
+    private val orchestrator: ComputationGraphOrchestrator
 ) : IPermissionGate {
+
+    @Autowired @Lazy
+    private lateinit var eventBus: EventBus
 
     val log = LoggerFactory.getLogger(PermissionGate::class.java)
 

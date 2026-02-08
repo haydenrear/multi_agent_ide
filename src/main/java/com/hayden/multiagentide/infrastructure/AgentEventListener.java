@@ -138,6 +138,10 @@ public class AgentEventListener implements EventListener {
             }
             case Events.ChatSessionClosedEvent chatSessionClosedEvent -> {
             }
+            case Events.TuiInteractionGraphEvent tuiInteractionGraphEvent -> {
+            }
+            case Events.TuiSystemGraphEvent tuiSystemGraphEvent -> {
+            }
         }
     }
 

@@ -13,7 +13,7 @@ public record TuiState(
 ) {
     public TuiState {
         if (focus == null) {
-            focus = TuiFocus.EVENT_STREAM;
+            focus = TuiFocus.CHAT_INPUT;
         }
         if (sessionOrder == null) {
             sessionOrder = List.of();
