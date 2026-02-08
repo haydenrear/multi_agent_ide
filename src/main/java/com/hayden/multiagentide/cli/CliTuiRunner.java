@@ -9,6 +9,7 @@ import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @ShellComponent
 @Profile("cli")
@@ -43,13 +44,12 @@ public class CliTuiRunner {
     private String startGoal(String repo, String goal) {
         try {
             OrchestrationController.StartGoalResponse response =
-                    orchestrationController.startGoal(new OrchestrationController.StartGoalRequest(
+                    orchestrationController.startGoalAsync(new OrchestrationController.StartGoalRequest(
                             goal,
                             repo,
                             "main",
                             resolveTitle(goal)
                     ));
-            outputWriter.println("Goal started. Orchestrator nodeId=" + response.nodeId());
             return response.nodeId();
         } catch (Exception e) {
             outputWriter.println("Failed to start goal: " + e.getMessage());
