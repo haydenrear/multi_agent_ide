@@ -62,6 +62,10 @@ public class CliEventFormatter {
             case Events.PermissionResolvedEvent e -> format("PERMISSION", e, "requestId=" + e.requestId() + " outcome=" + summarize(e.outcome()));
             case Events.GoalCompletedEvent e -> format("GOAL", e, "workflowId=" + summarize(e.workflowId()));
             case Events.ArtifactEvent e -> formatArtifactEvent(e);
+            case Events.TuiInteractionGraphEvent e -> format("TUI", e, "sessionId=" + summarize(e.sessionId())
+                    + " event=" + summarize(e.tuiEvent() == null ? null : e.tuiEvent().getClass().getSimpleName()));
+            case Events.TuiSystemGraphEvent e -> format("TUI", e, "sessionId=" + summarize(e.sessionId())
+                    + " event=" + summarize(e.tuiEvent() == null ? null : e.tuiEvent().getClass().getSimpleName()));
         };
     }
 
