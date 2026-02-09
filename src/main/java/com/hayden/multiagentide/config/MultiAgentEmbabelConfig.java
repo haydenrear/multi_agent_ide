@@ -7,6 +7,8 @@ import com.embabel.agent.core.AgentScope;
 import com.embabel.agent.core.support.DefaultAgentPlatform;
 import com.embabel.agent.spi.AgentProcessIdGenerator;
 import com.embabel.common.ai.model.Llm;
+import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
+import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.multiagentide.agent.AgentInterfaces;
 import com.hayden.multiagentide.agent.AgentQuestionAnswerFunction;
 import com.hayden.multiagentide.agent.AskUserQuestionTool;
@@ -14,6 +16,7 @@ import com.hayden.acp_cdc_ai.acp.config.AcpModelProperties;
 import com.hayden.acp_cdc_ai.acp.config.McpProperties;
 import com.hayden.acp_cdc_ai.acp.events.EventBus;
 import com.hayden.acp_cdc_ai.acp.AcpChatModel;
+import com.hayden.multiagentide.repository.EventStreamRepository;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -126,16 +129,23 @@ public class MultiAgentEmbabelConfig {
 
     @Bean
     @Primary
-    public OutputChannel llmOutputChannel(ChatModel chatModel, @Lazy AgentPlatform agentPlatform) {
+    public OutputChannel llmOutputChannel(ChatModel chatModel, @Lazy AgentPlatform agentPlatform, EventStreamRepository graphRepository) {
         return new MulticastOutputChannel(List.of(
                 (OutputChannel) event -> {
                     switch (event) {
                         case MessageOutputChannelEvent evt -> {
-//                          var process = agentPlatform.getAgentProcess(evt.getProcessId());
-//                          process.getProcessContext().getAgentProcess().getLlmInvocations().getLast().getLlm();
+//                          Have to do this because single agent process opens many chat sessions.
+                            var thisArtifactKeyForMessage = graphRepository.getLastMatching(Events.ChatSessionCreatedEvent.class, n -> matchesThisSession(evt, n))
+                                    .<Events.GraphEvent>map(n -> n)
+                                    .or(() -> graphRepository.getLastMatching(Events.NodeThoughtDeltaEvent.class, n -> matchesThisSession(evt, n)))
+                                    .or(() -> graphRepository.getLastMatching(Events.NodeStreamDeltaEvent.class, n -> matchesThisSession(evt, n)))
+                                    .map(Events.GraphEvent::nodeId)
+                                    .orElseGet(evt::getProcessId);
+
                             var prev = EventBus.agentProcess.get();
+
                             try {
-                                EventBus.agentProcess.set(new EventBus.AgentNodeKey(evt.getProcessId()));
+                                EventBus.agentProcess.set(new EventBus.AgentNodeKey(thisArtifactKeyForMessage));
                                 chatModel.call(new Prompt(new AssistantMessage(evt.getMessage().getContent())));
                             } finally {
                                 EventBus.agentProcess.set(prev);
@@ -147,6 +157,19 @@ public class MultiAgentEmbabelConfig {
                 },
                 DevNullOutputChannel.INSTANCE
         ));
+    }
+
+    private static boolean matchesThisSession(MessageOutputChannelEvent evt, Events.GraphEvent n) {
+        try {
+            var a = new ArtifactKey(n.nodeId());
+            if (a.isRoot()) {
+                return evt.getProcessId().equals(a.value());
+            } else {
+                return evt.getProcessId().equals(a.root().value());
+            }
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
