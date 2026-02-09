@@ -26,7 +26,7 @@ class TuiChatView extends InputView {
 
     int requiredHeight(int width) {
         ChatLine chatLine = resolveChatLine();
-        int contentWidth = Math.max(1, width - 2);
+        int contentWidth = TuiTextLayout.safeContentWidth(Math.max(1, width - 2));
         List<String> lines = TuiTextLayout.wrapFixed(chatLine.prompt() + chatLine.value(), contentWidth);
         int desired = lines.size() + 2;
         return Math.max(3, Math.min(10, desired));
@@ -55,7 +55,7 @@ class TuiChatView extends InputView {
         super.drawInternal(screen);
 
         Rectangle inner = getInnerRect();
-        int width = Math.max(1, inner.width());
+        int width = TuiTextLayout.safeContentWidth(inner.width());
         int height = Math.max(1, inner.height());
 
         String full = chatLine.prompt() + chatLine.value();

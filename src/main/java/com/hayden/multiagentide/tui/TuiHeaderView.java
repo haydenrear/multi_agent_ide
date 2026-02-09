@@ -28,7 +28,7 @@ class TuiHeaderView extends BoxView {
         setTitle("Session " + abbreviate(sessionId));
 
         Rectangle inner = getInnerRect();
-        int width = Math.max(1, inner.width());
+        int width = TuiTextLayout.safeContentWidth(inner.width());
         int y = inner.y();
 
         String focus = state == null || state.focus() == null ? TuiFocus.CHAT_INPUT.name() : state.focus().name();
