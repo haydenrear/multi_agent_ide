@@ -5,24 +5,29 @@ import org.springframework.shell.component.view.control.BoxView;
 import org.springframework.shell.component.view.screen.Screen;
 import org.springframework.shell.geom.Rectangle;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
 class TuiHeaderView extends BoxView {
 
+    private final Path initialRepoPath;
     private String sessionId = "";
     private TuiState state = null;
-    private TuiSessionState sessionState = TuiSessionState.initial();
+    private TuiSessionState sessionState;
 
-    TuiHeaderView() {
+    TuiHeaderView(Path initialRepoPath) {
+        this.initialRepoPath = initialRepoPath;
+        this.sessionState = TuiSessionState.initial(initialRepoPath);
         setShowBorder(true);
     }
 
     void update(TuiState state, String sessionId, TuiSessionState sessionState) {
         this.state = state;
         this.sessionId = sessionId == null ? "" : sessionId;
-        this.sessionState = sessionState == null ? TuiSessionState.initial() : sessionState;
+        Path repo = sessionState != null && sessionState.repo() != null ? sessionState.repo() : initialRepoPath;
+        this.sessionState = sessionState == null ? TuiSessionState.initial(repo) : sessionState;
     }
 
     @Override
@@ -35,10 +40,12 @@ class TuiHeaderView extends BoxView {
 
         String focus = state == null || state.focus() == null ? TuiFocus.CHAT_INPUT.name() : state.focus().name();
         String topLine = "events=" + sessionState.events().size() + " selected=" + sessionState.selectedIndex() + " focus=" + focus;
+        String repoLine = "repo=" + abbreviate(sessionState.repo() == null ? "none" : sessionState.repo().toString(), width - 12);
         String keyLine = "Tab focus  Ctrl+S sessions  Ctrl+E events  Ctrl+F search  Ctrl+N new";
 
         List<String> lines = new ArrayList<>();
         lines.addAll(TuiTextLayout.wrapFixed(topLine, width));
+        lines.addAll(TuiTextLayout.wrapFixed(repoLine, width));
         lines.addAll(TuiTextLayout.wrapFixed(keyLine, width));
 
         Screen.Writer writer = screen.writerBuilder().build();
@@ -54,14 +61,15 @@ class TuiHeaderView extends BoxView {
         super.drawInternal(screen);
     }
 
-    private String abbreviate(String text) {
+    private String abbreviate(String text, int maxSize) {
         String sanitized = TuiTextLayout.sanitizeInline(text);
         if (sanitized.isBlank()) {
             return "none";
         }
-        if (sanitized.length() <= 10) {
+        if (sanitized.length() <= Math.max(40, maxSize)) {
             return sanitized;
         }
-        return sanitized.substring(0, 10) + "...";
+        return sanitized.substring(0, Math.max(40, maxSize)) + "...";
     }
+
 }

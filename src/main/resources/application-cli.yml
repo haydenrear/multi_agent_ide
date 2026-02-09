@@ -2,3 +2,17 @@ logging.config: classpath:logback-multi-agent-ide.xml
 
 
 #logging.level.org.springframework.shell.component.view.event: TRACE
+#spring:
+#  liquibase:
+#    enabled: false
+multi-agent-embabel:
+  chat-model:
+    provider: acp
+  acp:
+    transport: stdio
+    command: goose acp
+    args: ${ACP_ARGS:}
+    working-directory: ${ACP_WORKING_DIR:}
+    #    will throw an error if your on mac for some security ring
+    env:
+      GOOSE_MODE: auto

@@ -7,21 +7,26 @@ import org.springframework.shell.component.view.screen.Screen;
 import org.springframework.shell.geom.Position;
 import org.springframework.shell.geom.Rectangle;
 
+import java.nio.file.Path;
 import java.util.List;
 
 @Slf4j
 class TuiChatView extends InputView {
 
+    private final Path initialRepoPath;
     private TuiState state = null;
-    private TuiSessionState sessionState = TuiSessionState.initial();
+    private TuiSessionState sessionState;
 
-    TuiChatView() {
+    TuiChatView(Path initialRepoPath) {
+        this.initialRepoPath = initialRepoPath;
+        this.sessionState = TuiSessionState.initial(initialRepoPath);
         setShowBorder(true);
     }
 
     void update(TuiState state, TuiSessionState sessionState) {
         this.state = state;
-        this.sessionState = sessionState == null ? TuiSessionState.initial() : sessionState;
+        Path repo = sessionState != null && sessionState.repo() != null ? sessionState.repo() : initialRepoPath;
+        this.sessionState = sessionState == null ? TuiSessionState.initial(repo) : sessionState;
     }
 
     int requiredHeight(int width) {

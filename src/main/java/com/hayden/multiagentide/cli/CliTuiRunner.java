@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 
+import java.nio.file.Path;
 import java.util.UUID;
 
 @ShellComponent
@@ -31,14 +32,15 @@ public class CliTuiRunner {
 
     @ShellMethod(key = "tui", value = "Launch the interactive TUI session")
     public String tui() {
-        String defaultRepo = resolveDefaultRepositoryUrl();
-        tuiSession.configureSession("session-" + UUID.randomUUID(), goal -> startGoal(defaultRepo, goal));
+        Path defaultRepo = resolveDefaultRepositoryPath();
+        tuiSession.configureSession("session-" + UUID.randomUUID(), defaultRepo, this::startGoal);
         tuiSession.run();
         return "TUI session closed.";
     }
 
     private String startGoal(String repo, String goal) {
         try {
+            log.info("Starting goal.");
             OrchestrationController.StartGoalResponse response =
                     orchestrationController.startGoalAsync(new OrchestrationController.StartGoalRequest(
                             goal,
@@ -53,11 +55,11 @@ public class CliTuiRunner {
         }
     }
 
-    private String resolveDefaultRepositoryUrl() {
+    private Path resolveDefaultRepositoryPath() {
         if (envConfigProps != null && envConfigProps.getProjectDir() != null) {
-            return envConfigProps.getProjectDir().toString();
+            return envConfigProps.getProjectDir().toAbsolutePath().normalize();
         }
-        return System.getProperty("user.dir");
+        return Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
     }
 
     private String resolveTitle(String goal) {
