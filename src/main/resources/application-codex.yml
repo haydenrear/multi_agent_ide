@@ -73,12 +73,12 @@ multi-agent-embabel:
     provider: acp
   acp:
     transport: stdio
-    command: goose acp
+    command: ${ACP_COMMAND:codex-acp}
     args: ${ACP_ARGS:}
     working-directory: ${ACP_WORKING_DIR:}
-    #    will throw an error if your on mac for some security ring
-    env:
-      GOOSE_MODE: auto
+    auth-method: chatgpt
+#    env:
+#      PATH:
 
 # Logging
 logging:
