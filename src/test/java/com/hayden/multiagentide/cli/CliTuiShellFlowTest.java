@@ -334,7 +334,8 @@ class CliTuiShellFlowTest {
         assertThat(formatted).contains("[MESSAGE]");
         assertThat(formatted).contains("ADD_MESSAGE");
         assertThat(formatted).contains("message=detail-check");
-        assertThat(formatted).doesNotContain("{\"eventId\"");
+        assertThat(formatted).contains("event={");
+        assertThat(formatted).contains("\"toAddMessage\":\"detail-check");
     }
 
     @Test
