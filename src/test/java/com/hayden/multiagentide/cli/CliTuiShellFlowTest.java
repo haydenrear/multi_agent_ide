@@ -25,6 +25,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 import org.springframework.shell.test.ShellTestClient;
 import org.springframework.shell.test.autoconfigure.ShellTest;
+import org.springframework.test.annotation.DirtiesContext;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ import static org.mockito.Mockito.when;
         "spring.main.lazy-initialization=true",
         "spring.docker.compose.enabled=false"
 }, terminalWidth = 70, terminalHeight = 120)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class CliTuiShellFlowTest {
 
     private static final String CTRL_C = String.valueOf((char) 3);
@@ -76,12 +78,6 @@ class CliTuiShellFlowTest {
     @Import(CliModeConfig.class)
     @ComponentScan(basePackageClasses = {TuiSession.class, CliTuiRunner.class})
     static class TestConfig {
-
-        @Bean
-        @Primary
-        CliOutputWriter cliOutputWriter() {
-            return mock(CliOutputWriter.class);
-        }
 
         @Bean
         @Primary

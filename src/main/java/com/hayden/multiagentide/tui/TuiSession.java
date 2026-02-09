@@ -326,7 +326,7 @@ public class TuiSession implements EventListener {
             return null;
         }
 
-        if (handlePendingPermissions(text.trim()) || handlePendingInterrupts(text.trim())) {
+        if (handlePendingPermissions(currentSession, text.trim()) || handlePendingInterrupts(currentSession, text.trim())) {
             return null;
         }
 
@@ -375,18 +375,17 @@ public class TuiSession implements EventListener {
         );
     }
 
-    private boolean handlePendingPermissions(String input) {
-        List<IPermissionGate.PendingPermissionRequest> pending = permissionGateAdapter.pendingPermissionRequests();
-        if (pending == null || pending.isEmpty()) {
+    private boolean handlePendingPermissions(String sessionId, String input) {
+        IPermissionGate.PendingPermissionRequest request = findPendingPermissionForSession(sessionId);
+        if (request == null) {
             return false;
         }
-        IPermissionGate.PendingPermissionRequest request = pending.get(0);
         if ("cancel".equalsIgnoreCase(input)) {
             permissionGateAdapter.resolveCancelled(request.getRequestId());
             return true;
         }
         List<com.agentclientprotocol.model.PermissionOption> options = request.getPermissions();
-        if (options != null && !options.isEmpty()) {
+        if (!options.isEmpty()) {
             try {
                 int index = Integer.parseInt(input);
                 if (index >= 1 && index <= options.size()) {
@@ -400,12 +399,11 @@ public class TuiSession implements EventListener {
         return true;
     }
 
-    private boolean handlePendingInterrupts(String input) {
-        List<IPermissionGate.PendingInterruptRequest> pending = permissionGateAdapter.pendingInterruptRequests();
-        if (pending == null || pending.isEmpty()) {
+    private boolean handlePendingInterrupts(String sessionId, String input) {
+        IPermissionGate.PendingInterruptRequest request = findPendingInterruptForSession(sessionId);
+        if (request == null) {
             return false;
         }
-        IPermissionGate.PendingInterruptRequest request = pending.get(0);
         String resolutionType;
         String resolutionNotes;
         if (input.isBlank()) {
@@ -422,6 +420,58 @@ public class TuiSession implements EventListener {
         return true;
     }
 
+    private IPermissionGate.PendingPermissionRequest findPendingPermissionForSession(String sessionId) {
+        List<IPermissionGate.PendingPermissionRequest> pending = permissionGateAdapter.pendingPermissionRequests();
+        if (pending == null || pending.isEmpty()) {
+            return null;
+        }
+        String sessionRoot = resolveRootNodeId(sessionId);
+        for (IPermissionGate.PendingPermissionRequest request : pending) {
+            if (matchesSessionRoot(sessionRoot, request.getOriginNodeId())
+                    || matchesSessionRoot(sessionRoot, request.getNodeId())) {
+                return request;
+            }
+        }
+        return null;
+    }
+
+    private IPermissionGate.PendingInterruptRequest findPendingInterruptForSession(String sessionId) {
+        List<IPermissionGate.PendingInterruptRequest> pending = permissionGateAdapter.pendingInterruptRequests();
+        if (pending == null || pending.isEmpty()) {
+            return null;
+        }
+        String sessionRoot = resolveRootNodeId(sessionId);
+        for (IPermissionGate.PendingInterruptRequest request : pending) {
+            if (matchesSessionRoot(sessionRoot, request.getOriginNodeId())) {
+                return request;
+            }
+        }
+        return null;
+    }
+
+    private boolean matchesSessionRoot(String sessionRoot, String nodeId) {
+        if (sessionRoot == null || sessionRoot.isBlank() || nodeId == null || nodeId.isBlank()) {
+            return false;
+        }
+        return sessionRoot.equals(resolveRootNodeId(nodeId));
+    }
+
+    private String resolveRootNodeId(String nodeId) {
+        if (nodeId == null || nodeId.isBlank()) {
+            return null;
+        }
+        try {
+            ArtifactKey artifactKey = new ArtifactKey(nodeId);
+            if (artifactKey.isRoot()) {
+                return artifactKey.value();
+            }
+
+            return artifactKey.root().value();
+        } catch (Exception ignored) {
+            return nodeId;
+        }
+    }
+
     private String resolveSessionId(Events.GraphEvent event) {
         if (event instanceof Events.TuiInteractionGraphEvent interaction) {
             return interaction.sessionId();
@@ -430,11 +480,7 @@ public class TuiSession implements EventListener {
         if (nodeId == null || nodeId.isBlank()) {
             return state == null ? activeSessionId : state.activeSessionId();
         }
-        try {
-            return new ArtifactKey(nodeId).root().value();
-        } catch (Exception ignored) {
-            return nodeId;
-        }
+        return resolveRootNodeId(nodeId);
     }
 
     private void moveSessionSelection(int delta) {
