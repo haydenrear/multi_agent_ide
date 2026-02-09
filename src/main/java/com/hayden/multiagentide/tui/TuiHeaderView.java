@@ -1,5 +1,6 @@
 package com.hayden.multiagentide.tui;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.shell.component.view.control.BoxView;
 import org.springframework.shell.component.view.screen.Screen;
 import org.springframework.shell.geom.Rectangle;
@@ -7,6 +8,7 @@ import org.springframework.shell.geom.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 class TuiHeaderView extends BoxView {
 
     private String sessionId = "";
@@ -25,7 +27,7 @@ class TuiHeaderView extends BoxView {
 
     @Override
     protected void drawInternal(Screen screen) {
-        setTitle("Session " + abbreviate(sessionId));
+        setTitle("Session " + sessionId);
 
         Rectangle inner = getInnerRect();
         int width = TuiTextLayout.safeContentWidth(inner.width());
@@ -53,12 +55,13 @@ class TuiHeaderView extends BoxView {
     }
 
     private String abbreviate(String text) {
-        if (text == null || text.isBlank()) {
+        String sanitized = TuiTextLayout.sanitizeInline(text);
+        if (sanitized.isBlank()) {
             return "none";
         }
-        if (text.length() <= 10) {
-            return text;
+        if (sanitized.length() <= 10) {
+            return sanitized;
         }
-        return text.substring(0, 10) + "...";
+        return sanitized.substring(0, 10) + "...";
     }
 }

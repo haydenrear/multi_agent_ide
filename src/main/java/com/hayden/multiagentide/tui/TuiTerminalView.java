@@ -51,6 +51,8 @@ class TuiTerminalView extends GridView {
     private static final int ESCAPE_KEY = 27;
     private static final int CTRL_F = 6;
     private static final int CTRL_N = 14;
+    private static final int MIN_MENU_HEIGHT = 3;
+    private static final int MIN_SESSION_VIEW_HEIGHT = 8;
     private static final int CTRL_S = 19;
     private static final int CTRL_E = 5;
 
@@ -142,11 +144,13 @@ class TuiTerminalView extends GridView {
             return;
         }
 
+
         String sessionId = resolveActiveSessionId(state);
         TuiSessionState sessionState = resolveSessionState(state, sessionId);
 
         sessionMenu.setTitle(state.focus() == TuiFocus.SESSION_LIST ? "Sessions (focus)" : "Sessions");
-        sessionMenu.setItems(buildSessionMenuItems(state, sessionId));
+        List<MenuView.MenuItem> menuItems = buildSessionMenuItems(state, sessionId);
+        sessionMenu.setItems(menuItems);
         ensureConfigured(sessionMenu);
 
         TuiSessionView sessionView = sessionViews.computeIfAbsent(
@@ -154,6 +158,7 @@ class TuiTerminalView extends GridView {
                 this::newSessionView
         );
         sessionView.update(state, sessionState);
+        updateRowLayout(menuItems.size());
 
         ensureLayoutItems(sessionView);
 
@@ -195,6 +200,15 @@ class TuiTerminalView extends GridView {
         }
         items.add(MenuView.MenuItem.of("+", MenuView.MenuItemCheckStyle.NOCHECK, controller::createNewSession));
         return items;
+    }
+
+    private void updateRowLayout(int menuItemCount) {
+        int totalHeight = Math.max(MIN_MENU_HEIGHT + 1, getInnerRect().height());
+        int desiredMenuHeight = Math.max(MIN_MENU_HEIGHT, menuItemCount + 2);
+        int maxMenuHeight = Math.max(MIN_MENU_HEIGHT, totalHeight - MIN_SESSION_VIEW_HEIGHT);
+        int menuHeight = Math.min(desiredMenuHeight, maxMenuHeight);
+        int sessionHeight = Math.max(1, totalHeight - menuHeight);
+        setRowSize(menuHeight, sessionHeight);
     }
 
     private void ensureLayoutItems(TuiSessionView sessionView) {
@@ -412,12 +426,13 @@ class TuiTerminalView extends GridView {
     }
 
     private String abbreviate(String text) {
-        if (text == null || text.isBlank()) {
+        String sanitized = TuiTextLayout.sanitizeInline(text);
+        if (sanitized.isBlank()) {
             return "none";
         }
-        if (text.length() <= 12) {
-            return text;
+        if (sanitized.length() <= 12) {
+            return sanitized;
         }
-        return text.substring(0, 12) + "...";
+        return sanitized.substring(0, 12) + "...";
     }
 }
