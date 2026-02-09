@@ -1,5 +1,7 @@
 package com.hayden.multiagentide.controller;
 
+import com.hayden.acp_cdc_ai.acp.events.EventBus;
+import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -8,6 +10,8 @@ import java.util.concurrent.ExecutorService;
 import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,6 +29,15 @@ public class OrchestrationController {
 
     private final AgentLifecycleHandler agentLifecycleHandler;
 
+    private EventBus eventBus;
+
+    @Autowired
+    @Lazy
+    public void setEventBus(EventBus eventBus) {
+        this.eventBus = eventBus;
+    }
+
+
 //    private static final ExecutorService exec =
 
     @PostMapping("/start")
@@ -40,7 +53,8 @@ public class OrchestrationController {
             throw new IllegalArgumentException("repositoryUrl is required");
         }
 
-        String nodeId = ArtifactKey.createRoot().value();
+        ArtifactKey root = ArtifactKey.createRoot();
+        String nodeId = root.value();
 
         String baseBranch = (request.baseBranch() == null || request.baseBranch().isBlank())
                 ? "main"
@@ -54,7 +68,9 @@ public class OrchestrationController {
                 request.title(),
                 nodeId
         )).exceptionally(t -> {
-            log.error("Error when attempting to start orchestrator - {}.", t.getMessage(), t);
+            String message = "Error when attempting to start orchestrator - %s.".formatted(t.getMessage());
+            log.error(message, t);
+            eventBus.publish(Events.NodeErrorEvent.err(message, root));
             return null;
         });
 
