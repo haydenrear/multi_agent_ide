@@ -290,11 +290,7 @@ class TuiTerminalView extends GridView {
     }
 
     private String formatDetail(Events.GraphEvent event) {
-        return event.eventType()
-                + "\nid=" + event.eventId()
-                + "\nnode=" + event.nodeId()
-                + "\n\n"
-                + formatter.format(event);
+        return formatter.format(new CliEventFormatter.CliEventArgs(20_000, event, true));
     }
 
     private void onChar(KeyEvent event) {
