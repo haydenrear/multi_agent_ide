@@ -1,9 +1,5 @@
 package com.hayden.multiagentide.cli;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.acp_cdc_ai.acp.events.Artifact;
 import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.multiagentidelib.agent.AgentContext;
@@ -16,11 +12,6 @@ import java.util.Map;
 public class CliEventFormatter {
 
     private static final int MAX_FIELD_LENGTH = 160;
-    private static final ObjectMapper EVENT_MAPPER = new ObjectMapper()
-            .findAndRegisterModules()
-            .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
-            .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
-
     private final ArtifactKeyFormatter artifactKeyFormatter;
 
     public CliEventFormatter(ArtifactKeyFormatter artifactKeyFormatter) {
@@ -450,24 +441,27 @@ public class CliEventFormatter {
         };
     }
 
-    private String formatFallback(CliEventArgs args, Events.GraphEvent event) {
-        String details = "node=" + summarize(args, event.nodeId());
-        return format(args, "EVENT", event, details);
-    }
-
     private String format(CliEventArgs args, String category, Events.GraphEvent event, String details) {
         String prefix = "[" + category + "]";
-        return prefix + " " + event.eventType() + " node=" + summarize(args, event.nodeId())
+        String header = prefix + " " + event.eventType() + " node=" + summarize(args, event.nodeId());
+        String payload = serializeEvent(args, event);
+        if (args.prettyPrint()) {
+            return header
+                    + "\n\tDetails: " + details
+                    + "\n\tPayload:\n"
+                    + indent(payload, 2);
+        }
+        return header
                 + " " + details
-                + " event=" + serializeEvent(args, event);
+                + " payload=" + summarize(args, payload.replace('\n', ' '));
     }
 
     private String serializeEvent(CliEventArgs args, Events.GraphEvent event) {
-        try {
-            return EVENT_MAPPER.writeValueAsString(event);
-        } catch (JsonProcessingException ignored) {
-            return summarize(args, event);
+        String pretty = event.prettyPrint();
+        if (pretty == null || pretty.isBlank()) {
+            return summarize(args, event.eventType());
         }
+        return pretty;
     }
 
     private String summarize(CliEventArgs args, Object value) {
@@ -480,6 +474,19 @@ public class CliEventFormatter {
             return text;
         }
         return text.substring(0, maxFieldLength) + "...";
+    }
+
+    private String indent(String text, int depth) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String prefix = "\t".repeat(Math.max(0, depth));
+        return text.replace("\r\n", "\n")
+                .replace("\r", "\n")
+                .lines()
+                .map(line -> prefix + line)
+                .reduce((left, right) -> left + "\n" + right)
+                .orElse("");
     }
 
     private int countOf(List<?> items) {
