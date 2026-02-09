@@ -72,6 +72,7 @@ public class WorktreeSandboxPromptContributorFactory implements PromptContributo
             String submoduleInfo = buildSubmoduleInfo(worktreeContext.submoduleWorktrees());
 
             return template()
+                    .replace("{{repository_path}}", repoUrl)
                     .replace("{{main_worktree_path}}", mainPath)
                     .replace("{{derived_branch}}", derivedBranch)
                     .replace("{{submodule_info}}", submoduleInfo);
@@ -107,9 +108,11 @@ public class WorktreeSandboxPromptContributorFactory implements PromptContributo
                     
                     
                     ## Notes on Tool Calls
-                   
-                    You should be making those tool calls on the worktree path, instead of the 
-                    repository path. This is especially because
+                    You should be making those tool calls on the worktree path, instead of the
+                    repository path, {{repository_path}}, especially the writes, because we will then merge those changes into
+                    the main repository.
+                    
+                    This is especially because
                     """;
         }
 
