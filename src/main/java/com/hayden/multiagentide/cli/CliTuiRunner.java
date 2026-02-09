@@ -3,12 +3,15 @@ package com.hayden.multiagentide.cli;
 import com.hayden.multiagentide.controller.OrchestrationController;
 import com.hayden.multiagentide.tui.TuiSession;
 import com.hayden.utilitymodule.config.EnvConfigProps;
+import com.hayden.utilitymodule.git.RepoUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 
+import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.UUID;
 
 @ShellComponent
@@ -39,13 +42,21 @@ public class CliTuiRunner {
     }
 
     private String startGoal(String repo, String goal) {
-        try {
+        try (var g = RepoUtil.initGit(Paths.get(repo))) {
             log.info("Starting goal.");
+            var branch = g.map(git -> {
+                try {
+                    return git.getRepository().getBranch();
+                } catch (IOException e) {
+                    log.error("Error finding branch.", e);
+                    return "main";
+                }
+            }).orElseRes("main");
             OrchestrationController.StartGoalResponse response =
                     orchestrationController.startGoalAsync(new OrchestrationController.StartGoalRequest(
                             goal,
                             repo,
-                            "main",
+                            branch,
                             resolveTitle(goal)
                     ));
             return response.nodeId();
