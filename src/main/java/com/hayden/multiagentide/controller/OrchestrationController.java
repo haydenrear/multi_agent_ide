@@ -27,15 +27,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class OrchestrationController {
 
-    private final AgentLifecycleHandler agentLifecycleHandler;
+    private final GoalExecutor goalExecutor;
 
-    private EventBus eventBus;
-
-    @Autowired
-    @Lazy
-    public void setEventBus(EventBus eventBus) {
-        this.eventBus = eventBus;
-    }
 
 
 //    private static final ExecutorService exec =
@@ -54,27 +47,8 @@ public class OrchestrationController {
         }
 
         ArtifactKey root = ArtifactKey.createRoot();
-        String nodeId = root.value();
-
-        String baseBranch = (request.baseBranch() == null || request.baseBranch().isBlank())
-                ? "main"
-                : request.baseBranch();
-
-//      TODO: run this on a special executor service (virtual ???) BUT make sure thread locals still work...
-        CompletableFuture.runAsync(() -> agentLifecycleHandler.initializeOrchestrator(
-                request.repositoryUrl(),
-                baseBranch,
-                request.goal(),
-                request.title(),
-                nodeId
-        )).exceptionally(t -> {
-            String message = "Error when attempting to start orchestrator - %s.".formatted(t.getMessage());
-            log.error(message, t);
-            eventBus.publish(Events.NodeErrorEvent.err(message, root));
-            return null;
-        });
-
-        return new StartGoalResponse(nodeId);
+        goalExecutor.executeGoal(request, root);
+        return new StartGoalResponse(root.value());
     }
 
     public record StartGoalRequest(
