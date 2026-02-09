@@ -73,11 +73,12 @@ multi-agent-embabel:
     provider: acp
   acp:
     transport: stdio
-    command: ${ACP_COMMAND:codex-acp}
+    command: goose acp
     args: ${ACP_ARGS:}
     working-directory: ${ACP_WORKING_DIR:}
-    endpoint: ${ACP_ENDPOINT:}
-    api-key: ${ACP_API_KEY:}
+    #    will throw an error if your on mac for some security ring
+    env:
+      GOOSE_MODE: auto
 
 # Logging
 logging:
