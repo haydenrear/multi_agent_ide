@@ -8,7 +8,9 @@ import org.springframework.shell.component.view.control.*;
 import org.springframework.shell.component.view.event.KeyEvent;
 import org.springframework.shell.component.view.event.KeyHandler;
 import org.springframework.shell.component.view.screen.Screen;
+import org.springframework.shell.geom.Rectangle;
 
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -22,6 +24,34 @@ import java.util.function.Supplier;
 
 @Slf4j
 class TuiTerminalView extends GridView {
+    private static final Field WINDOW_MIN_WIDTH_FIELD;
+    private static final Field WINDOW_MAX_WIDTH_FIELD;
+    private static final Field WINDOW_MIN_HEIGHT_FIELD;
+    private static final Field WINDOW_MAX_HEIGHT_FIELD;
+
+    static {
+        Field minWidth = null;
+        Field maxWidth = null;
+        Field minHeight = null;
+        Field maxHeight = null;
+        try {
+            Class<?> windowView = Class.forName("org.springframework.shell.component.view.control.WindowView");
+            minWidth = windowView.getDeclaredField("minWidth");
+            maxWidth = windowView.getDeclaredField("maxWidth");
+            minHeight = windowView.getDeclaredField("minHeight");
+            maxHeight = windowView.getDeclaredField("maxHeight");
+            minWidth.setAccessible(true);
+            maxWidth.setAccessible(true);
+            minHeight.setAccessible(true);
+            maxHeight.setAccessible(true);
+        } catch (Exception ex) {
+            log.warn("Unable to access WindowView bounds fields; modal size may be capped by defaults");
+        }
+        WINDOW_MIN_WIDTH_FIELD = minWidth;
+        WINDOW_MAX_WIDTH_FIELD = maxWidth;
+        WINDOW_MIN_HEIGHT_FIELD = minHeight;
+        WINDOW_MAX_HEIGHT_FIELD = maxHeight;
+    }
 
     interface Controller {
         void moveSelection(int delta);
@@ -56,6 +86,10 @@ class TuiTerminalView extends GridView {
     private static final int MIN_SESSION_VIEW_HEIGHT = 8;
     private static final int CTRL_S = 19;
     private static final int CTRL_E = 5;
+    private static final int MODAL_HORIZONTAL_MARGIN = 2;
+    private static final int MODAL_VERTICAL_MARGIN = 1;
+    private static final int MIN_MODAL_WIDTH = 50;
+    private static final int MIN_MODAL_HEIGHT = 12;
 
     private final Supplier<TuiState> stateSupplier;
     private final CliEventFormatter formatter;
@@ -75,6 +109,7 @@ class TuiTerminalView extends GridView {
     private String modalEventId;
     private boolean modalOpen;
     private TuiDetailTextView activeDetailView;
+    private DialogView activeDialogView;
 
     TuiTerminalView(
             Supplier<TuiState> stateSupplier,
@@ -235,6 +270,7 @@ class TuiTerminalView extends GridView {
 
         String detailEventId = sessionState.detailEventId();
         if (modalOpen && detailEventId.equals(modalEventId)) {
+            resizeActiveModal();
             return;
         }
 
@@ -246,13 +282,16 @@ class TuiTerminalView extends GridView {
         DialogView dialogView = new DialogView(detailView, closeButton);
         dialogView.setLayer(100);
         detailView.setLayer(101);
+        applyModalSize(dialogView);
         ensureConfigured(closeButton);
         ensureConfigured(dialogView);
+        resizeActiveModal();
 
         modalViewConsumer.accept(dialogView);
         modalOpen = true;
         modalEventId = detailEventId;
         activeDetailView = detailView;
+        activeDialogView = dialogView;
 
     }
 
@@ -264,6 +303,7 @@ class TuiTerminalView extends GridView {
         modalOpen = false;
         modalEventId = null;
         activeDetailView = null;
+        activeDialogView = null;
     }
 
     boolean isModalOpen() {
@@ -291,6 +331,44 @@ class TuiTerminalView extends GridView {
 
     private String formatDetail(Events.GraphEvent event) {
         return formatter.format(new CliEventFormatter.CliEventArgs(20_000, event, true));
+    }
+
+    private void resizeActiveModal() {
+        if (!modalOpen || activeDialogView == null) {
+            return;
+        }
+        applyModalSize(activeDialogView);
+    }
+
+    private void applyModalSize(DialogView dialogView) {
+        Rectangle inner = getInnerRect();
+        int totalWidth = Math.max(MIN_MODAL_WIDTH, inner.width());
+        int totalHeight = Math.max(MIN_MODAL_HEIGHT, inner.height());
+
+        int desiredWidth = Math.max(MIN_MODAL_WIDTH, totalWidth - (MODAL_HORIZONTAL_MARGIN * 2));
+        int desiredHeight = Math.max(MIN_MODAL_HEIGHT, totalHeight - (MODAL_VERTICAL_MARGIN * 2));
+        int width = Math.min(totalWidth, desiredWidth);
+        int height = Math.min(totalHeight, desiredHeight);
+
+        int x = inner.x() + Math.max(0, (totalWidth - width) / 2);
+        int y = inner.y() + Math.max(0, (totalHeight - height) / 2);
+        applyDialogBounds(dialogView, width, height);
+        dialogView.setRect(x, y, width, height);
+    }
+
+    private void applyDialogBounds(DialogView dialogView, int width, int height) {
+        if (WINDOW_MIN_WIDTH_FIELD == null || WINDOW_MAX_WIDTH_FIELD == null
+                || WINDOW_MIN_HEIGHT_FIELD == null || WINDOW_MAX_HEIGHT_FIELD == null) {
+            return;
+        }
+        try {
+            WINDOW_MIN_WIDTH_FIELD.setInt(dialogView, width);
+            WINDOW_MAX_WIDTH_FIELD.setInt(dialogView, width);
+            WINDOW_MIN_HEIGHT_FIELD.setInt(dialogView, height);
+            WINDOW_MAX_HEIGHT_FIELD.setInt(dialogView, height);
+        } catch (IllegalAccessException ex) {
+            log.warn("Failed to apply DialogView bounds override", ex);
+        }
     }
 
     private void onChar(KeyEvent event) {
