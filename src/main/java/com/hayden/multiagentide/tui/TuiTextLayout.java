@@ -11,6 +11,12 @@ final class TuiTextLayout {
     private TuiTextLayout() {
     }
 
+    static int safeContentWidth(int innerWidth) {
+        // Spring Shell/JLine can report an inner rect that is slightly wider than the
+        // truly renderable text area in grid layouts. Reserve 2 chars defensively.
+        return Math.max(1, innerWidth - 2);
+    }
+
     static String sanitizeInline(String line) {
         if (line == null) {
             return "";

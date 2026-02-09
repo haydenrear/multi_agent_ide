@@ -99,9 +99,7 @@ class TuiMessageStreamView extends GridView {
         // Prepare items and viewport BEFORE super draws the ListView,
         // otherwise the ListView renders with stale/reset start=0, pos=0.
         Rectangle inner = getInnerRect();
-        // inner.width() accounts for the BoxView border, but the actual
-        // renderable cell area is 2 chars narrower due to grid cell positioning.
-        int width = Math.max(1, inner.width() - 2);
+        int width = TuiTextLayout.safeContentWidth(inner.width());
         visibleRows = Math.max(1, inner.height());
 
         List<EventLine> lines = buildEventLines(width);

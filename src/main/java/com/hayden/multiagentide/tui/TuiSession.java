@@ -115,6 +115,15 @@ public class TuiSession implements EventListener {
     }
 
     private void syncTerminalSizeAtStartup() {
+        Size current = safeSize(terminal::getSize);
+        int currentColumns = dimension(current, true);
+        int currentRows = dimension(current, false);
+        // Trust terminal-reported size when available. Forcing a guessed size
+        // can lock in an incorrect width until a manual resize occurs.
+        if (currentColumns > 0 && currentRows > 0) {
+            return;
+        }
+
         Size resolved = resolveStartupTerminalSize();
         if (resolved == null) {
             return;
