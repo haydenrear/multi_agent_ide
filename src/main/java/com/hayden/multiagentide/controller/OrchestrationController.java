@@ -7,6 +7,7 @@ import java.util.concurrent.ExecutorService;
 
 import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
  * REST controller for orchestration operations.
  * Provides endpoints for initializing goals, executing nodes, and checking status.
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/orchestrator")
 @RequiredArgsConstructor
@@ -51,7 +53,10 @@ public class OrchestrationController {
                 request.goal(),
                 request.title(),
                 nodeId
-        ));
+        )).exceptionally(t -> {
+            log.error("Error when attempting to start orchestrator - {}.", t.getMessage(), t);
+            return null;
+        });
 
         return new StartGoalResponse(nodeId);
     }

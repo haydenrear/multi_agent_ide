@@ -9,6 +9,7 @@ import org.springframework.shell.component.view.event.KeyEvent;
 import org.springframework.shell.component.view.event.KeyHandler;
 import org.springframework.shell.component.view.screen.Screen;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -59,6 +60,7 @@ class TuiTerminalView extends GridView {
     private final Supplier<TuiState> stateSupplier;
     private final CliEventFormatter formatter;
     private final EventStreamRepository eventStreamRepository;
+    private final Path initialRepoPath;
     private final Controller controller;
     private final IntConsumer eventListHeightConsumer;
     private final Consumer<View> modalViewConsumer;
@@ -78,6 +80,7 @@ class TuiTerminalView extends GridView {
             Supplier<TuiState> stateSupplier,
             CliEventFormatter formatter,
             EventStreamRepository eventStreamRepository,
+            Path initialRepoPath,
             Controller controller,
             IntConsumer eventListHeightConsumer,
             Consumer<View> modalViewConsumer,
@@ -85,6 +88,7 @@ class TuiTerminalView extends GridView {
         this.stateSupplier = stateSupplier;
         this.formatter = formatter;
         this.eventStreamRepository = eventStreamRepository;
+        this.initialRepoPath = initialRepoPath;
         this.controller = controller;
         this.eventListHeightConsumer = eventListHeightConsumer;
         this.modalViewConsumer = modalViewConsumer;
@@ -169,7 +173,9 @@ class TuiTerminalView extends GridView {
     }
 
     private TuiSessionView newSessionView(String sessionId) {
-        TuiSessionView sessionView = new TuiSessionView(sessionId, new TuiMessageStreamView(formatter));
+        TuiState state = stateSupplier.get();
+        Path repoPath = resolveRepoPath(state, sessionId);
+        TuiSessionView sessionView = new TuiSessionView(sessionId, repoPath, new TuiMessageStreamView(formatter, repoPath));
         for (View view : sessionView.allViews()) {
             ensureConfigured(view);
         }
@@ -420,9 +426,19 @@ class TuiTerminalView extends GridView {
 
     private TuiSessionState resolveSessionState(TuiState state, String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
-            return TuiSessionState.initial();
+            return TuiSessionState.initial(resolveRepoPath(state, sessionId));
         }
-        return state.sessions().getOrDefault(sessionId, TuiSessionState.initial());
+        return state.sessions().getOrDefault(sessionId, TuiSessionState.initial(resolveRepoPath(state, sessionId)));
+    }
+
+    private Path resolveRepoPath(TuiState state, String sessionId) {
+        if (state != null && sessionId != null && !sessionId.isBlank()) {
+            TuiSessionState sessionState = state.sessions().get(sessionId);
+            if (sessionState != null && sessionState.repo() != null) {
+                return sessionState.repo();
+            }
+        }
+        return initialRepoPath;
     }
 
     private String abbreviate(String text) {

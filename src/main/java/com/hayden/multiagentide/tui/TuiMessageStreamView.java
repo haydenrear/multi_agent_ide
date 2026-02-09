@@ -11,6 +11,7 @@ import org.springframework.shell.component.view.screen.Screen;
 import org.springframework.shell.geom.Rectangle;
 
 import java.lang.reflect.Field;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.shell.component.view.control.View;
@@ -37,14 +38,17 @@ class TuiMessageStreamView extends GridView {
 
     private final CliEventFormatter formatter;
     private final ListView<EventLine> eventList;
+    private final Path initialRepoPath;
 
     private TuiState state = null;
-    private TuiSessionState sessionState = TuiSessionState.initial();
+    private TuiSessionState sessionState;
     private int visibleRows = 1;
 
-    TuiMessageStreamView(CliEventFormatter formatter) {
+    TuiMessageStreamView(CliEventFormatter formatter, Path initialRepoPath) {
         this.formatter = formatter;
+        this.initialRepoPath = initialRepoPath;
         this.eventList = new ListView<>(ListView.ItemStyle.NOCHECK);
+        this.sessionState = TuiSessionState.initial(initialRepoPath);
 
         setShowBorder(true);
         setRowSize(0);
@@ -58,7 +62,8 @@ class TuiMessageStreamView extends GridView {
 
     void update(TuiState state, TuiSessionState sessionState) {
         this.state = state;
-        this.sessionState = sessionState == null ? TuiSessionState.initial() : sessionState;
+        Path repo = sessionState != null && sessionState.repo() != null ? sessionState.repo() : initialRepoPath;
+        this.sessionState = sessionState == null ? TuiSessionState.initial(repo) : sessionState;
     }
 
     int visibleRows() {

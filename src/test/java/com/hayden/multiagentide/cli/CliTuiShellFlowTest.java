@@ -483,9 +483,9 @@ class CliTuiShellFlowTest {
 
     private static TuiSessionState activeSession(TuiState state) {
         if (state == null || state.activeSessionId() == null) {
-            return TuiSessionState.initial();
+            return TuiSessionState.initial(state.repo());
         }
-        return state.sessions().getOrDefault(state.activeSessionId(), TuiSessionState.initial());
+        return state.sessions().getOrDefault(state.activeSessionId(), TuiSessionState.initial(state.repo()));
     }
 
     private static void sleep(long millis) {
