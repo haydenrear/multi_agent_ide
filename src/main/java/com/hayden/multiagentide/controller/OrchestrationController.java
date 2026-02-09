@@ -3,6 +3,7 @@ package com.hayden.multiagentide.controller;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import lombok.RequiredArgsConstructor;
@@ -22,30 +23,11 @@ public class OrchestrationController {
 
     private final AgentLifecycleHandler agentLifecycleHandler;
 
+//    private static final ExecutorService exec =
+
     @PostMapping("/start")
     public StartGoalResponse startGoal(@RequestBody StartGoalRequest request) {
-        if (request == null || request.goal() == null || request.goal().isBlank()) {
-            throw new IllegalArgumentException("goal is required");
-        }
-        if (request.repositoryUrl() == null || request.repositoryUrl().isBlank()) {
-            throw new IllegalArgumentException("repositoryUrl is required");
-        }
-
-        String nodeId = ArtifactKey.createRoot().value();
-
-        String baseBranch = (request.baseBranch() == null || request.baseBranch().isBlank())
-                ? "main"
-                : request.baseBranch();
-
-        agentLifecycleHandler.initializeOrchestrator(
-                request.repositoryUrl(),
-                baseBranch,
-                request.goal(),
-                request.title(),
-                nodeId
-        );
-
-        return new StartGoalResponse(nodeId);
+        return startGoalAsync(request);
     }
 
     public StartGoalResponse startGoalAsync(StartGoalRequest request) {
@@ -62,15 +44,14 @@ public class OrchestrationController {
                 ? "main"
                 : request.baseBranch();
 
-        CompletableFuture.runAsync(() -> {
-            agentLifecycleHandler.initializeOrchestrator(
-                    request.repositoryUrl(),
-                    baseBranch,
-                    request.goal(),
-                    request.title(),
-                    nodeId
-            );
-        });
+//      TODO: run this on a special executor service (virtual ???) BUT make sure thread locals still work...
+        CompletableFuture.runAsync(() -> agentLifecycleHandler.initializeOrchestrator(
+                request.repositoryUrl(),
+                baseBranch,
+                request.goal(),
+                request.title(),
+                nodeId
+        ));
 
         return new StartGoalResponse(nodeId);
     }
