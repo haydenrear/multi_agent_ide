@@ -4,12 +4,10 @@ import com.hayden.multiagentide.controller.OrchestrationController;
 import com.hayden.multiagentide.tui.TuiSession;
 import com.hayden.utilitymodule.config.EnvConfigProps;
 import org.springframework.context.annotation.Profile;
-import org.springframework.shell.context.InteractionMode;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @ShellComponent
 @Profile("cli")
