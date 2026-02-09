@@ -42,7 +42,8 @@ class TuiHeaderView extends BoxView {
         Screen.Writer writer = screen.writerBuilder().build();
         int row = 0;
         for (; row < Math.min(lines.size(), inner.height()); row++) {
-            writer.text(TuiTextLayout.pad(lines.get(row), width), inner.x(), y + row);
+            String line = TuiTextLayout.truncateWithEllipsis(lines.get(row), width);
+            writer.text(TuiTextLayout.pad(line, width), inner.x(), y + row);
         }
         for (; row < inner.height(); row++) {
             writer.text(TuiTextLayout.pad("", width), inner.x(), y + row);
