@@ -22,10 +22,12 @@ import java.util.Map;
 import java.util.Objects;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InterruptService {
@@ -69,12 +71,14 @@ public class InterruptService {
     ) {
         return switch (request.type()) {
             case HUMAN_REVIEW, AGENT_REVIEW, PAUSE -> {
+                log.info("Handling feedback from AI.");
                 String feedback = resolveInterruptFeedback(context, request, originNode, promptContext);
-                
+                log.info("Resolved feedback: {}.", feedback);
+
                 Map<String, Object> modelWithFeedback = new java.util.HashMap<>(templateModel);
                 modelWithFeedback.put("interruptFeedback", feedback);
 
-                yield llmRunner.runWithTemplate(
+                var s = llmRunner.runWithTemplate(
                         templateName,
                         promptContext,
                         modelWithFeedback,
@@ -82,6 +86,9 @@ public class InterruptService {
                         routingClass,
                         context
                 );
+
+                log.info("After feedback handled: {}, {}.", s.getClass().getSimpleName(), s);
+                yield s;
             }
             case BRANCH, STOP, PRUNE -> llmRunner.runWithTemplate(
                     templateName,
@@ -221,7 +228,8 @@ public class InterruptService {
                 callerPromptContext.previousRequest(),
                 request,
                 history,
-                TEMPLATE_WORKFLOW_REVIEW
+                TEMPLATE_WORKFLOW_REVIEW,
+                callerPromptContext.model()
         );
 
         promptContext = AgentInterfaces.decoratePromptContext(
