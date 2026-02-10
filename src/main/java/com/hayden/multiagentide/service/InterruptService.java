@@ -35,6 +35,7 @@ public class InterruptService {
     private static final String REVIEW_CRITERIA =
             "Review for correctness and completeness. Reply with approved if correct, otherwise explain issues.";
     private static final String TEMPLATE_WORKFLOW_REVIEW = "workflow/review";
+    private static final String TEMPLATE_REVIEW_RESOLUTION = "workflow/review_resolution";
     private static final String AGENT_NAME = "interrupt-service";
     private static final String ACTION_AGENT_REVIEW = "agent-review";
     private static final String METHOD_RUN_INTERRUPT_AGENT_REVIEW = "runInterruptAgentReview";
@@ -77,6 +78,26 @@ public class InterruptService {
 
                 Map<String, Object> modelWithFeedback = new java.util.HashMap<>(templateModel);
                 modelWithFeedback.put("interruptFeedback", feedback);
+                promptContext = promptContextFactory.build(
+                        AgentType.REVIEW_RESOLUTION_AGENT,
+                        promptContext.currentRequest(),
+                        promptContext.previousRequest(),
+                        promptContext.currentRequest(),
+                        promptContext.blackboardHistory(),
+                        TEMPLATE_REVIEW_RESOLUTION,
+                        modelWithFeedback
+                );
+
+                toolContext = AgentInterfaces.decorateToolContext(
+                        toolContext,
+                        request,
+                        promptContext.previousRequest(),
+                        context,
+                        toolContextDecorators,
+                        AGENT_NAME,
+                        ACTION_AGENT_REVIEW,
+                        METHOD_RUN_INTERRUPT_AGENT_REVIEW
+                );
 
                 var s = llmRunner.runWithTemplate(
                         templateName,
@@ -90,14 +111,22 @@ public class InterruptService {
                 log.info("After feedback handled: {}, {}.", s.getClass().getSimpleName(), s);
                 yield s;
             }
-            case BRANCH, STOP, PRUNE -> llmRunner.runWithTemplate(
-                    templateName,
+            case BRANCH, STOP, PRUNE -> {
+//
+                log.error("Received branch, stop, prune, unexpectedly - not implemented..");
+                Map<String, Object> modelWithFeedback = new java.util.HashMap<>(templateModel);
+                modelWithFeedback.put("interruptFeedback", """
+                        Please route back to the orchestrator with instructions to use best judgement and recommended approach.
+                        """);
+                yield llmRunner.runWithTemplate(
+                    TEMPLATE_REVIEW_RESOLUTION,
                     promptContext,
                     templateModel,
                     toolContext,
                     routingClass,
                     context
             );
+            }
         };
     }
 
