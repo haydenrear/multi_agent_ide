@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Default implementation of LlmRunner using Embabel's native prompt contribution pattern.
@@ -52,6 +53,7 @@ public class DefaultLlmRunner implements LlmRunner {
         var aiQuery = context
                 .ai()
                 .withDefaultLlm()
+                .withPropertyFilter(s -> !Objects.equals("contextId", s))
                 .withPromptElements(promptContext.promptContributors().toArray(ContextualPromptElement[]::new));
 
         aiQuery = applyToolContext(aiQuery, toolContext);
