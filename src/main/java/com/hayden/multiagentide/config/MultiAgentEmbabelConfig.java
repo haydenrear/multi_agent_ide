@@ -17,6 +17,7 @@ import com.hayden.acp_cdc_ai.acp.config.McpProperties;
 import com.hayden.acp_cdc_ai.acp.events.EventBus;
 import com.hayden.acp_cdc_ai.acp.AcpChatModel;
 import com.hayden.multiagentide.repository.EventStreamRepository;
+import io.micrometer.common.util.StringUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -33,6 +34,7 @@ import reactor.core.publisher.Flux;
 
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -134,21 +136,45 @@ public class MultiAgentEmbabelConfig {
                 (OutputChannel) event -> {
                     switch (event) {
                         case MessageOutputChannelEvent evt -> {
-//                          Have to do this because single agent process opens many chat sessions.
-                            var thisArtifactKeyForMessage = graphRepository.getLastMatching(Events.ChatSessionCreatedEvent.class, n -> matchesThisSession(evt, n))
-                                    .<Events.GraphEvent>map(n -> n)
-                                    .or(() -> graphRepository.getLastMatching(Events.NodeThoughtDeltaEvent.class, n -> matchesThisSession(evt, n)))
-                                    .or(() -> graphRepository.getLastMatching(Events.NodeStreamDeltaEvent.class, n -> matchesThisSession(evt, n)))
-                                    .map(Events.GraphEvent::nodeId)
-                                    .orElseGet(evt::getProcessId);
+                            String content = evt.getMessage().getContent();
 
-                            var prev = EventBus.agentProcess.get();
+                            if (StringUtils.isNotBlank(content)) {
 
-                            try {
-                                EventBus.agentProcess.set(new EventBus.AgentNodeKey(thisArtifactKeyForMessage));
-                                chatModel.call(new Prompt(new AssistantMessage(evt.getMessage().getContent())));
-                            } finally {
-                                EventBus.agentProcess.set(prev);
+                                if (content.startsWith("proc:")) {
+//                                    TODO: add sending messages to particular graph nodes
+                                }
+
+                                if (Objects.equals(content, "STOPQ")) {
+                                    var ap = agentPlatform.getAgentProcess(evt.getProcessId());
+
+                                    Optional.ofNullable(ap)
+                                            .ifPresentOrElse(
+                                                    proc -> {
+                                                        log.info("Received STOPQ - killing process {}.", proc.getId());
+                                                        var killed = proc.kill();
+                                                        log.info("Received STOPQ - killed process {}, {}.", proc.getId(), killed);
+                                                    },
+                                                    () -> log.info("Received kill request for unknown process, {}", evt.getProcessId()));
+                                }
+
+//                              Have to do this because single agent process opens many chat sessions.
+                                var thisArtifactKeyForMessage = graphRepository
+                                        .getLastMatching(Events.NodeStreamDeltaEvent.class, n -> matchesThisSession(evt, n))
+                                        .<Events.GraphEvent>map(n -> n)
+                                        .or(() -> graphRepository.getLastMatching(Events.NodeThoughtDeltaEvent.class, n -> matchesThisSession(evt, n)))
+                                        .or(() -> graphRepository.getLastMatching(Events.ToolCallEvent.class, n -> matchesThisSession(evt, n)))
+                                        .or(() -> graphRepository.getLastMatching(Events.ChatSessionCreatedEvent.class, n -> matchesThisSession(evt, n)))
+                                        .map(Events.GraphEvent::nodeId)
+                                        .orElseGet(evt::getProcessId);
+
+                                var prev = EventBus.agentProcess.get();
+
+                                try {
+                                    EventBus.agentProcess.set(new EventBus.AgentNodeKey(thisArtifactKeyForMessage));
+                                    chatModel.call(new Prompt(new AssistantMessage(content)));
+                                } finally {
+                                    EventBus.agentProcess.set(prev);
+                                }
                             }
                         }
                         default -> {
@@ -162,12 +188,20 @@ public class MultiAgentEmbabelConfig {
     private static boolean matchesThisSession(MessageOutputChannelEvent evt, Events.GraphEvent n) {
         try {
             var a = new ArtifactKey(n.nodeId());
+            boolean equals;
             if (a.isRoot()) {
-                return evt.getProcessId().equals(a.value());
+                equals = evt.getProcessId().equals(a.value());
             } else {
-                return evt.getProcessId().equals(a.root().value());
+                equals = evt.getProcessId().equals(a.root().value());
             }
+
+            if (equals) {
+                log.info("Found matching {}: {}.", n.getClass(), n.nodeId());
+            }
+
+            return equals;
         } catch (Exception e) {
+            log.error("Error finding session {}", e.getMessage(), e);
             return false;
         }
     }
