@@ -6,10 +6,12 @@ import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.prompt.PromptContext;
 import com.hayden.multiagentidelib.prompt.PromptContributor;
 import com.hayden.multiagentidelib.prompt.PromptContributorFactory;
+import io.micrometer.common.util.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Contributes review guidance when the current request is an interrupt
@@ -28,7 +30,8 @@ public class InterruptResolvedPromptContributorFactory implements PromptContribu
         if (!(context.currentRequest() instanceof AgentModels.InterruptRequest interruptRequest)) {
             return List.of();
         }
-        if (!context.model().containsKey("interruptFeedback")) {
+        if (!context.model().containsKey("interruptFeedback")
+                || StringUtils.isBlank(String.valueOf(context.model().get("interruptFeedback")))) {
             return List.of();
         }
 
@@ -54,10 +57,19 @@ public class InterruptResolvedPromptContributorFactory implements PromptContribu
             String contextForDecision = interruptRequest.contextForDecision() != null
                     ? interruptRequest.contextForDecision() : "";
 
-            return template()
+            String f = template()
                     .replace("{{interrupt_reason}}", reason)
                     .replace("{{context_for_decision}}", contextForDecision)
                     .replace("{{interrupt_feedback}}", String.valueOf(interruptFeedback.get("interruptFeedback")));
+
+            return Optional.ofNullable(context.previousRequest())
+                    .map(ar -> f.replace("{{last_request}}", """
+                        Here is the agent request that routed to you for the review, for context, and so you will know where to route back to in your response:
+                        Name: %s
+                        Printed:
+                        %s
+                        """.formatted(ar.getClass().getName(), ar.prettyPrint())))
+                    .orElse(f);
         }
 
         @Override
@@ -74,6 +86,8 @@ public class InterruptResolvedPromptContributorFactory implements PromptContribu
                     - **Decision**: {{interrupt_feedback}}
                    
                     Now that we have resolution, please route to the appropriate agent accordingly.
+                    
+                    {{last_request}}
                     """;
         }
 

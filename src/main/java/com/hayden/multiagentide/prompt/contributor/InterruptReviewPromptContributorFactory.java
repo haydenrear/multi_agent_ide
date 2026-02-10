@@ -6,6 +6,7 @@ import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.prompt.PromptContext;
 import com.hayden.multiagentidelib.prompt.PromptContributor;
 import com.hayden.multiagentidelib.prompt.PromptContributorFactory;
+import io.micrometer.common.util.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -28,6 +29,11 @@ public class InterruptReviewPromptContributorFactory implements PromptContributo
             return List.of();
         }
 
+        if (!context.model().containsKey("interruptFeedback")
+                || StringUtils.isBlank(String.valueOf(context.model().get("interruptFeedback")))) {
+            return List.of();
+        }
+
         if (interruptRequest.type() != Events.InterruptType.AGENT_REVIEW) {
             return List.of();
         }
@@ -35,9 +41,8 @@ public class InterruptReviewPromptContributorFactory implements PromptContributo
         return Lists.newArrayList(new InterruptReviewPromptContributor(interruptRequest));
     }
 
-    public record InterruptReviewPromptContributor(
-            AgentModels.InterruptRequest interruptRequest
-    ) implements PromptContributor {
+    public record InterruptReviewPromptContributor(AgentModels.InterruptRequest interruptRequest)
+            implements PromptContributor {
 
         @Override
         public String name() {
