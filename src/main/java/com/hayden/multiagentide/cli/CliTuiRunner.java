@@ -67,9 +67,6 @@ public class CliTuiRunner {
     }
 
     private Path resolveDefaultRepositoryPath() {
-        if (envConfigProps != null && envConfigProps.getProjectDir() != null) {
-            return envConfigProps.getProjectDir().toAbsolutePath().normalize();
-        }
         return Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
     }
 
