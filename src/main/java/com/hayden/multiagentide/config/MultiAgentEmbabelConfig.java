@@ -6,7 +6,8 @@ import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.AgentScope;
 import com.embabel.agent.core.support.DefaultAgentPlatform;
 import com.embabel.agent.spi.AgentProcessIdGenerator;
-import com.embabel.common.ai.model.Llm;
+import com.embabel.agent.spi.LlmService;
+import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.multiagentide.agent.AgentInterfaces;
@@ -126,8 +127,8 @@ public class MultiAgentEmbabelConfig {
     }
 
     @Bean
-    public Llm llm(org.springframework.ai.chat.model.ChatModel chatModel) {
-        return new Llm("acp-chat-model", modelProvider, chatModel);
+    public LlmService<SpringAiLlmService> llm(org.springframework.ai.chat.model.ChatModel chatModel) {
+        return new SpringAiLlmService("acp-chat-model", modelProvider, chatModel);
     }
 
     @Bean
