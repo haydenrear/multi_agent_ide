@@ -110,12 +110,12 @@ public class CliEventFormatter {
     }
 
     private String formatToolCall(CliEventArgs args, Events.ToolCallEvent event) {
-        String details = "tool=" + summarize(args, event.title())
-                + " kind=" + summarize(args, event.kind())
-                + " status=" + summarize(args, event.status())
-                + " phase=" + summarize(args, event.phase())
-                + " input=" + summarize(args, event.rawInput())
-                + " output=" + summarize(args, event.rawOutput());
+        ToolCallRenderer renderer = ToolCallRendererFactory.rendererFor(event);
+        if (args.prettyPrint()) {
+            String header = "[TOOL] " + event.eventType() + " node=" + summarize(args, event.nodeId());
+            return header + "\n" + indent(renderer.formatDetail(args, event), 1);
+        }
+        String details = renderer.formatSummary(args, event);
         return format(args, "TOOL", event, details);
     }
 
@@ -374,7 +374,6 @@ public class CliEventFormatter {
                             + " goal=" + summarize(args, r.goal());
             case AgentModels.InterruptRequest.OrchestratorCollectorInterruptRequest r ->
                     "OrchestratorCollectorInterruptRequest " + base
-                            + " phaseDecision=" + summarize(args, r.phaseDecision())
                             + " phaseOptions=" + countOf(r.phaseOptions());
             case AgentModels.InterruptRequest.DiscoveryOrchestratorInterruptRequest r ->
                     "DiscoveryOrchestratorInterruptRequest " + base

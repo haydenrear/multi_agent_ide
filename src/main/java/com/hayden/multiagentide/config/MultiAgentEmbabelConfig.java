@@ -20,6 +20,7 @@ import com.hayden.multiagentide.repository.EventStreamRepository;
 import io.micrometer.common.util.StringUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -43,7 +44,7 @@ import java.util.Optional;
 @Slf4j
 @Configuration
 @EnableConfigurationProperties({AcpModelProperties.class, McpProperties.class})
-@ComponentScan(basePackages = "com.hayden.acp_cdc_ai")
+@ComponentScan(basePackages = {"com.hayden.acp_cdc_ai"})
 public class MultiAgentEmbabelConfig {
 
     @Value("${multi-agent-embabel.chat-model.provider:acp}")
@@ -159,12 +160,18 @@ public class MultiAgentEmbabelConfig {
 
 //                              Have to do this because single agent process opens many chat sessions.
                                 var thisArtifactKeyForMessage = graphRepository
-                                        .getLastMatching(Events.NodeStreamDeltaEvent.class, n -> matchesThisSession(evt, n))
-                                        .<Events.GraphEvent>map(n -> n)
-                                        .or(() -> graphRepository.getLastMatching(Events.NodeThoughtDeltaEvent.class, n -> matchesThisSession(evt, n)))
-                                        .or(() -> graphRepository.getLastMatching(Events.ToolCallEvent.class, n -> matchesThisSession(evt, n)))
-                                        .or(() -> graphRepository.getLastMatching(Events.ChatSessionCreatedEvent.class, n -> matchesThisSession(evt, n)))
-                                        .map(Events.GraphEvent::nodeId)
+                                        .getLastMatching(Events.NodeThoughtDeltaEvent.class, n -> matchesThisSession(evt, n))
+                                                .map(Events.GraphEvent::nodeId)
+                                                .flatMap(MultiAgentEmbabelConfig::getDescendent)
+                                        .or(() -> graphRepository.getLastMatching(Events.ToolCallEvent.class, n -> matchesThisSession(evt, n))
+                                                .map(Events.GraphEvent::nodeId)
+                                                .flatMap(MultiAgentEmbabelConfig::getDescendent))
+                                        .or(() -> graphRepository.getLastMatching(Events.NodeStreamDeltaEvent.class, n -> matchesThisSession(evt, n))
+                                                .map(Events.GraphEvent::nodeId)
+                                                .flatMap(MultiAgentEmbabelConfig::getDescendent))
+                                        .or(() -> graphRepository
+                                                .getLastMatching(Events.ChatSessionCreatedEvent.class, n -> matchesThisSession(evt, n))
+                                                .map(Events.GraphEvent::nodeId))
                                         .orElseGet(evt::getProcessId);
 
                                 var prev = EventBus.agentProcess.get();
@@ -183,6 +190,18 @@ public class MultiAgentEmbabelConfig {
                 },
                 DevNullOutputChannel.INSTANCE
         ));
+    }
+
+    private static @NonNull Optional<String> getDescendent(String s) {
+        try {
+            return new ArtifactKey(s)
+                    .parent()
+                    .flatMap(ArtifactKey::parent)
+                    .map(ArtifactKey::value);
+        } catch (Exception e) {
+            log.error("Error getting descendent for {}.", s);
+            return Optional.empty();
+        }
     }
 
     private static boolean matchesThisSession(MessageOutputChannelEvent evt, Events.GraphEvent n) {

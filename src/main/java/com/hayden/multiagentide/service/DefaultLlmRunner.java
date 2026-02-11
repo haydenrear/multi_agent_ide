@@ -71,20 +71,6 @@ public class DefaultLlmRunner implements LlmRunner {
         
         return result;
     }
-    
-    /**
-     * Resolves the workflow run ID from the prompt context.
-     */
-    private String resolveWorkflowRunId(PromptContext promptContext) {
-        if (promptContext == null || promptContext.currentContextId() == null) {
-            return null;
-        }
-        String contextId = promptContext.currentContextId().value();
-        if (contextId == null || contextId.isBlank()) {
-            return null;
-        }
-        return contextId;
-    }
 
     private PromptRunner applyToolContext(PromptRunner promptRunner, ToolContext toolContext) {
         ToolContext mergedContext = mergeToolContext(toolContext);
