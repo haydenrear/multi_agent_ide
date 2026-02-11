@@ -312,13 +312,13 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
                         .toList();
             }
             case ToolAbstraction.EmbabelToolGroup etg -> {
-                yield etg.toolGroup().getToolCallbacks().stream()
+                yield etg.toolGroup().getTools().stream()
                         .map(tc -> {
-                            var def = tc.getToolDefinition();
+                            var def = tc.getDefinition();
                             return new ToolDescription(
-                                    def.name(),
-                                    def.description(),
-                                    def.inputSchema()
+                                    def.getName(),
+                                    def.getDescription(),
+                                    def.getInputSchema().toJsonSchema()
                             );
                         })
                         .toList();

@@ -6,6 +6,8 @@ import com.embabel.agent.api.common.PromptRunner;
 import com.embabel.agent.api.common.ToolObject;
 import com.embabel.agent.api.common.nested.TemplateOperations;
 import com.embabel.agent.core.AgentPlatform;
+import com.embabel.chat.AssistantMessage;
+import com.embabel.chat.Conversation;
 import com.hayden.multiagentide.agent.decorator.prompt.AddMemoryToolCallDecorator;
 import com.hayden.multiagentide.agent.decorator.prompt.ArtifactEmissionLlmCallDecorator;
 import com.hayden.multiagentide.tool.ToolContext;
@@ -14,6 +16,7 @@ import com.hayden.multiagentidelib.agent.AgentType;
 import com.hayden.multiagentidelib.prompt.PromptContext;
 import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
 import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
@@ -59,11 +62,22 @@ class DefaultLlmRunnerSpringBootTest {
         OperationContext operationContext = mock(OperationContext.class, Answers.RETURNS_DEEP_STUBS);
         PromptRunner promptRunner = mock(PromptRunner.class);
         String templateName = TEMPLATE_WORKFLOW_ORCHESTRATOR;
-        TemplateOperations templateOperations = new TemplateOperations(
-                templateName,
-                agentPlatform.getPlatformServices().getTemplateRenderer(),
-                promptRunner
-        );
+        TemplateOperations templateOperations = new TemplateOperations(){
+            @Override
+            public @NonNull AssistantMessage respondWithSystemPrompt(@NonNull Conversation conversation, @NonNull Map<String, ?> model) {
+                return null;
+            }
+
+            @Override
+            public @NonNull String generateText(@NonNull Map<String, ?> model) {
+                return "";
+            }
+
+            @Override
+            public <T> T createObject(@NonNull Class<T> outputClass, @NonNull Map<String, ?> model) {
+                return null;
+            }
+        };
 
         when(operationContext.ai().withDefaultLlm()).thenReturn(promptRunner);
         when(promptRunner.withPromptElements(any(ContextualPromptElement[].class))).thenReturn(promptRunner);
