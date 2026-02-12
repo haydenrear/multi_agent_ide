@@ -139,10 +139,12 @@ tasks.compileJava {
 tasks.test {
     if (project.findProperty("profile") == "integration") {
         include("**/integration/**")
+    } else if (project.findProperty("profile") == "perf") {
+        include("**/perf/**")
     } else if (project.findProperty("profile") == "acp-integration") {
         include("**/acp_tests/**")
     } else {
-        exclude("**/acp_tests/**", "**/integration/**")
+        exclude("**/acp_tests/**", "**/integration/**", "**/perf/**")
     }
 
     dependsOn("processYmlFiles")
