@@ -23,7 +23,7 @@ class RepoOnboardingHappyPathIT extends OnboardingIntegrationTestConfig {
 
     @BeforeEach
     void resetMocks() {
-        reset(episodicMemoryAgent, hindsightOnboardingClient, modelServerEmbeddingClient);
+        reset(episodicMemoryAgent, hindsightOnboardingClient);
     }
 
     @Test

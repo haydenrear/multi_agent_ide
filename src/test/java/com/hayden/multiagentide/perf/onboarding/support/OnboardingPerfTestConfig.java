@@ -1,59 +1,42 @@
-package com.hayden.multiagentide.integration.onboarding.support;
+package com.hayden.multiagentide.perf.onboarding.support;
 
 import com.hayden.commitdiffcontext.cdc_config.OnboardingPipelineConfigProps;
 import com.hayden.commitdiffcontext.git.GitFactory;
 import com.hayden.commitdiffcontext.git.RepositoryHolder;
 import com.hayden.commitdiffcontext.git.entity.CommitDiff;
-import com.hayden.commitdiffcontext.git.embed.ModelServerEmbeddingClient;
 import com.hayden.commitdiffcontext.git.operations.ConsumingOperation;
 import com.hayden.commitdiffcontext.git.parser.support.SetEmbedding;
-import com.hayden.commitdiffcontext.git.parser.support.episodic.EpisodicMemoryAgent;
 import com.hayden.commitdiffcontext.git.parser.support.episodic.model.OnboardingRunMetadata;
 import com.hayden.commitdiffcontext.git.parser.support.episodic.service.OnboardingOrchestrationService;
 import com.hayden.commitdiffcontext.git.parser.support.episodic.service.RewriteHistoryService;
 import com.hayden.commitdiffcontext.git.parser.support.episodic.service.SerialSegmentEpisodicService;
 import com.hayden.commitdiffcontext.git.repo.CodeBranchRepository;
 import com.hayden.commitdiffcontext.git.repo.CommitDiffRepository;
-import com.hayden.commitdiffcontext.message.Embedding;
-import com.hayden.commitdiffcontext.message.EmbeddingClient;
 import com.hayden.commitdiffmodel.codegen.types.ParseGitOptions;
 import com.hayden.commitdiffmodel.codegen.types.RagOptions;
 import com.hayden.commitdiffmodel.err.GitErrors;
-import com.hayden.multiagentide.agent.episodic.HindsightOnboardingClient;
 import com.hayden.utilitymodule.result.Result;
 import org.eclipse.jgit.api.Git;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
+import com.hayden.multiagentide.integration.onboarding.support.OnboardingCommitDiffContextTestConfig;
 
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "perf"})
 @Import(OnboardingCommitDiffContextTestConfig.class)
-public abstract class OnboardingIntegrationTestConfig {
+public abstract class OnboardingPerfTestConfig {
 
-    protected final RepositoryFixtureFactory repositoryFixtureFactory = new RepositoryFixtureFactory();
-
-    @MockitoBean
-    protected ModelServerEmbeddingClient modelServerEmbeddingClient;
-
-    @MockitoBean
-    protected HindsightOnboardingClient hindsightOnboardingClient;
-
-    @MockitoBean
-    protected EpisodicMemoryAgent episodicMemoryAgent;
+    protected final OpenSourceRepositoryFactory openSourceRepositoryFactory = new OpenSourceRepositoryFactory();
 
     @Autowired
     protected OnboardingPipelineConfigProps onboardingPipelineConfigProps;
@@ -69,35 +52,26 @@ public abstract class OnboardingIntegrationTestConfig {
     protected CommitDiffRepository commitDiffRepository;
     @Autowired
     protected CodeBranchRepository codeBranchRepository;
+    @Autowired
+    protected Environment environment;
 
     @BeforeEach
-    void initOnboardingServices() {
+    void configureOnboardingPipeline() {
         onboardingPipelineConfigProps.setDryRun(false);
         onboardingPipelineConfigProps.setKeepIngestionRepo(false);
         onboardingPipelineConfigProps.setContinueOnSegmentFailure(false);
-
-        // Default mock embedding behavior for integration tests that don't customize embedding stubs.
-        lenient().when(modelServerEmbeddingClient.doEmbed(any(), any()))
-                .thenAnswer(invocation -> {
-                    Object target = invocation.getArgument(0);
-                    if (!(target instanceof CommitDiff commitDiff)) {
-                        return Result.err(new EmbeddingClient.EmbeddingError(
-                                "Unsupported embedding target in onboarding integration test: " +
-                                        (target == null ? "null" : target.getClass().getName())));
-                    }
-                    float[] embeddingVector = java.util.Arrays.copyOf(
-                            com.hayden.commitdiffcontext.git.entity.Embedding.INITIALIZED,
-                            com.hayden.commitdiffcontext.git.entity.Embedding.INITIALIZED.length
-                    );
-                    embeddingVector[0] = 0.42f;
-                    commitDiff.setEmbedding(embeddingVector);
-                    commitDiff.setEmbeddedHashItem("mock-" + UUID.randomUUID());
-                    return Result.ok(new Embedding.EmbeddingResponse<>(embeddingVector, commitDiff));
-                });
     }
 
-    protected OnboardingExecutionContext onboardingContext(Path repositoryRoot) throws Exception {
-        return onboardingContext(repositoryRoot, "main", 500, 500);
+    protected PerfSettings perfSettings() {
+        return new PerfSettings(
+                environment.getProperty("onboarding.perf.repo-url", "https://github.com/spring-projects/spring-petclinic.git"),
+                environment.getProperty("onboarding.perf.branch", "main"),
+                Integer.parseInt(environment.getProperty("onboarding.perf.clone-depth", "250")),
+                Integer.parseInt(environment.getProperty("onboarding.perf.max-commit-depth", "250")),
+                Integer.parseInt(environment.getProperty("onboarding.perf.max-commit-diffs", "500")),
+                Long.parseLong(environment.getProperty("onboarding.perf.max-runtime-seconds", "1800")),
+                Integer.parseInt(environment.getProperty("onboarding.perf.min-embedded-commit-diffs", "25"))
+        );
     }
 
     protected OnboardingExecutionContext onboardingContext(Path repositoryRoot,
@@ -106,13 +80,12 @@ public abstract class OnboardingIntegrationTestConfig {
                                                            int maxCommitDiffs) throws Exception {
         var repoArgs = RepositoryHolder.RepositoryArgs.builder()
                 .branch(branch)
-                .ragOptions(
-                        RagOptions.newBuilder()
-                                .parseGitOptions(ParseGitOptions.newBuilder()
-                                        .maxCommitDepth(maxCommitDepth)
-                                        .maxCommitDiffs(maxCommitDiffs)
-                                        .build())
+                .ragOptions(RagOptions.newBuilder()
+                        .parseGitOptions(ParseGitOptions.newBuilder()
+                                .maxCommitDepth(maxCommitDepth)
+                                .maxCommitDiffs(maxCommitDiffs)
                                 .build())
+                        .build())
                 .gitRepoDirectory(GitFactory.retrieveGitRepoDir(repositoryRoot))
                 .build();
         Git git = Git.open(repositoryRoot.toFile());
@@ -126,33 +99,31 @@ public abstract class OnboardingIntegrationTestConfig {
 
     protected Result<OnboardingRunMetadata, GitErrors.GitAggregateError> runOnboarding(OnboardingExecutionContext context) {
         var embeddingResult = setEmbedding.parse(context.operationArgs());
-        if (embeddingResult.isErr()) {
+        if (embeddingResult.e().isPresent()) {
             return Result.err(embeddingResult.e().get());
         }
+
         var parseErrors = embeddingResult.r().get().aggregateAllErrors();
         if (parseErrors.isPresent()) {
             return Result.err(parseErrors.get());
         }
+
         var embeddingValidation = validateEmbeddingPersistence(context.operationArgs().repositoryArgs());
-        if (embeddingValidation.isErr()) {
+        if (embeddingValidation.e().isPresent()) {
             return Result.err(embeddingValidation.e().get());
         }
 
         var rewriteResult = rewriteHistoryService.rewrite(context.operationArgs());
-        if (rewriteResult.isErr()) {
+        if (rewriteResult.e().isPresent()) {
             return Result.err(rewriteResult.e().get());
         }
+
         var rewritten = rewriteResult.r().get();
-        if (onboardingPipelineConfigProps.isDryRun()) {
-            serialSegmentEpisodicService.markDryRunComplete(rewritten);
-            return onboardingOrchestrationService.findRun(rewritten.onboardingRunId())
-                    .map(Result::<OnboardingRunMetadata, GitErrors.GitAggregateError>ok)
-                    .orElseGet(() -> Result.err(new GitErrors.GitAggregateError("Run metadata missing after dry-run.")));
-        }
         var episodic = serialSegmentEpisodicService.execute(rewritten);
-        if (episodic.isErr()) {
+        if (episodic.e().isPresent()) {
             return Result.err(episodic.e().get());
         }
+
         return onboardingOrchestrationService.findRun(rewritten.onboardingRunId())
                 .map(Result::<OnboardingRunMetadata, GitErrors.GitAggregateError>ok)
                 .orElseGet(() -> Result.err(new GitErrors.GitAggregateError("Run metadata missing after execution.")));
@@ -209,6 +180,17 @@ public abstract class OnboardingIntegrationTestConfig {
         return onboardingOrchestrationService.findRuns().stream()
                 .max(Comparator.comparing(OnboardingRunMetadata::getStartedAt))
                 .orElseThrow();
+    }
+
+    protected record PerfSettings(
+            String repoUrl,
+            String branch,
+            int cloneDepth,
+            int maxCommitDepth,
+            int maxCommitDiffs,
+            long maxRuntimeSeconds,
+            int minEmbeddedCommitDiffs
+    ) {
     }
 
     protected record EmbeddingValidationSummary(
