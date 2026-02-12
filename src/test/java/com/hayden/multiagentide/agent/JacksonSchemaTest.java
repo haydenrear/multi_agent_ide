@@ -15,8 +15,7 @@ public class JacksonSchemaTest {
         var f = new FilteringJacksonOutputConverter<>(
                 AgentModels.ContextManagerResultRouting.class,
                 new ObjectMapper(),
-                new FilteringJacksonOutputConverter.JacksonPropertyFilter.SkipAnnotation(SkipPropertyFilter.class)
-        );
+                new FilteringJacksonOutputConverter.JacksonPropertyFilter.SkipAnnotation(SkipPropertyFilter.class));
 
         var schema = f.getJsonSchema();
 
