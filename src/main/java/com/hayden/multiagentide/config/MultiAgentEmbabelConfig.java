@@ -8,6 +8,7 @@ import com.embabel.agent.core.support.DefaultAgentPlatform;
 import com.embabel.agent.spi.AgentProcessIdGenerator;
 import com.embabel.agent.spi.LlmService;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
+import com.embabel.common.ai.model.*;
 import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.multiagentide.agent.AgentInterfaces;
@@ -19,14 +20,18 @@ import com.hayden.acp_cdc_ai.acp.events.EventBus;
 import com.hayden.acp_cdc_ai.acp.AcpChatModel;
 import com.hayden.multiagentide.repository.EventStreamRepository;
 import io.micrometer.common.util.StringUtils;
+import io.micrometer.context.ThreadLocalAccessor;
 import lombok.SneakyThrows;
+import lombok.experimental.Delegate;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.StreamingChatModel;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -50,7 +55,6 @@ public class MultiAgentEmbabelConfig {
 
     @Value("${multi-agent-embabel.chat-model.provider:acp}")
     private String modelProvider;
-
 
 
     @SneakyThrows
@@ -126,9 +130,38 @@ public class MultiAgentEmbabelConfig {
         return chatModel;
     }
 
+    public record EmbabelAcpChatOptions(@Delegate ChatOptions chatOptions, String sessionId)
+            implements ChatOptions {}
+
     @Bean
     public LlmService<SpringAiLlmService> llm(org.springframework.ai.chat.model.ChatModel chatModel) {
-        return new SpringAiLlmService("acp-chat-model", modelProvider, chatModel);
+        OptionsConverter<ChatOptions> optionsConverter = new OptionsConverter<>() {
+            @Override
+            public @NonNull ChatOptions convertOptions(@NonNull LlmOptions options) {
+                String model = switch(options.getModelSelectionCriteria()) {
+                    case FallbackByNameModelSelectionCriteria f -> {
+                        yield f.component1().getLast();
+                    }
+                    default -> {
+                        yield options.getModel();
+                    }
+                };
+                var tc = ToolCallingChatOptions.builder()
+                        .model(model)
+                        .temperature(options.getTemperature())
+                        .topP(options.getTopP())
+                        .maxTokens(options.getMaxTokens())
+                        .presencePenalty(options.getPresencePenalty())
+                        .frequencyPenalty(options.getFrequencyPenalty())
+                        .topP(options.getTopP())
+                        .build();
+
+                return new EmbabelAcpChatOptions(tc, tc.getModel());
+            }
+        };
+
+        return new SpringAiLlmService("acp-chat-model", modelProvider, chatModel)
+                .withOptionsConverter(optionsConverter);
     }
 
     @Bean
@@ -140,48 +173,63 @@ public class MultiAgentEmbabelConfig {
                         case MessageOutputChannelEvent evt -> {
                             String content = evt.getMessage().getContent();
 
-                            if (StringUtils.isNotBlank(content)) {
+                            if (StringUtils.isBlank(evt.getProcessId())) {
+                                return;
+                            }
 
-                                if (content.startsWith("proc:")) {
-//                                    TODO: add sending messages to particular graph nodes
-                                }
+                            if (StringUtils.isNotBlank(content) && content.startsWith("proc:")) {
+//                                TODO:
+                            } else if (StringUtils.isNotBlank(content) && content.startsWith("proc:")) {
+                                var ap = agentPlatform.getAgentProcess(evt.getProcessId());
 
-                                if (Objects.equals(content, "STOPQ")) {
-                                    var ap = agentPlatform.getAgentProcess(evt.getProcessId());
-
-                                    Optional.ofNullable(ap)
-                                            .ifPresentOrElse(
-                                                    proc -> {
-                                                        log.info("Received STOPQ - killing process {}.", proc.getId());
-                                                        var killed = proc.kill();
-                                                        log.info("Received STOPQ - killed process {}, {}.", proc.getId(), killed);
-                                                    },
-                                                    () -> log.info("Received kill request for unknown process, {}", evt.getProcessId()));
+                                Optional.ofNullable(ap)
+                                        .ifPresentOrElse(
+                                                proc -> {
+                                                    log.info("Received STOPQ - killing process {}.", proc.getId());
+                                                    var killed = proc.kill();
+                                                    log.info("Received STOPQ - killed process {}, {}.", proc.getId(), killed);
+                                                },
+                                                () -> log.info("Received kill request for unknown process, {}", evt.getProcessId()));
+                            } else {
+                                ArtifactKey r;
+                                try {
+                                    r = new ArtifactKey(evt.getProcessId());
+                                } catch (IllegalArgumentException e) {
+                                    log.debug("Error attempting to decode {} into artifact key.", evt.getProcessId());
+                                    return;
                                 }
 
 //                              Have to do this because single agent process opens many chat sessions.
-                                var thisArtifactKeyForMessage = graphRepository
-                                        .getLastMatching(Events.NodeThoughtDeltaEvent.class, n -> matchesThisSession(evt, n))
-                                                .map(Events.GraphEvent::nodeId)
-                                                .flatMap(MultiAgentEmbabelConfig::getDescendent)
-                                        .or(() -> graphRepository.getLastMatching(Events.ToolCallEvent.class, n -> matchesThisSession(evt, n))
-                                                .map(Events.GraphEvent::nodeId)
-                                                .flatMap(MultiAgentEmbabelConfig::getDescendent))
-                                        .or(() -> graphRepository.getLastMatching(Events.NodeStreamDeltaEvent.class, n -> matchesThisSession(evt, n))
-                                                .map(Events.GraphEvent::nodeId)
-                                                .flatMap(MultiAgentEmbabelConfig::getDescendent))
-                                        .or(() -> graphRepository
-                                                .getLastMatching(Events.ChatSessionCreatedEvent.class, n -> matchesThisSession(evt, n))
-                                                .map(Events.GraphEvent::nodeId))
-                                        .orElseGet(evt::getProcessId);
+                                var thisArtifactKeyForMessage =
+                                        graphRepository.getLastMatching(Events.ChatSessionCreatedEvent.class, n -> Objects.equals(n.chatModelId().value(), r.value()))
+                                                .map(Events.ChatSessionCreatedEvent::chatModelId)
+                                                .map(ArtifactKey::value)
+                                                .or(() -> graphRepository
+                                                        .getLastMatching(Events.NodeThoughtDeltaEvent.class, n -> matchesThisSession(evt, n))
+                                                        .map(Events.GraphEvent::nodeId)
+                                                        .flatMap(MultiAgentEmbabelConfig::getDescendent))
+                                                .or(() -> graphRepository.getLastMatching(Events.ToolCallEvent.class, n -> matchesThisSession(evt, n))
+                                                        .map(Events.GraphEvent::nodeId)
+                                                        .flatMap(MultiAgentEmbabelConfig::getDescendent))
+                                                .or(() -> graphRepository.getLastMatching(Events.NodeStreamDeltaEvent.class, n -> matchesThisSession(evt, n))
+                                                        .map(Events.GraphEvent::nodeId)
+                                                        .flatMap(MultiAgentEmbabelConfig::getDescendent))
+                                                .or(() -> graphRepository
+                                                        .getLastMatching(Events.ChatSessionCreatedEvent.class, n -> matchesThisSession(evt, n))
+                                                        .map(Events.GraphEvent::nodeId))
+                                                .orElseGet(evt::getProcessId);
 
-                                var prev = EventBus.agentProcess.get();
+                                var prev = EventBus.Process.get();
 
                                 try {
-                                    EventBus.agentProcess.set(new EventBus.AgentNodeKey(thisArtifactKeyForMessage));
-                                    chatModel.call(new Prompt(new AssistantMessage(content)));
+                                    EventBus.Process.set(new EventBus.AgentNodeKey(thisArtifactKeyForMessage));
+                                    chatModel.call(new Prompt(
+                                            new AssistantMessage(content),
+                                            ToolCallingChatOptions.builder()
+                                                    .model(thisArtifactKeyForMessage)
+                                                    .build()));
                                 } finally {
-                                    EventBus.agentProcess.set(prev);
+                                    EventBus.Process.set(prev);
                                 }
                             }
                         }

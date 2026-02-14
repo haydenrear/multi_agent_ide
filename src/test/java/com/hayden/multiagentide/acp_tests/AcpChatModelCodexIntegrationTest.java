@@ -56,7 +56,7 @@ import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
-@ActiveProfiles("goose")
+@ActiveProfiles({"goose"})
 @ExtendWith(SpringExtension.class)
 @TestPropertySource(properties = {"spring.ai.mcp.server.stdio=false"})
 class AcpChatModelCodexIntegrationTest {
@@ -152,7 +152,8 @@ class AcpChatModelCodexIntegrationTest {
                     .withFailMessage("Hindsight could not be reached.")
                     .isPresent();
 
-            return context.ai().withDefaultLlm()
+            return context.ai()
+                    .withFirstAvailableLlmOf("acp-chat-model", context.getAgentProcess().getId())
                     .withId("hello!")
 //                    .withToolObjects(deepwiki.get())
                     .withToolObjects(hindsight.get())
