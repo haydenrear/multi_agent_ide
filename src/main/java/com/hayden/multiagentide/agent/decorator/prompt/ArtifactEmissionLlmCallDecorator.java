@@ -53,7 +53,7 @@ public class ArtifactEmissionLlmCallDecorator implements LlmCallDecorator {
     }
 
     @Override
-    public LlmCallContext decorate(LlmCallContext context) {
+    public <T> LlmCallContext<T> decorate(LlmCallContext<T> context) {
         if (context == null || context.promptContext() == null) {
             return context;
         }

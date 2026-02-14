@@ -143,8 +143,10 @@ tasks.test {
         include("**/perf/**")
     } else if (project.findProperty("profile") == "acp-integration") {
         include("**/acp_tests/**")
+    } else if (project.findProperty("profile") == "shell-integration") {
+        include("**/cli/**")
     } else {
-        exclude("**/acp_tests/**", "**/integration/**", "**/perf/**")
+        exclude("**/acp_tests/**", "**/integration/**", "**/perf/**", "**/cli/**")
     }
 
     dependsOn("processYmlFiles")

@@ -47,7 +47,7 @@ public class AddIntellij implements LlmCallDecorator {
     }
 
     @Override
-    public LlmCallContext decorate(LlmCallContext promptContext) {
+    public <T> LlmCallContext<T> decorate(LlmCallContext<T> promptContext) {
         ensureWorktreeProjectOpened(promptContext);
         var t = withIntellij(promptContext);
 
