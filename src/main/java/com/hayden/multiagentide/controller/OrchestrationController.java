@@ -1,20 +1,12 @@
 package com.hayden.multiagentide.controller;
 
-import com.hayden.acp_cdc_ai.acp.events.EventBus;
-import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.commitdiffcontext.git.parser.support.episodic.model.OnboardingRunMetadata;
 import com.hayden.commitdiffcontext.git.parser.support.episodic.service.OnboardingOrchestrationService;
-import com.hayden.multiagentide.agent.AgentLifecycleHandler;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 
 import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;

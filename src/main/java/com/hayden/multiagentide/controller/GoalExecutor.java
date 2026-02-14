@@ -4,7 +4,6 @@ import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import com.hayden.acp_cdc_ai.acp.events.EventBus;
 import com.hayden.acp_cdc_ai.acp.events.Events;
 import com.hayden.multiagentide.agent.AgentLifecycleHandler;
-import com.hayden.utilitymodule.git.RepoUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +11,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
-import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -34,7 +32,9 @@ public class GoalExecutor {
     public void executeGoal(OrchestrationController.StartGoalRequest request, ArtifactKey root) {
         String nodeId = root.value();
 
-        String baseBranch = resolveBaseBranch(request.repositoryUrl(), request.baseBranch());
+        String baseBranch = (request.baseBranch() == null || request.baseBranch().isBlank())
+                ? "main"
+                : request.baseBranch();
 
         try {
             agentLifecycleHandler.initializeOrchestrator(
@@ -49,21 +49,6 @@ public class GoalExecutor {
             log.error(message, e);
             eventBus.publish(Events.NodeErrorEvent.err(message, root));
         }
-    }
-
-    private String resolveBaseBranch(String repositoryUrl, String requestedBaseBranch) {
-        if (requestedBaseBranch != null && !requestedBaseBranch.isBlank()) {
-            return requestedBaseBranch.trim();
-        }
-        try (var repository = RepoUtil.findRepo(Path.of(repositoryUrl))) {
-            String branch = repository.getBranch();
-            if (branch != null && !branch.isBlank()) {
-                return branch;
-            }
-        } catch (Exception e) {
-            log.warn("Falling back to main branch for repository {}: {}", repositoryUrl, e.getMessage());
-        }
-        return "main";
     }
 
 }
