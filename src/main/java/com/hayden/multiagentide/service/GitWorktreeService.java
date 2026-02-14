@@ -1303,26 +1303,76 @@ public class GitWorktreeService implements WorktreeService {
     // ======== PRIVATE HELPERS ========
 
     public static void cloneRepository(String repositoryUrl, Path worktreePath, String baseBranch) throws GitAPIException, IOException {
-        try(Repository build = RepoUtil.findRepo(Paths.get(repositoryUrl))) {
+        try (Repository build = RepoUtil.findRepo(Paths.get(repositoryUrl))) {
+            String resolvedBaseBranch = resolveBaseBranch(build, baseBranch);
             CloneCommand clone = Git.cloneRepository()
                     .setURI(build.getDirectory().toString())
-                    .setDirectory(worktreePath.toFile());
+                    .setDirectory(worktreePath.toFile())
+                    .setCloneAllBranches(true);
+
+            if (resolvedBaseBranch != null && !resolvedBaseBranch.isBlank()) {
+                clone.setBranch(toHeadRef(resolvedBaseBranch));
+            }
 
             try (
                     Git git = clone.call()
             ) {
-                RepoUtil.runGitCommand(Paths.get(repositoryUrl), List.of("submodule", "update", "--init", "--recursive"));
-                if (baseBranch != null && !baseBranch.isBlank() && !Objects.equals(git.getRepository().getBranch(), baseBranch)) {
-                    git.checkout().setName(baseBranch).call();
+                checkoutRequestedBranch(git, resolvedBaseBranch);
 
-                    RepoUtil.runGitCommand(Paths.get(repositoryUrl), List.of("submodule", "foreach", "--recursive", "git", "reset", "--hard", "||", "true"));
-                }
+                // Never mutate the source repository checkout while creating worktrees.
+                RepoUtil.runGitCommand(worktreePath, List.of("submodule", "update", "--init", "--recursive"));
             }
         }
 
 
         var updating = RepoUtil.updateSubmodulesRecursively(worktreePath);
         log.debug("Updated submodules {}", updating);
+    }
+
+    private static void checkoutRequestedBranch(Git git, String branchName) throws GitAPIException, IOException {
+        if (branchName == null || branchName.isBlank()) {
+            return;
+        }
+        String currentBranch = git.getRepository().getBranch();
+        if (Objects.equals(currentBranch, branchName)) {
+            return;
+        }
+
+        try {
+            git.checkout().setName(branchName).call();
+            return;
+        } catch (GitAPIException firstFailure) {
+            try {
+                git.checkout()
+                        .setName(branchName)
+                        .setCreateBranch(true)
+                        .setStartPoint("origin/" + branchName)
+                        .call();
+                return;
+            } catch (GitAPIException secondFailure) {
+                firstFailure.addSuppressed(secondFailure);
+                throw firstFailure;
+            }
+        }
+    }
+
+    private static String resolveBaseBranch(Repository sourceRepository, String requestedBaseBranch) throws IOException {
+        if (requestedBaseBranch != null && !requestedBaseBranch.isBlank()) {
+            return requestedBaseBranch.trim();
+        }
+        String currentBranch = sourceRepository.getBranch();
+        if (currentBranch != null && !currentBranch.isBlank()) {
+            return currentBranch;
+        }
+        return "main";
+    }
+
+    private static String toHeadRef(String branchName) {
+        String branch = branchName == null ? "" : branchName.trim();
+        if (branch.startsWith(Constants.R_HEADS)) {
+            return branch;
+        }
+        return Constants.R_HEADS + branch;
     }
 
     private void checkoutNewBranch(Path repoPath, String newBranchName, String startPoint) throws IOException, GitAPIException {

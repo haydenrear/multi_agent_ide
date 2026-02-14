@@ -1,8 +1,8 @@
-logging.config: classpath:logback-multi-agent-console.xml
+logging.config: classpath:logback-multi-agent-ide.xml
 
 env-props:
-  project-dir: {{PROJ_DIR}}
-  home-dir: {{HOME_DIR}}
+  project-dir: { { PROJ_DIR } }
+  home-dir: { { HOME_DIR } }
 
 spring:
   session:
@@ -141,12 +141,12 @@ artifacts:
       - classpath:prompts/workflow/
 acp.mcp:
   http:
-#    - name: deepwiki
-#      url: https://mcp.deepwiki.com/mcp
-#      headers:
-#    - name: hindsight
-#      url: http://localhost:8777/mcp/${HINDSIGHT_MEM_BANK:agentic-coding}
-#      headers:
+  #    - name: deepwiki
+  #      url: https://mcp.deepwiki.com/mcp
+  #      headers:
+  #    - name: hindsight
+  #      url: http://localhost:8777/mcp/${HINDSIGHT_MEM_BANK:agentic-coding}
+  #      headers:
   stdio-values:
     - name: intellij
       command: "/Users/hayde/Applications/IntelliJ IDEA.app/Contents/jbr/Contents/Home/bin/java"
