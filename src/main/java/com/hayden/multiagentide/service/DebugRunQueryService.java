@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DebugRunQueryService {
 
     private final OrchestrationController orchestrationController;
-    private final AgentControlService agentControlService;
     private final EventBus eventBus;
     private final EventStreamRepository eventStreamRepository;
 

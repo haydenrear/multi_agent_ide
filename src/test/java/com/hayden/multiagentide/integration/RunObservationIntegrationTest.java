@@ -32,7 +32,6 @@ class RunObservationIntegrationTest {
 
         DebugRunQueryService queryService = new DebugRunQueryService(
                 orchestrationController,
-                agentControlService,
                 eventBus,
                 eventRepository
         );
