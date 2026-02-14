@@ -134,7 +134,7 @@ tasks.register<Copy>("testAcpClient") {
 }
 
 tasks.compileJava {
-    dependsOn("processYmlFiles")
+    dependsOn("processYmlFiles", "processXmlFiles")
 }
 tasks.test {
     if (project.findProperty("profile") == "integration") {
