@@ -40,9 +40,11 @@ import org.springframework.util.ReflectionUtils;
 import reactor.core.publisher.Flux;
 
 import java.lang.reflect.Field;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Embabel configuration for chat models and LLM integration.
@@ -138,14 +140,15 @@ public class MultiAgentEmbabelConfig {
         OptionsConverter<ChatOptions> optionsConverter = new OptionsConverter<>() {
             @Override
             public @NonNull ChatOptions convertOptions(@NonNull LlmOptions options) {
-                String model = switch(options.getModelSelectionCriteria()) {
-                    case FallbackByNameModelSelectionCriteria f -> {
-                        yield f.component1().getLast();
-                    }
-                    default -> {
-                        yield options.getModel();
-                    }
-                };
+                String model;
+                if (options.getModelSelectionCriteria() == null){
+                    model = options.getModel();
+                } else {
+                    model = switch (options.getModelSelectionCriteria()) {
+                        case FallbackByNameModelSelectionCriteria f ->
+                                f.getNames().getLast();
+                    };
+                }
                 var tc = ToolCallingChatOptions.builder()
                         .model(model)
                         .temperature(options.getTemperature())
@@ -179,7 +182,7 @@ public class MultiAgentEmbabelConfig {
 
                             if (StringUtils.isNotBlank(content) && content.startsWith("proc:")) {
 //                                TODO:
-                            } else if (StringUtils.isNotBlank(content) && content.startsWith("proc:")) {
+                            } else if (StringUtils.isNotBlank(content) && content.startsWith("stop-q")) {
                                 var ap = agentPlatform.getAgentProcess(evt.getProcessId());
 
                                 Optional.ofNullable(ap)
@@ -199,34 +202,25 @@ public class MultiAgentEmbabelConfig {
                                     return;
                                 }
 
-//                              Have to do this because single agent process opens many chat sessions.
                                 var thisArtifactKeyForMessage =
-                                        graphRepository.getLastMatching(Events.ChatSessionCreatedEvent.class, n -> Objects.equals(n.chatModelId().value(), r.value()))
-                                                .map(Events.ChatSessionCreatedEvent::chatModelId)
-                                                .map(ArtifactKey::value)
-                                                .or(() -> graphRepository
-                                                        .getLastMatching(Events.NodeThoughtDeltaEvent.class, n -> matchesThisSession(evt, n))
-                                                        .map(Events.GraphEvent::nodeId)
-                                                        .flatMap(MultiAgentEmbabelConfig::getDescendent))
-                                                .or(() -> graphRepository.getLastMatching(Events.ToolCallEvent.class, n -> matchesThisSession(evt, n))
-                                                        .map(Events.GraphEvent::nodeId)
-                                                        .flatMap(MultiAgentEmbabelConfig::getDescendent))
-                                                .or(() -> graphRepository.getLastMatching(Events.NodeStreamDeltaEvent.class, n -> matchesThisSession(evt, n))
-                                                        .map(Events.GraphEvent::nodeId)
-                                                        .flatMap(MultiAgentEmbabelConfig::getDescendent))
-                                                .or(() -> graphRepository
-                                                        .getLastMatching(Events.ChatSessionCreatedEvent.class, n -> matchesThisSession(evt, n))
-                                                        .map(Events.GraphEvent::nodeId))
-                                                .orElseGet(evt::getProcessId);
+                                        graphRepository.getAllMatching(Events.ChatSessionCreatedEvent.class, n -> matchesThisSession(evt, n))
+//                                               send to the process ID that is closest to this one
+                                                .min(Comparator.comparing(c -> c.chatModelId().value().replace(event.getProcessId(), "").length()))
+                                                .map(Events.ChatSessionCreatedEvent::chatModelId);
+
+                                if (thisArtifactKeyForMessage.isEmpty()) {
+                                    log.error("Could not find valid chat session to add message to for {}.", event.getProcessId());
+                                    return;
+                                }
 
                                 var prev = EventBus.Process.get();
 
                                 try {
-                                    EventBus.Process.set(new EventBus.AgentNodeKey(thisArtifactKeyForMessage));
+                                    EventBus.Process.set(new EventBus.AgentNodeKey(thisArtifactKeyForMessage.get().value()));
                                     chatModel.call(new Prompt(
                                             new AssistantMessage(content),
                                             ToolCallingChatOptions.builder()
-                                                    .model(thisArtifactKeyForMessage)
+                                                    .model(thisArtifactKeyForMessage.get().value())
                                                     .build()));
                                 } finally {
                                     EventBus.Process.set(prev);
@@ -234,6 +228,7 @@ public class MultiAgentEmbabelConfig {
                             }
                         }
                         default -> {
+                            log.info("Received event {} for {} - ignoring.", event.getClass().getName(), event.getProcessId());
                         }
                     }
                 },
@@ -253,21 +248,9 @@ public class MultiAgentEmbabelConfig {
         }
     }
 
-    private static boolean matchesThisSession(MessageOutputChannelEvent evt, Events.GraphEvent n) {
+    private static boolean matchesThisSession(MessageOutputChannelEvent evt, Events.ChatSessionCreatedEvent n) {
         try {
-            var a = new ArtifactKey(n.nodeId());
-            boolean equals;
-            if (a.isRoot()) {
-                equals = evt.getProcessId().equals(a.value());
-            } else {
-                equals = evt.getProcessId().equals(a.root().value());
-            }
-
-            if (equals) {
-                log.info("Found matching {}: {}.", n.getClass(), n.nodeId());
-            }
-
-            return equals;
+            return evt.getProcessId().equals(n.chatModelId().value());
         } catch (Exception e) {
             log.error("Error finding session {}", e.getMessage(), e);
             return false;
