@@ -1314,8 +1314,7 @@ public class GitWorktreeService implements WorktreeService {
                 RepoUtil.runGitCommand(Paths.get(repositoryUrl), List.of("submodule", "update", "--init", "--recursive"));
                 if (baseBranch != null && !baseBranch.isBlank() && !Objects.equals(git.getRepository().getBranch(), baseBranch)) {
                     git.checkout().setName(baseBranch).call();
-
-                    RepoUtil.runGitCommand(Paths.get(repositoryUrl), List.of("submodule", "foreach", "--recursive", "git", "reset", "--hard", "||", "true"));
+                    RepoUtil.runGitCommand(Paths.get(repositoryUrl), List.of("submodule", "foreach", "--recursive", "git reset --hard || true"));
                 }
             }
         }
