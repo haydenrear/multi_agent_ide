@@ -1,6 +1,6 @@
 env-props:
-  project-dir: {{PROJ_DIR}}
-  home-dir: {{HOME_DIR}}
+  project-dir: { { PROJ_DIR } }
+  home-dir: { { HOME_DIR } }
 
 spring:
   session:
@@ -106,6 +106,9 @@ management:
 embabel:
   agent:
     platform:
+      llm-operations:
+        prompts:
+          default-timeout: 20m
       scanning:
         bean: false
         annotation: false
