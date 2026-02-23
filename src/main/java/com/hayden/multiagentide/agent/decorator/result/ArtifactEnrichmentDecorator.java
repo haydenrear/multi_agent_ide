@@ -60,7 +60,6 @@ public class ArtifactEnrichmentDecorator implements ResultDecorator {
                     (T) routing.toBuilder()
                             .interruptRequest(enrichRequest(routing.interruptRequest(), operationContext))
                             .agentResult(enrichResult(routing.agentResult(), operationContext))
-                            .planningOrchestratorRequest(enrichRequest(routing.planningOrchestratorRequest(), operationContext))
                             .contextManagerRequest(enrichRequest(routing.contextManagerRequest(), operationContext))
                             .build();
             case AgentModels.DiscoveryCollectorRouting routing ->
@@ -70,7 +69,6 @@ public class ArtifactEnrichmentDecorator implements ResultDecorator {
                             .orchestratorRequest(enrichRequest(routing.orchestratorRequest(), operationContext))
                             .discoveryRequest(enrichRequest(routing.discoveryRequest(), operationContext))
                             .planningRequest(enrichRequest(routing.planningRequest(), operationContext))
-                            .ticketRequest(enrichRequest(routing.ticketRequest(), operationContext))
                             .reviewRequest(enrichRequest(routing.reviewRequest(), operationContext))
                             .mergerRequest(enrichRequest(routing.mergerRequest(), operationContext))
                             .contextManagerRequest(enrichRequest(routing.contextManagerRequest(), operationContext))
@@ -97,9 +95,6 @@ public class ArtifactEnrichmentDecorator implements ResultDecorator {
                             .interruptRequest(enrichRequest(routing.interruptRequest(), operationContext))
                             .collectorResult(enrichResult(routing.collectorResult(), operationContext))
                             .orchestratorRequest(enrichRequest(routing.orchestratorRequest(), operationContext))
-                            .discoveryRequest(enrichRequest(routing.discoveryRequest(), operationContext))
-                            .planningRequest(enrichRequest(routing.planningRequest(), operationContext))
-                            .ticketRequest(enrichRequest(routing.ticketRequest(), operationContext))
                             .reviewRequest(enrichRequest(routing.reviewRequest(), operationContext))
                             .mergerRequest(enrichRequest(routing.mergerRequest(), operationContext))
                             .contextManagerRequest(enrichRequest(routing.contextManagerRequest(), operationContext))
@@ -125,14 +120,13 @@ public class ArtifactEnrichmentDecorator implements ResultDecorator {
                             .build();
             case AgentModels.PlanningCollectorRouting routing ->
                     (T) routing.toBuilder()
+                            .orchestratorRequest(enrichRequest(routing.orchestratorRequest(), operationContext))
                             .interruptRequest(enrichRequest(routing.interruptRequest(), operationContext))
                             .collectorResult(enrichResult(routing.collectorResult(), operationContext))
                             .planningRequest(enrichRequest(routing.planningRequest(), operationContext))
-                            .discoveryOrchestratorRequest(enrichRequest(routing.discoveryOrchestratorRequest(), operationContext))
                             .reviewRequest(enrichRequest(routing.reviewRequest(), operationContext))
                             .mergerRequest(enrichRequest(routing.mergerRequest(), operationContext))
                             .ticketOrchestratorRequest(enrichRequest(routing.ticketOrchestratorRequest(), operationContext))
-                            .orchestratorCollectorRequest(enrichRequest(routing.orchestratorCollectorRequest(), operationContext))
                             .contextManagerRequest(enrichRequest(routing.contextManagerRequest(), operationContext))
                             .build();
             case AgentModels.PlanningOrchestratorRouting routing ->
@@ -170,6 +164,7 @@ public class ArtifactEnrichmentDecorator implements ResultDecorator {
                             .collectorResult(enrichResult(routing.collectorResult(), operationContext))
                             .ticketRequest(enrichRequest(routing.ticketRequest(), operationContext))
                             .orchestratorCollectorRequest(enrichRequest(routing.orchestratorCollectorRequest(), operationContext))
+                            .orchestratorRequest(enrichRequest(routing.orchestratorRequest(), operationContext))
                             .reviewRequest(enrichRequest(routing.reviewRequest(), operationContext))
                             .mergerRequest(enrichRequest(routing.mergerRequest(), operationContext))
                             .contextManagerRequest(enrichRequest(routing.contextManagerRequest(), operationContext))
