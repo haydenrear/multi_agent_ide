@@ -5,19 +5,9 @@ multi-agent-embabel:
     provider: acp
   acp:
     transport: stdio
-    command: goose acp
-    args: ${ACP_ARGS:--extensions developer}
+    command: ${ACP_COMMAND:claude-agent-acp}
+    args: ${ACP_ARGS:}
     working-directory: ${ACP_WORKING_DIR:}
-    env:
-      #    will throw an error if your on mac for some security ring
-#      HOME: {{PROJECT_DIR}}/configs
-      GOOSE_MODE: smart_approve
-      GOOSE_DISABLE_SUBAGENTS: true
-
-spring:
-  lifecycle:
-    timeout-per-shutdown-phase: 1s
-
 acp.mcp:
   http:
     #    - name: deepwiki
