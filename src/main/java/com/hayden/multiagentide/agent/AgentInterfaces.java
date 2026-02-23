@@ -1412,7 +1412,7 @@ public interface AgentInterfaces {
                     "goal",
                     goal,
                     "discoveryResults",
-                    d.prettyPrint(new AgentContext.AgentSerializationCtx.ResultsSerialization())
+                    d.prettyPrint(new AgentPretty.AgentSerializationCtx.ResultsSerialization())
             );
 
             PromptContext promptContext = buildPromptContext(
@@ -1600,7 +1600,7 @@ public interface AgentInterfaces {
 
             Optional.ofNullable(goal)
                     .ifPresent(g -> model.put("goal", g));
-            model.put("planningResults", planningAgentResults.prettyPrint(new AgentContext.AgentSerializationCtx.ResultsSerialization()));
+            model.put("planningResults", planningAgentResults.prettyPrint(new AgentPretty.AgentSerializationCtx.ResultsSerialization()));
 
             PromptContext promptContext = buildPromptContext(
                     AgentType.PLANNING_AGENT_DISPATCH,
@@ -1817,7 +1817,7 @@ public interface AgentInterfaces {
                     "goal",
                     goal,
                     "ticketResults",
-                    ticketAgentResults.prettyPrint(new AgentContext.AgentSerializationCtx.ResultsSerialization())
+                    ticketAgentResults.prettyPrint(new AgentPretty.AgentSerializationCtx.ResultsSerialization())
             );
 
             PromptContext promptContext = buildPromptContext(
@@ -2301,7 +2301,7 @@ public interface AgentInterfaces {
                 AgentModels.DiscoveryAgentRequests input
         ) {
             String resolved = input != null
-                    ? input.prettyPrint(new AgentContext.AgentSerializationCtx.GoalResolutionSerialization())
+                    ? input.prettyPrint(new AgentPretty.AgentSerializationCtx.GoalResolutionSerialization())
                     : "";
             if (resolved != null && !resolved.isBlank()) {
                 return resolved;
@@ -2324,11 +2324,11 @@ public interface AgentInterfaces {
                 AgentModels.MergerRouting routing
         ) {
             String requestSummary = request != null
-                    ? request.prettyPrint(new AgentContext.AgentSerializationCtx.MergeSummarySerialization())
+                    ? request.prettyPrint(new AgentPretty.AgentSerializationCtx.MergeSummarySerialization())
                     : "";
             AgentModels.MergerAgentResult result = routing != null ? routing.mergerResult() : null;
             String resultSummary = result != null
-                    ? result.prettyPrint(new AgentContext.AgentSerializationCtx.MergeSummarySerialization())
+                    ? result.prettyPrint(new AgentPretty.AgentSerializationCtx.MergeSummarySerialization())
                     : "";
             return firstNonBlank(requestSummary, resultSummary);
         }
