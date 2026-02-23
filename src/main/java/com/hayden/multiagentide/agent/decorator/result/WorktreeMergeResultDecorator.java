@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class WorktreeMergeResultDecorator implements DispatchedAgentResultDecorator {
+public class WorktreeMergeResultDecorator implements DispatchedAgentResultDecorator, ResultDecorator {
 
     private final GitWorktreeService gitWorktreeService;
 
@@ -75,7 +75,6 @@ public class WorktreeMergeResultDecorator implements DispatchedAgentResultDecora
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     private <T extends AgentModels.AgentResult> T addMergeDescriptor(T result, MergeDescriptor descriptor) {
         return switch (result) {
             case AgentModels.TicketAgentResult r -> (T) r.toBuilder().mergeDescriptor(descriptor).build();
