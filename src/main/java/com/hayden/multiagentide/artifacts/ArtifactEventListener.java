@@ -61,8 +61,7 @@ public class ArtifactEventListener implements EventListener {
 
     private void handleChatSessionCreatedEvent(Events.ChatSessionCreatedEvent delta) {
         var m = eventArtifactMapper.mapToEventArtifact(delta);
-
-        treeBuilder.addArtifact(m.artifactKey().root().value(), m);
+        treeBuilder.addArtifact(m);
     }
 
     @Override
@@ -131,7 +130,7 @@ public class ArtifactEventListener implements EventListener {
             // 2. Check siblings for matching content hash
             // 3. Add only if no duplicate key or hash exists
             // 4. Add the child to the parent artifact's children list
-            boolean added = treeBuilder.addArtifact(executionKey, artifact);
+            boolean added = treeBuilder.addArtifact(artifact);
             if (added) {
                 log.debug("Added artifact: {}:\n{}", artifactKey.value(), event.artifact());
             }
@@ -148,19 +147,11 @@ public class ArtifactEventListener implements EventListener {
     private void handleStreamEvent(Events.GraphEvent event) {
         try {
             String nodeId = event.nodeId();
-            String executionKey = findExecutionKeyByNodeId(nodeId);
-            if (executionKey == null) {
-                log.debug("No active execution found for stream event nodeId: {}", nodeId);
-                return;
-            }
-            
-            // Create parent key based on execution and node
-            ArtifactKey parentKey = new ArtifactKey(nodeId);
-            
+
             // Map to MessageStreamArtifact
             MessageStreamArtifact streamArtifact = eventArtifactMapper.mapToStreamArtifact(event);
             
-            boolean added = treeBuilder.addArtifact(executionKey, streamArtifact);
+            boolean added = treeBuilder.addArtifact(streamArtifact);
             if (added) {
                 log.debug("Added stream artifact: {}:\n{}",
                         streamArtifact.artifactKey().value(), streamArtifact);
@@ -177,20 +168,10 @@ public class ArtifactEventListener implements EventListener {
      */
     private void handlePlanUpdateEvent(Events.PlanUpdateEvent event) {
         try {
-            String nodeId = event.nodeId();
-            String executionKey = findExecutionKeyByNodeId(nodeId);
-            if (executionKey == null) {
-                log.debug("No active execution found for plan update event nodeId: {}", nodeId);
-                return;
-            }
-            
-            // Create parent key based on execution and node
-            ArtifactKey parentKey = new ArtifactKey(executionKey + "/" + nodeId);
-            
             // Map to EventArtifact (generic event capture)
             Artifact.EventArtifact eventArtifact = eventArtifactMapper.mapToEventArtifact(event);
             
-            boolean added = treeBuilder.addArtifact(executionKey, eventArtifact);
+            boolean added = treeBuilder.addArtifact(eventArtifact);
             if (added) {
                 log.debug("Added plan update artifact: {} (type: {})", 
                         eventArtifact.artifactKey().value(), eventArtifact.eventType());
@@ -266,11 +247,6 @@ public class ArtifactEventListener implements EventListener {
     
     private String extractExecutionKey(ArtifactKey artifactKey) {
         // The execution key is the root segment
-        String value = artifactKey.value();
-        int firstSlash = value.indexOf('/');
-        if (firstSlash > 0) {
-            return value.substring(0, firstSlash);
-        }
-        return value;
+        return artifactKey.isRoot() ? artifactKey.value() : artifactKey.root().value();
     }
 }
