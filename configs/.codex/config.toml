@@ -1,0 +1,53 @@
+model = "gpt-5.1-codex-mini"
+model_reasoning_effort = "medium"
+personality = "pragmatic"
+[env]
+JAVA_HOME = '/Users/hayde/.sdkman/candidates/java/current'
+
+[projects."/Users/hayde/IdeaProjects/commit-diff-context-parent"]
+trust_level = "trusted"
+
+[projects."/Users/hayde"]
+trust_level = "trusted"
+
+[projects."/Users/hayde/IdeaProjects/multi_agent_ide_parent"]
+trust_level = "trusted"
+
+[projects."/Users/hayde/IdeaProjects/multi_agent_ide_parent/multi_agent_ide"]
+trust_level = "trusted"
+
+[projects."/Users/hayde/IdeaProjects/ctxfs_parent"]
+trust_level = "trusted"
+
+[projects."/Users/hayde/IdeaProjects/embabel-agent-examples"]
+trust_level = "untrusted"
+
+[projects."/Users/hayde/IdeaProjects/mcp-servers/hindsight"]
+trust_level = "untrusted"
+
+[projects."/Users/hayde/IdeaProjects/multi_agent_ide_parent/multi_agent_ide_java_parent/multi_agent_ide"]
+trust_level = "trusted"
+
+[projects."/Users/hayde/IdeaProjects/multi_agent_ide_parent/multi_agent_ide_java_parent"]
+trust_level = "trusted"
+
+[projects."/Users/hayde/IdeaProjects/embabel-agent"]
+trust_level = "trusted"
+
+[mcp_servers.deep_wiki]
+url = "https://mcp.deepwiki.com/mcp"
+
+[mcp_servers.intellij-mcp]
+command = "/Users/hayde/Applications/IntelliJ IDEA.app/Contents/jbr/Contents/Home/bin/java"
+args = ["-classpath", "/Users/hayde/Applications/IntelliJ IDEA.app/Contents/plugins/mcpserver/lib/mcpserver-frontend.jar:/Users/hayde/Applications/IntelliJ IDEA.app/Contents/lib/util-8.jar:/Users/hayde/Applications/IntelliJ IDEA.app/Contents/lib/module-intellij.libraries.ktor.client.cio.jar:/Users/hayde/Applications/IntelliJ IDEA.app/Contents/lib/module-intellij.libraries.ktor.client.jar:/Users/hayde/Applications/IntelliJ IDEA.app/Contents/lib/module-intellij.libraries.ktor.network.tls.jar:/Users/hayde/Applications/IntelliJ IDEA.app/Contents/lib/module-intellij.libraries.ktor.io.jar:/Users/hayde/Applications/IntelliJ IDEA.app/Contents/lib/module-intellij.libraries.ktor.utils.jar:/Users/hayde/Applications/IntelliJ IDEA.app/Contents/lib/module-intellij.libraries.kotlinx.io.jar:/Users/hayde/Applications/IntelliJ IDEA.app/Contents/lib/module-intellij.libraries.kotlinx.serialization.core.jar:/Users/hayde/Applications/IntelliJ IDEA.app/Contents/lib/module-intellij.libraries.kotlinx.serialization.json.jar", "com.intellij.mcpserver.stdio.McpStdioRunnerKt"]
+
+[mcp_servers.intellij-mcp.env]
+IJ_MCP_SERVER_PORT = "64342"
+#[mcp_servers.hindsight]
+#url = "http://localhost:8777/mcp/test-two"
+#[mcp_servers.jetbrains]
+#url = "http://127.0.0.1:64342/sse"
+
+[notice.model_migrations]
+"gpt-5.1-codex-mini" = "gpt-5.3-codex"
+"gpt-5.1-codex-max" = "gpt-5.2-codex"
