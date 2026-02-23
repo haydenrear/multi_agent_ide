@@ -4,8 +4,10 @@ import com.hayden.acp_cdc_ai.acp.events.Artifact;
 import com.hayden.acp_cdc_ai.acp.events.ArtifactKey;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import com.mysema.commons.lang.Assert;
+import jakarta.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,7 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Invariants:
  * - Messages come in order (no level skipping)
  * - Never remove nodes
- * - Deduplication happens via content hash comparison among siblings
+ * - Duplicate keys are rejected, but duplicate content hashes are allowed
+ *   so every emitted key path can still receive descendants
  */
 @Slf4j
 public class ArtifactNode {
@@ -31,7 +34,7 @@ public class ArtifactNode {
     private final ArtifactKey artifactKey;
 
     @Getter
-    private final Artifact artifact;
+    private Artifact artifact;
 
     // Children keyed by their full ArtifactKey value
     private final Map<String, ArtifactNode> children = new ConcurrentHashMap<>();
@@ -69,9 +72,9 @@ public class ArtifactNode {
      * building the tree structure within the Artifact model.
      *
      * @param artifact The artifact to add
-     * @return AddResult indicating success, duplicate key, or duplicate hash
+     * @return AddResult indicating success, duplicate key, or missing parent
      */
-    public AddResult addArtifact(Artifact artifact) {
+    public synchronized AddResult addArtifact(Artifact artifact) {
         ArtifactKey key = artifact.artifactKey();
 
         // If this is for the root node itself, reject as duplicate
@@ -104,10 +107,11 @@ public class ArtifactNode {
 
     /**
      * Adds a child artifact to this node.
-     * Checks for duplicate keys and duplicate hashes among siblings.
+     * Checks for duplicate keys among siblings.
+     * Duplicate hashes are intentionally allowed so key paths are not dropped.
      * Also adds the artifact to this node's artifact's children list.
      */
-    private AddResult addChild(Artifact childArtifact) {
+    private synchronized AddResult addChild(Artifact childArtifact) {
         String keyValue = childArtifact.artifactKey().value();
 
         // Check for duplicate key
@@ -116,11 +120,10 @@ public class ArtifactNode {
             return AddResult.DUPLICATE_KEY;
         }
 
-        // Check for duplicate hash among siblings
+        // Keep duplicate-hash visibility, but do not reject the node.
         Optional<String> contentHash = childArtifact.contentHash();
         if (contentHash.isPresent() && childContentHashes.contains(contentHash.get())) {
-            log.debug("Duplicate hash rejected for key {}: {}", keyValue, contentHash.get());
-            return AddResult.DUPLICATE_HASH;
+            log.debug("Duplicate hash accepted for key {}: {}", keyValue, contentHash.get());
         }
 
         // Add the child node to our trie structure
@@ -130,9 +133,13 @@ public class ArtifactNode {
         // Add the child artifact to this artifact's children list
         // This builds the tree structure within the Artifact model itself
         try {
+            if (this.artifact.children() == null)
+                this.artifact = this.artifact.withChildren(new ArrayList<>());
+
             this.artifact.children().add(childArtifact);
         } catch (Exception e) {
-            log.error("");
+            log.error("Error adding artifact node {}.", e.getMessage(), e);
+//           TODO: eventBus.publish(..Error);
             throw e;
         }
 
@@ -147,15 +154,16 @@ public class ArtifactNode {
      * Finds a node by its artifact key.
      * Navigates the trie structure using the hierarchical key.
      */
-    public ArtifactNode findNode(ArtifactKey targetKey) {
-        if (targetKey.equals(this.artifactKey)) {
+    public synchronized @Nullable ArtifactNode findNode(ArtifactKey targetKey) {
+        if (StringUtils.isEmpty(targetKey.value()))
+            return null;
+        if (targetKey.equals(this.artifactKey))
             return this;
-        }
 
         // Check if target is a descendant of this node
-        if (!targetKey.value().startsWith(this.artifactKey.value())) {
+        if (!targetKey.value().startsWith(this.artifactKey.value()))
             return null;
-        }
+
 
         // Search children
         for (ArtifactNode child : children.values()) {
@@ -176,14 +184,14 @@ public class ArtifactNode {
     /**
      * Checks if a sibling with the given hash exists under this node.
      */
-    public boolean hasSiblingWithHash(String contentHash) {
+    public synchronized boolean hasSiblingWithHash(String contentHash) {
         return childContentHashes.contains(contentHash);
     }
 
     /**
      * Returns all child nodes of this node.
      */
-    public Collection<ArtifactNode> getChildren() {
+    public synchronized Collection<ArtifactNode> getChildren() {
         return Collections.unmodifiableCollection(children.values());
     }
 
@@ -191,7 +199,7 @@ public class ArtifactNode {
      * Returns the root artifact with its children tree fully populated.
      * This is the primary way to retrieve the built artifact tree.
      */
-    public Artifact buildArtifactTree() {
+    public synchronized Artifact buildArtifactTree() {
         // The artifact already has its children populated via addChild
         // Just return the root artifact
         return this.artifact;
@@ -201,13 +209,13 @@ public class ArtifactNode {
      * Collects all artifacts in this subtree (including this node).
      * This is a flat list, not the tree structure.
      */
-    public List<Artifact> collectAll() {
+    public synchronized List<Artifact> collectAll() {
         List<Artifact> result = new ArrayList<>();
         collectAllRecursive(result);
         return result;
     }
 
-    private void collectAllRecursive(List<Artifact> accumulator) {
+    private synchronized void collectAllRecursive(List<Artifact> accumulator) {
         accumulator.add(this.artifact);
         for (ArtifactNode child : children.values()) {
             child.collectAllRecursive(accumulator);
@@ -217,7 +225,7 @@ public class ArtifactNode {
     /**
      * Returns the number of artifacts in this subtree (including this node).
      */
-    public int size() {
+    public synchronized int size() {
         int count = 1;
         for (ArtifactNode child : children.values()) {
             count += child.size();
@@ -233,7 +241,7 @@ public class ArtifactNode {
         ADDED,
         /** An artifact with this key already exists */
         DUPLICATE_KEY,
-        /** A sibling with the same content hash already exists */
+        /** Legacy: duplicate hashes are now accepted to preserve key paths */
         DUPLICATE_HASH,
         /** The parent node for this artifact was not found */
         PARENT_NOT_FOUND
