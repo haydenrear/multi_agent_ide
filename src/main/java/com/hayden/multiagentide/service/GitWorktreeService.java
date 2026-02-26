@@ -18,12 +18,16 @@ import org.eclipse.jgit.api.FetchCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.MergeCommand;
 import org.eclipse.jgit.api.Status;
+import org.eclipse.jgit.api.errors.EmptyCommitException;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.errors.MissingObjectException;
+import org.eclipse.jgit.submodule.SubmoduleStatus;
 import org.eclipse.jgit.lib.*;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileBasedConfig;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+import org.eclipse.jgit.submodule.SubmoduleWalk;
 import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.util.FS;
@@ -78,10 +82,11 @@ public class GitWorktreeService implements WorktreeService {
         Path worktreePath = Paths.get(baseWorktreesPath, worktreeId);
 
         try {
+            validateCloneSource(repositoryUrl, baseBranch, nodeId);
             Files.createDirectories(worktreePath);
             cloneRepository(repositoryUrl, worktreePath, baseBranch);
             checkoutNewBranch(worktreePath, derivedBranch, null);
-            List<String> submodulePaths = initializeSubmodule(worktreePath);
+            List<String> submodulePaths = initializeSubmodule(worktreePath, derivedBranch);
 
 //            we pass in the baseBranch of the parent here because when we clone the
 //            submodules it puts it in a detached head. So we do a checkout -b ...
@@ -130,7 +135,7 @@ public class GitWorktreeService implements WorktreeService {
         Path submoduleFullPath = parentWorktreePath.resolve(submodulePath);
 
         try {
-            List<String> updatedSubmodules = initializeSubmodule(parentWorktreePath);
+            List<String> updatedSubmodules = initializeSubmodule(parentWorktreePath, parentBranch);
             if (submodulePath != null && !submodulePath.isBlank()
                     && updatedSubmodules.stream().noneMatch(p -> p.equals(submodulePath))) {
                 throw new RuntimeException("Failed to initialize submodule path: " + submodulePath);
@@ -257,12 +262,7 @@ public class GitWorktreeService implements WorktreeService {
         static RepoStateSnapshot capture(GitWorktreeService service, Path repoPath) {
             String head = service.getCurrentCommitHashInternal(repoPath);
             String branch = service.getBranchSafe(repoPath);
-            boolean clean;
-            try (var git = service.openGit(repoPath)) {
-                clean = git.status().call().isClean();
-            } catch (Exception e) {
-                clean = false;
-            }
+            boolean clean = service.isCleanIgnoringSubmodules(repoPath);
             return new RepoStateSnapshot(head, branch, clean);
         }
     }
@@ -295,7 +295,7 @@ public class GitWorktreeService implements WorktreeService {
             return !allConflicts.isEmpty();
         }
     }
-
+   
     @Override
     public MergeResult mergeWorktrees(String childWorktreeId, String parentWorktreeId) {
         Optional<WorktreeContext> childWt = worktreeRepository.findById(childWorktreeId);
@@ -318,20 +318,38 @@ public class GitWorktreeService implements WorktreeService {
             emitMergeFailure(result, childWt.orElse(null), parentWt.orElse(null), "Worktree not found for merge request.");
             return result;
         }
+        
+        Path parentPath = parentWt.get().worktreePath();
+        Path childPath = childWt.get().worktreePath();
+        String childBranch = childWt.get().derivedBranch();
+        WorktreeContext childContext = childWt.get();
+        WorktreeContext parentContext = parentWt.get();
 
         try {
-            WorktreeContext childContext = childWt.get();
-            WorktreeContext parentContext = parentWt.get();
-            Path childPath = childContext.worktreePath();
-            Path parentPath = parentContext.worktreePath();
+            return mergeWorktrees(childContext, parentContext);
+        } catch (Exception e) {
+            return getMergeResult(childContext, parentContext, e, parentPath, childPath, childBranch, childWorktreeId, parentWorktreeId);
+        }
+    }
 
-            // Phase 1: Build comprehensive merge plan (leaves first, root last).
+    @NonNull
+    public MergeResult mergeWorktrees(WorktreeContext childContext, WorktreeContext parentContext)  {
+        String childWorktreeId = childContext.worktreeId();
+        String parentWorktreeId = parentContext.worktreeId();
+        Path childPath = childContext.worktreePath();
+        Path parentPath = parentContext.worktreePath();
+        String childBranch = childContext.derivedBranch();
+
+        // Phase 1: Build comprehensive merge plan (leaves first, root last).
+        try {
             List<MergePlanStep> plan = buildMergePlan(childPath, parentPath, childContext.derivedBranch());
-            log.debug("Merge plan has {} steps", plan.size());
+            log.info("Merge plan has {} steps", plan.size());
+            log.info("Merge plan: {}", plan);
 
             // Phase 2: Execute each step with before/after actions and verification.
             MergeExecutionState state = new MergeExecutionState();
             for (MergePlanStep step : plan) {
+                log.info("Merging next step in plan: {}", step);
                 executeStepWithLifecycle(step, state, childContext, parentContext);
             }
 
@@ -346,27 +364,28 @@ public class GitWorktreeService implements WorktreeService {
             MergeResult success = finalizeSuccessfulMerge(childWorktreeId, parentWorktreeId, childContext, parentContext);
             emitMergeLifecycleEvent(success, childContext, parentContext, "main");
             return success;
-
         } catch (Exception e) {
-            if (childWt.isPresent() && parentWt.isPresent()) {
-                switchToBranches(parentWt.get().worktreePath(), childWt.get().worktreePath(), childWt.get().derivedBranch());
-            }
-            MergeResult result = new MergeResult(
-                    UUID.randomUUID().toString(),
-                    childWorktreeId,
-                    parentWorktreeId,
-                    childWt.map(WorktreeContext::worktreePath).map(this::normalizePath).orElse(null),
-                    parentWt.map(WorktreeContext::worktreePath).map(this::normalizePath).orElse(null),
-                    false,
-                    null,
-                    List.of(),
-                    List.of(),
-                    "Merge failed: " + e.getMessage(),
-                    Instant.now()
-            );
-            emitMergeFailure(result, childWt.orElse(null), parentWt.orElse(null), "Merge execution failed: " + e.getMessage());
-            return result;
+            return getMergeResult(childContext, parentContext, e, parentPath, childPath, childBranch, childWorktreeId, parentWorktreeId);
         }
+    }
+
+    private @NonNull MergeResult getMergeResult(WorktreeContext childContext, WorktreeContext parentContext, Exception e, Path parentPath, Path childPath, String childBranch, String childWorktreeId, String parentWorktreeId) {
+        switchToBranches(parentPath, childPath, childBranch);
+        MergeResult result = new MergeResult(
+                UUID.randomUUID().toString(),
+                childWorktreeId,
+                parentWorktreeId,
+                this.normalizePath(childPath),
+                this.normalizePath(parentPath),
+                false,
+                null,
+                List.of(),
+                List.of(),
+                "Merge failed: " + e.getMessage(),
+                Instant.now()
+        );
+        emitMergeFailure(result, childContext, parentContext, "Merge execution failed: " + e.getMessage());
+        return result;
     }
 
     /**
@@ -407,6 +426,7 @@ public class GitWorktreeService implements WorktreeService {
 
             // After-actions: commit dirty submodule pointers in the merged repo and its parent.
             commitDirtySubmodulePointers(step.parentPath());
+
             if (step.parentOfParentPath() != null) {
                 commitDirtySubmodulePointers(step.parentOfParentPath());
             }
@@ -418,14 +438,12 @@ public class GitWorktreeService implements WorktreeService {
 
             verifyStepResult(step, parentBefore, parentAfter);
             emitMergeStepSuccess(step, rootChildContext, rootParentContext);
-
         } catch (Exception e) {
             String label = step.submodulePath() != null ? step.submodulePath() : "root";
             List<MergeResult.MergeConflict> conflicts = List.of(new MergeResult.MergeConflict(
                     label, "merge-error", "", "", "", step.formattedSubmodulePath()
             ));
             emitMergeStepConflict(step, rootChildContext, rootParentContext, conflicts);
-            state.addConflicts(conflicts, step);
         }
     }
 
@@ -437,23 +455,24 @@ public class GitWorktreeService implements WorktreeService {
     private List<MergeResult.MergeConflict> doMerge(MergePlanStep step) throws IOException, GitAPIException, URISyntaxException {
         String planBranch = resolveBranch(step.childPath(), step.childBranch());
 
-        org.eclipse.jgit.api.MergeResult mergeResult = mergeFromChildRepo(
+        NormalizedMergeResult mergeResult = mergeFromChildRepoWithFallback(
                 step.parentPath(),
                 step.childPath(),
                 planBranch
         );
 
-        log.debug("Merge result sub={}: status={}", step.submodulePath(), mergeResult.getMergeStatus());
+        log.debug("Merge result sub={}: successful={}", step.submodulePath(), mergeResult.successful());
 
-        if (mergeResult.getMergeStatus().isSuccessful()) {
+        if (mergeResult.successful()) {
             return List.of();
         }
 
+        if (!mergeResult.hasConflicts()) {
+            throw new RuntimeException("Merge failed without conflicts: " + mergeResult.errorMessage());
+        }
+
         // Extract conflicts.
-        Map<String, int[][]> conflictMap = mergeResult.getConflicts();
-        List<MergeResult.MergeConflict> conflicts = conflictMap == null
-                ? List.of()
-                : conflictMap.keySet().stream()
+        List<MergeResult.MergeConflict> conflicts = mergeResult.conflictFiles().stream()
                 .map(file -> new MergeResult.MergeConflict(
                         file, "content", "", "", "", step.formattedSubmodulePath()
                 ))
@@ -618,12 +637,10 @@ public class GitWorktreeService implements WorktreeService {
             for (String path : submodulePaths) {
                 git.add().addFilepattern(path).call();
             }
-            Status status = git.status().call();
-            boolean hasChanges = submodulePaths.stream()
-                    .anyMatch(p -> status.getChanged().contains(p)
-                            || status.getAdded().contains(p));
-            if (hasChanges) {
+            try {
                 git.commit().setMessage("Update submodule pointer(s)").call();
+            } catch (EmptyCommitException ignored) {
+                // No pointer changes staged.
             }
         } catch (Exception e) {
             // best-effort; leave as-is
@@ -703,14 +720,6 @@ public class GitWorktreeService implements WorktreeService {
             return false;
         }
         try (var git = openGit(parentContext.worktreePath())) {
-            Status status = git.status().call();
-            Set<String> modified = status.getModified();
-            boolean changed = modified.contains(submodulePath)
-                    || status.getChanged().contains(submodulePath)
-                    || status.getAdded().contains(submodulePath);
-            if (!changed) {
-                return false;
-            }
             git.add().addFilepattern(submodulePath).call();
             git.commit().setMessage("Update " + submodulePath + " pointer").call();
             return true;
@@ -727,11 +736,17 @@ public class GitWorktreeService implements WorktreeService {
         }
 
         try {
+            MainWorktreeContext sourceContext = source.get();
             String worktreeId = UUID.randomUUID().toString();
             Path newWorktreePath = Paths.get(baseWorktreesPath, worktreeId);
+            String parentBranch = resolveBranchForBranching(sourceContext);
 
-            cloneRepository(source.get().repositoryUrl(), newWorktreePath, source.get().derivedBranch());
-            checkoutNewBranch(newWorktreePath, newBranchName, source.get().derivedBranch());
+            validateCloneSource(sourceContext.worktreePath().toString(), parentBranch, nodeId);
+
+            // Clone from the source worktree itself so derived branches created in the sandbox
+            // are available as branch start points for child worktrees.
+            cloneRepository(sourceContext.worktreePath().toString(), newWorktreePath, parentBranch);
+            checkoutNewBranch(newWorktreePath, newBranchName, parentBranch);
 
 
             String commitHash = getCurrentCommitHashInternal(newWorktreePath);
@@ -739,18 +754,38 @@ public class GitWorktreeService implements WorktreeService {
             MainWorktreeContext context = new MainWorktreeContext(
                     worktreeId,
                     newWorktreePath,
-                    source.get().derivedBranch(),
+                    parentBranch,
                     newBranchName,
                     WorktreeContext.WorktreeStatus.ACTIVE,
                     sourceWorktreeId,
                     nodeId,
                     Instant.now(),
                     commitHash,
-                    source.get().repositoryUrl(),
-                    source.get().hasSubmodules(),
+                    sourceContext.repositoryUrl(),
+                    sourceContext.hasSubmodules(),
                     new ArrayList<>(),
                     new HashMap<>()
             );
+
+            List<String> submodulePaths = initializeSubmodule(newWorktreePath, newBranchName);
+
+//            we pass in the baseBranch of the parent here because when we clone the
+//            submodules it puts it in a detached head. So we do a checkout -b ...
+//            and we assume that it's either on that same commit as the branch or will
+//            create a new branch with the name of the commit.
+            List<SubmoduleWorktreeContext> submodules = createSubmoduleContexts(
+                    submodulePaths,
+                    worktreeId,
+                    newWorktreePath,
+                    nodeId,
+                    newBranchName
+            );
+
+            for (var s : submodules) {
+                worktreeRepository.save(s);
+            }
+
+            context.submoduleWorktrees().addAll(submodules);
 
             worktreeRepository.save(context);
             return context;
@@ -767,7 +802,8 @@ public class GitWorktreeService implements WorktreeService {
         }
 
         try {
-            checkoutNewBranch(source.get().worktreePath(), newBranchName, source.get().derivedBranch());
+            String startPoint = resolvePreferredBranch(source.get().worktreePath(), source.get().derivedBranch());
+            checkoutNewBranch(source.get().worktreePath(), newBranchName, startPoint);
 
             String commitHash = getCurrentCommitHashInternal(source.get().worktreePath());
 
@@ -908,6 +944,115 @@ public class GitWorktreeService implements WorktreeService {
         return getCurrentCommitHashInternal(wt.get().worktreePath());
     }
 
+    public boolean hasUncommittedChanges(String worktreeId, String derivedBranch) {
+        Optional<WorktreeContext> wt = worktreeRepository.findById(worktreeId);
+        if (wt.isEmpty()) {
+            String message = "Worktree not found: " + worktreeId;
+            log.error(message);
+            eventBus.publish(Events.NodeErrorEvent.err(message, ArtifactKey.createRoot()));
+            return true;
+        }
+        try (var git = openGit(wt.get().worktreePath())) {
+            return !git.status().setIgnoreSubmodules(SubmoduleWalk.IgnoreSubmoduleMode.ALL).call().isClean();
+        } catch (Exception e) {
+            if (hasCause(e, MissingObjectException.class)) {
+                log.warn("MissingObjectException checking worktree status for {} - attempting to fix detached HEAD submodules", worktreeId);
+                try {
+                    fixDetachedHeadSubmodules(wt.get().worktreePath(), derivedBranch);
+                    try (var git = openGit(wt.get().worktreePath())) {
+                        return !git.status()
+                                .setIgnoreSubmodules(SubmoduleWalk.IgnoreSubmoduleMode.ALL)
+                                .call().isClean();
+                    }
+                } catch (Exception retryEx) {
+                    String message = "Could not determine worktree status for " + worktreeId + " after fixing detached HEAD";
+                    log.error(message, retryEx);
+                    eventBus.publish(Events.NodeErrorEvent.err(message + ": " + retryEx.getMessage(), ArtifactKey.createRoot()));
+                    return true;
+                }
+            }
+            Boolean fallback = isCleanViaCli(wt.get().worktreePath());
+            if (fallback != null) {
+                return !fallback;
+            }
+            String message = "Could not determine worktree status for " + worktreeId;
+            log.error(message, e);
+            eventBus.publish(Events.NodeErrorEvent.err(message + ": " + e.getMessage(), ArtifactKey.createRoot()));
+            return true;
+        }
+    }
+
+    private static boolean hasCause(Throwable t, Class<? extends Throwable> causeType) {
+        while (t != null) {
+            if (causeType.isInstance(t)) return true;
+            t = t.getCause();
+        }
+        return false;
+    }
+
+    private void fixDetachedHeadSubmodules(Path worktreePath, String derivedBranch) {
+        try (var git = openGit(worktreePath)) {
+            Map<String, SubmoduleStatus> submodules = git.submoduleStatus().call();
+            for (Map.Entry<String, SubmoduleStatus> entry : submodules.entrySet()) {
+                Path submodulePath = worktreePath.resolve(entry.getKey());
+                if (!Files.isDirectory(submodulePath.resolve(".git")) && !Files.isRegularFile(submodulePath.resolve(".git"))) {
+                    continue;
+                }
+                try (var subGit = openGit(submodulePath)) {
+                    Repository subRepo = subGit.getRepository();
+                    if (subRepo.resolve("HEAD") != null && subRepo.getFullBranch().startsWith("refs/heads/")) {
+                        continue; // already on a branch
+                    }
+                    // Detached HEAD - create or checkout a branch from current commit
+                    String branchName = derivedBranch;
+                    log.info("Fixing detached HEAD in submodule {} by checking out branch {}", entry.getKey(), branchName);
+                    try {
+                        subGit.checkout().setName(branchName).setCreateBranch(true).call();
+                    } catch (Exception checkoutEx) {
+                        // Branch may already exist, try switching to it
+                        try {
+                            subGit.checkout().setName(branchName).call();
+                        } catch (Exception switchEx) {
+                            log.warn("Could not fix detached HEAD for submodule {}: {}", entry.getKey(), switchEx.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error fixing detached HEAD submodules in {}: {}", worktreePath, e.getMessage());
+        }
+    }
+
+    public List<String> changedFiles(String worktreeId) {
+        Optional<WorktreeContext> wt = worktreeRepository.findById(worktreeId);
+        if (wt.isEmpty()) {
+            throw new RuntimeException("Worktree not found: " + worktreeId);
+        }
+        Path worktreePath = wt.get().worktreePath();
+        try (var git = openGit(worktreePath)) {
+            Status status = git.status()
+                    .setIgnoreSubmodules(SubmoduleWalk.IgnoreSubmoduleMode.ALL)
+                    .call();
+            Set<String> files = new TreeSet<>();
+            files.addAll(status.getAdded());
+            files.addAll(status.getChanged());
+            files.addAll(status.getModified());
+            files.addAll(status.getRemoved());
+            files.addAll(status.getMissing());
+            files.addAll(status.getUntracked());
+            files.addAll(status.getConflicting());
+            return new ArrayList<>(files);
+        } catch (Exception e) {
+            log.warn("JGit changed-files read failed for worktree {} at {}. Falling back to git CLI.",
+                    worktreeId, worktreePath, e);
+            List<String> fallback = changedFilesViaCli(worktreePath);
+            if (fallback != null) {
+                return fallback;
+            }
+            throw new RuntimeException("Could not read changed files for worktree " + worktreeId, e);
+        }
+    }
+
     public String commitChanges(String worktreeId, String message) {
         Optional<WorktreeContext> wt = worktreeRepository.findById(worktreeId);
         if (wt.isEmpty()) {
@@ -962,7 +1107,9 @@ public class GitWorktreeService implements WorktreeService {
 
         try {
             try (var git = openGit(parentWt.get().worktreePath())) {
-                Status status = git.status().call();
+                Status status = git.status()
+                        .setIgnoreSubmodules(SubmoduleWalk.IgnoreSubmoduleMode.ALL)
+                        .call();
                 return new ArrayList<>(status.getConflicting());
             }
         } catch (Exception e) {
@@ -1194,10 +1341,17 @@ public class GitWorktreeService implements WorktreeService {
             return toMergeDescriptor(result, MergeDirection.TRUNK_TO_CHILD);
         } catch (Exception e) {
             log.error("Trunk-to-child merge failed", e);
-            return MergeDescriptor.builder()
-                    .mergeDirection(MergeDirection.TRUNK_TO_CHILD)
-                    .successful(false)
-                    .errorMessage("Trunk-to-child merge failed: " + e.getMessage())
+            String errorMessage = "Trunk-to-child merge failed: " + e.getMessage();
+            MergeResult failed = failedMergeResult(
+                    trunk != null && trunk.mainWorktree() != null ? trunk.mainWorktree().worktreeId() : "unknown-child",
+                    child != null && child.mainWorktree() != null ? child.mainWorktree().worktreeId() : "unknown-parent",
+                    trunk != null && trunk.mainWorktree() != null ? trunk.mainWorktree().worktreePath() : null,
+                    child != null && child.mainWorktree() != null ? child.mainWorktree().worktreePath() : null,
+                    errorMessage
+            );
+            return toMergeDescriptor(failed, MergeDirection.TRUNK_TO_CHILD)
+                    .toBuilder()
+                    .errorMessage(errorMessage)
                     .build();
         }
     }
@@ -1227,10 +1381,17 @@ public class GitWorktreeService implements WorktreeService {
             return toMergeDescriptor(result, MergeDirection.CHILD_TO_TRUNK);
         } catch (Exception e) {
             log.error("Child-to-trunk merge failed", e);
-            return MergeDescriptor.builder()
-                    .mergeDirection(MergeDirection.CHILD_TO_TRUNK)
-                    .successful(false)
-                    .errorMessage("Child-to-trunk merge failed: " + e.getMessage())
+            String errorMessage = "Child-to-trunk merge failed: " + e.getMessage();
+            MergeResult failed = failedMergeResult(
+                    child != null && child.mainWorktree() != null ? child.mainWorktree().worktreeId() : "unknown-child",
+                    trunk != null && trunk.mainWorktree() != null ? trunk.mainWorktree().worktreeId() : "unknown-parent",
+                    child != null && child.mainWorktree() != null ? child.mainWorktree().worktreePath() : null,
+                    trunk != null && trunk.mainWorktree() != null ? trunk.mainWorktree().worktreePath() : null,
+                    errorMessage
+            );
+            return toMergeDescriptor(failed, MergeDirection.CHILD_TO_TRUNK)
+                    .toBuilder()
+                    .errorMessage(errorMessage)
                     .build();
         }
     }
@@ -1250,12 +1411,45 @@ public class GitWorktreeService implements WorktreeService {
             return toMergeDescriptor(result, MergeDirection.WORKTREE_TO_SOURCE);
         } catch (Exception e) {
             log.error("Final merge to source descriptor failed", e);
-            return MergeDescriptor.builder()
-                    .mergeDirection(MergeDirection.WORKTREE_TO_SOURCE)
-                    .successful(false)
-                    .errorMessage("Final merge to source failed: " + e.getMessage())
+            String errorMessage = "Final merge to source failed: " + e.getMessage();
+            WorktreeContext main = worktreeRepository.findById(mainWorktreeId).orElse(null);
+            String sourceWorktreeId = main != null && main.parentWorktreeId() != null && !main.parentWorktreeId().isBlank()
+                    ? main.parentWorktreeId()
+                    : "source-repo";
+            MergeResult failed = failedMergeResult(
+                    mainWorktreeId != null && !mainWorktreeId.isBlank() ? mainWorktreeId : "unknown-child",
+                    sourceWorktreeId,
+                    main != null ? main.worktreePath() : null,
+                    null,
+                    errorMessage
+            );
+            return toMergeDescriptor(failed, MergeDirection.WORKTREE_TO_SOURCE)
+                    .toBuilder()
+                    .errorMessage(errorMessage)
                     .build();
         }
+    }
+
+    private MergeResult failedMergeResult(
+            String childWorktreeId,
+            String parentWorktreeId,
+            Path childWorktreePath,
+            Path parentWorktreePath,
+            String message
+    ) {
+        return new MergeResult(
+                UUID.randomUUID().toString(),
+                childWorktreeId,
+                parentWorktreeId,
+                childWorktreePath != null ? normalizePath(childWorktreePath) : null,
+                parentWorktreePath != null ? normalizePath(parentWorktreePath) : null,
+                false,
+                null,
+                List.of(),
+                List.of(),
+                message,
+                Instant.now()
+        );
     }
 
     private MergeDescriptor toMergeDescriptor(MergeResult result, MergeDirection direction) {
@@ -1328,6 +1522,67 @@ public class GitWorktreeService implements WorktreeService {
 
     // ======== PRIVATE HELPERS ========
 
+    private void validateCloneSource(String repositoryUrl, String expectedBranch, String nodeId) {
+        if (repositoryUrl == null || repositoryUrl.isBlank()) {
+            String message = "Clone source repository path is required but was blank.";
+            emitCloneValidationFailure(nodeId, message, null);
+            throw new IllegalStateException(message);
+        }
+
+        Path sourcePath;
+        try {
+            sourcePath = Paths.get(repositoryUrl).toAbsolutePath().normalize();
+        } catch (Exception e) {
+            String message = "Clone source path '" + repositoryUrl + "' is invalid.";
+            emitCloneValidationFailure(nodeId, message, e);
+            throw new IllegalStateException(message, e);
+        }
+
+        if (!Files.exists(sourcePath)) {
+            // Non-local repository URLs are validated by clone itself.
+            return;
+        }
+
+        try (Repository sourceRepo = RepoUtil.findRepo(sourcePath)) {
+            if (expectedBranch == null || expectedBranch.isBlank()) {
+                return;
+            }
+
+            String fullBranch = sourceRepo.getFullBranch();
+            boolean detachedHead = fullBranch == null || !fullBranch.startsWith(Constants.R_HEADS);
+            String currentBranch = detachedHead ? null : Repository.shortenRefName(fullBranch);
+
+            if (detachedHead) {
+                String message = "Clone source repository '" + sourcePath + "' is in detached HEAD. "
+                        + "Expected branch '" + expectedBranch + "' before cloning.";
+                emitCloneValidationFailure(nodeId, message, null);
+                throw new IllegalStateException(message);
+            }
+
+            if (!Objects.equals(currentBranch, expectedBranch)) {
+                String message = "Clone source repository '" + sourcePath + "' is on branch '"
+                        + currentBranch + "' but expected '" + expectedBranch + "'.";
+                emitCloneValidationFailure(nodeId, message, null);
+                throw new IllegalStateException(message);
+            }
+        } catch (IOException e) {
+            String message = "Failed validating clone source repository '" + sourcePath + "': " + e.getMessage();
+            emitCloneValidationFailure(nodeId, message, e);
+            throw new IllegalStateException(message, e);
+        }
+    }
+
+    private void emitCloneValidationFailure(String nodeId, String message, Exception e) {
+        if (e == null) {
+            log.error(message);
+        } else {
+            log.error(message, e);
+        }
+        if (eventBus != null && nodeId != null && !nodeId.isBlank()) {
+            eventBus.publish(Events.NodeErrorEvent.err(message, getKey(nodeId)));
+        }
+    }
+
     public static void cloneRepository(String repositoryUrl, Path worktreePath, String baseBranch) throws GitAPIException, IOException {
         try(Repository build = RepoUtil.findRepo(Paths.get(repositoryUrl))) {
             CloneCommand clone = Git.cloneRepository()
@@ -1337,10 +1592,23 @@ public class GitWorktreeService implements WorktreeService {
             try (
                     Git git = clone.call()
             ) {
-                RepoUtil.runGitCommand(Paths.get(repositoryUrl), List.of("submodule", "update", "--init", "--recursive"));
-                if (baseBranch != null && !baseBranch.isBlank() && !Objects.equals(git.getRepository().getBranch(), baseBranch)) {
-                    git.checkout().setName(baseBranch).call();
-                    RepoUtil.runGitCommand(Paths.get(repositoryUrl), List.of("submodule", "foreach", "--recursive", "git reset --hard || true"));
+                RepoUtil.runGitCommand(worktreePath, List.of("submodule", "update", "--init", "--recursive"));
+                String resolvedBaseRef = resolveBranchRef(git.getRepository(), baseBranch);
+                if (resolvedBaseRef != null) {
+                    String resolvedBaseBranch = branchNameFromRef(resolvedBaseRef);
+                    if (!Objects.equals(git.getRepository().getBranch(), resolvedBaseBranch)) {
+                        CheckoutCommand checkout = git.checkout().setName(resolvedBaseBranch);
+                        if (git.getRepository().findRef("refs/heads/" + resolvedBaseBranch) == null) {
+                            checkout.setCreateBranch(true).setStartPoint(resolvedBaseRef);
+                        }
+                        checkout.call();
+                    }
+                } else if (baseBranch != null && !baseBranch.isBlank()) {
+                    log.warn(
+                            "Requested clone base branch '{}' not found for repository '{}'; continuing with current HEAD",
+                            baseBranch,
+                            repositoryUrl
+                    );
                 }
             }
         }
@@ -1352,22 +1620,136 @@ public class GitWorktreeService implements WorktreeService {
 
     private void checkoutNewBranch(Path repoPath, String newBranchName, String startPoint) throws IOException, GitAPIException {
         try (var git = openGit(repoPath)) {
-            CheckoutCommand checkout = git.checkout()
-                    .setCreateBranch(true)
-                    .setName(newBranchName);
-            if (startPoint != null && !startPoint.isBlank()) {
-                checkout.setStartPoint(startPoint);
+            if (newBranchName == null || newBranchName.isBlank()) {
+                throw new IllegalArgumentException("newBranchName is required");
+            }
+
+            Ref existingBranchRef = git.getRepository().findRef("refs/heads/" + newBranchName);
+            CheckoutCommand checkout = git.checkout().setName(newBranchName);
+            if (existingBranchRef == null) {
+                checkout.setCreateBranch(true);
+                String resolvedStartRef = resolveBranchRef(git.getRepository(), startPoint);
+                if (resolvedStartRef != null) {
+                    checkout.setStartPoint(resolvedStartRef);
+                } else if (startPoint != null && !startPoint.isBlank()) {
+                    log.warn(
+                            "Start branch '{}' not found in {}; creating '{}' from current HEAD",
+                            startPoint,
+                            repoPath,
+                            newBranchName
+                    );
+                }
             }
             checkout.call();
         }
     }
 
-    private List<String> initializeSubmodule(Path parentWorktreePath) {
+    private String resolveBranchForBranching(MainWorktreeContext sourceContext) {
+        if (sourceContext == null || sourceContext.worktreePath() == null) {
+            return "main";
+        }
+
+        String resolved = resolvePreferredBranch(
+                sourceContext.worktreePath(),
+                sourceContext.derivedBranch(),
+                sourceContext.baseBranch()
+        );
+        if (resolved != null && !resolved.isBlank()) {
+            return resolved;
+        }
+        if (sourceContext.derivedBranch() != null && !sourceContext.derivedBranch().isBlank()) {
+            return sourceContext.derivedBranch();
+        }
+        if (sourceContext.baseBranch() != null && !sourceContext.baseBranch().isBlank()) {
+            return sourceContext.baseBranch();
+        }
+        return "main";
+    }
+
+    private String resolvePreferredBranch(Path repoPath, String... candidates) {
+        if (repoPath == null) {
+            return null;
+        }
+        try (var git = openGit(repoPath)) {
+            Repository repository = git.getRepository();
+            if (candidates != null) {
+                for (String candidate : candidates) {
+                    String ref = resolveBranchRef(repository, candidate);
+                    if (ref != null) {
+                        return branchNameFromRef(ref);
+                    }
+                }
+            }
+
+            String current = repository.getBranch();
+            if (current != null && !current.isBlank()) {
+                return current;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to resolve preferred branch for {}", repoPath, e);
+        }
+        return null;
+    }
+
+    private static String resolveBranchRef(Repository repository, String branchName) throws IOException {
+        if (repository == null || branchName == null || branchName.isBlank()) {
+            return null;
+        }
+        String candidate = branchName.trim();
+        List<String> refs = List.of(
+                "refs/heads/" + candidate,
+                "refs/remotes/origin/" + candidate,
+                candidate
+        );
+        for (String refName : refs) {
+            Ref ref = repository.findRef(refName);
+            if (ref != null) {
+                return ref.getName();
+            }
+        }
+        return null;
+    }
+
+    private static String branchNameFromRef(String refName) {
+        if (refName == null || refName.isBlank()) {
+            return refName;
+        }
+        if (refName.startsWith("refs/heads/")) {
+            return refName.substring("refs/heads/".length());
+        }
+        if (refName.startsWith("refs/remotes/origin/")) {
+            return refName.substring("refs/remotes/origin/".length());
+        }
+        return refName;
+    }
+
+    private List<String> initializeSubmodule(Path parentWorktreePath, String derivedBranch) {
         var result = RepoUtil.updateSubmodulesRecursively(parentWorktreePath);
         if (result.isErr()) {
             throw new RuntimeException(result.errorMessage());
         }
+        // Fix detached HEAD submodules left by git submodule update --init
+        fixDetachedHeadSubmodules(parentWorktreePath, derivedBranch);
         return result.unwrap();
+    }
+
+    private record NormalizedMergeResult(boolean successful, List<String> conflictFiles, String errorMessage) {
+        boolean hasConflicts() {
+            return conflictFiles != null && !conflictFiles.isEmpty();
+        }
+    }
+
+    private NormalizedMergeResult mergeFromChildRepoJgitFallback(Path parentPath, Path childPath, String childBranch) {
+        try {
+            var result = mergeFromChildRepo(parentPath, childPath, childBranch);
+            List<String> conflicts = result.getConflicts() == null
+                    ? List.of()
+                    : new ArrayList<>(result.getConflicts().keySet());
+            return new NormalizedMergeResult(result.getMergeStatus().isSuccessful(), conflicts, null);
+        } catch (Exception e) {
+            log.warn("JGit merge failed for parent {} child {}. Falling back to CLI merge.", parentPath, childPath, e);
+            return mergeFromChildRepoCli(parentPath, childPath, childBranch, e.getMessage());
+        }
     }
 
     private org.eclipse.jgit.api.MergeResult mergeFromChildRepo(Path parentPath, Path childPath, String childBranch) throws IOException, GitAPIException, URISyntaxException {
@@ -1418,6 +1800,69 @@ public class GitWorktreeService implements WorktreeService {
         }
     }
 
+    private NormalizedMergeResult mergeFromChildRepoWithFallback(Path parentPath, Path childPath, String childBranch) {
+        return mergeFromChildRepoJgitFallback(parentPath, childPath, childBranch);
+    }
+
+    private NormalizedMergeResult mergeFromChildRepoCli(
+            Path parentPath,
+            Path childPath,
+            String childBranch,
+            String jgitError
+    ) {
+        String remoteNamespace = "child-" + shortId(childPath.getFileName().toString());
+        String remoteRefBase = "refs/remotes/" + remoteNamespace + "/";
+        String headRef = remoteRefBase + "HEAD";
+
+        try {
+            RepoUtil.runGitCommand(parentPath, List.of("remote", "remove", remoteNamespace));
+            var add = RepoUtil.runGitCommand(parentPath, List.of("remote", "add", remoteNamespace, childPath.toString()));
+            if (add.isErr()) {
+                return new NormalizedMergeResult(false, List.of(), "CLI remote add failed: " + add.errorMessage());
+            }
+
+            var fetch = RepoUtil.runGitCommand(parentPath, List.of(
+                    "fetch",
+                    remoteNamespace,
+                    "+HEAD:" + headRef,
+                    "+refs/heads/*:" + remoteRefBase + "*"
+            ));
+            if (fetch.isErr()) {
+                return new NormalizedMergeResult(false, List.of(), "CLI fetch failed: " + fetch.errorMessage());
+            }
+
+            String mergeRef = headRef;
+            var headExists = RepoUtil.runGitCommand(parentPath, List.of("rev-parse", "--verify", "--quiet", headRef));
+            if (headExists.isErr() || headExists.r().get() == null || headExists.r().get().isBlank()) {
+                mergeRef = remoteRefBase + (childBranch == null || childBranch.isBlank() ? "main" : childBranch);
+            }
+
+            var merge = RepoUtil.runGitCommand(parentPath, List.of("merge", "--no-ff", "--no-edit", mergeRef));
+            if (merge.isOk()) {
+                return new NormalizedMergeResult(true, List.of(), null);
+            }
+
+            var conflictFiles = RepoUtil.runGitCommand(parentPath, List.of("diff", "--name-only", "--diff-filter=U"));
+            if (conflictFiles.isOk()) {
+                List<String> conflicts = conflictFiles.r().get().lines()
+                        .map(String::trim)
+                        .filter(s -> !s.isBlank())
+                        .toList();
+                if (!conflicts.isEmpty()) {
+                    return new NormalizedMergeResult(false, conflicts, merge.errorMessage());
+                }
+            }
+
+            return new NormalizedMergeResult(
+                    false,
+                    List.of(),
+                    "CLI merge failed after JGit error [" + jgitError + "]: " + merge.errorMessage()
+            );
+        } finally {
+            RepoUtil.runGitCommand(parentPath, List.of("remote", "remove", remoteNamespace));
+        }
+    }
+
     private WorktreeSandboxContext branchSandboxContext(
             WorktreeSandboxContext parentContext,
             String branchName,
@@ -1429,22 +1874,20 @@ public class GitWorktreeService implements WorktreeService {
                     branchName,
                     nodeId
             );
-            List<SubmoduleWorktreeContext> submodules = new ArrayList<>();
-            if (parentContext.submoduleWorktrees() != null) {
-                for (SubmoduleWorktreeContext submodule : parentContext.submoduleWorktrees()) {
-                    if (submodule == null) {
-                        continue;
-                    }
-                    submodules.add(branchSubmoduleWorktree(
-                            submodule.worktreeId(),
-                            branchName,
-                            nodeId
-                    ));
-                }
-            }
-            return new WorktreeSandboxContext(main, submodules);
+            return new WorktreeSandboxContext(main, main.submoduleWorktrees());
         } catch (Exception ex) {
-            return parentContext;
+            String parentMainId = parentContext != null && parentContext.mainWorktree() != null
+                    ? parentContext.mainWorktree().worktreeId()
+                    : "unknown-parent";
+            String message = "Failed to branch sandbox worktree context for nodeId=" + nodeId
+                    + ", branchName=" + branchName
+                    + ", parentMainWorktreeId=" + parentMainId
+                    + ". Manual review required before retrying worktree operations.";
+            log.error(message, ex);
+            if (eventBus != null && nodeId != null && !nodeId.isBlank()) {
+                eventBus.publish(Events.NodeErrorEvent.err(message, getKey(nodeId)));
+            }
+            throw new IllegalStateException(message, ex);
         }
     }
 
@@ -1510,13 +1953,23 @@ public class GitWorktreeService implements WorktreeService {
 
             // Phase 2: Execute each step with lifecycle.
             MergeExecutionState state = new MergeExecutionState();
+            WorktreeContext sourceContext = createSourceMergeContext(mainContext, sourcePath, baseBranch);
             for (MergePlanStep step : plan) {
-                executeStepWithLifecycle(step, state, mainContext, mainContext);
+                executeStepWithLifecycle(step, state, mainContext, sourceContext);
             }
 
             // Phase 3: Finalize.
             if (state.hasConflicts()) {
                 return buildConflictResult(mainWorktreeId, "source", state.allConflicts);
+            }
+
+            // Reconcile each submodule repo directly against the worktree tree, even if the
+            // root repo appears up-to-date. Parent commit equality does not guarantee
+            // submodule repos (or pointer commits) were propagated in source.
+            List<MergeResult.MergeConflict> reconciliationConflicts =
+                    reconcileFinalMergeSubmoduleRepos(worktreePath, sourcePath, "");
+            if (!reconciliationConflicts.isEmpty()) {
+                return buildConflictResult(mainWorktreeId, "source", reconciliationConflicts);
             }
 
             // Commit submodule pointers, ensure source is on baseBranch.
@@ -1549,6 +2002,146 @@ public class GitWorktreeService implements WorktreeService {
         }
     }
 
+    private List<MergeResult.MergeConflict> reconcileFinalMergeSubmoduleRepos(
+            Path worktreeRepoPath,
+            Path sourceRepoPath,
+            String parentRelPath
+    ) {
+        List<MergeResult.MergeConflict> conflicts = new ArrayList<>();
+        List<String> submoduleNames;
+        try {
+            submoduleNames = getSubmoduleNames(worktreeRepoPath);
+        } catch (Exception e) {
+            return conflicts;
+        }
+
+        for (String submoduleName : submoduleNames) {
+            Path worktreeSubmodulePath;
+            Path sourceSubmodulePath;
+            String relPath = (parentRelPath == null || parentRelPath.isBlank())
+                    ? submoduleName
+                    : parentRelPath + "/" + submoduleName;
+            try {
+                worktreeSubmodulePath = getSubmodulePath(worktreeRepoPath, submoduleName);
+                sourceSubmodulePath = getSubmodulePath(sourceRepoPath, submoduleName);
+            } catch (Exception e) {
+                continue;
+            }
+
+            conflicts.addAll(reconcileFinalMergeSubmoduleRepos(worktreeSubmodulePath, sourceSubmodulePath, relPath));
+
+            String childHead = getCurrentCommitHashInternal(worktreeSubmodulePath);
+            String parentHead = getCurrentCommitHashInternal(sourceSubmodulePath);
+            if (Objects.equals(childHead, parentHead)) {
+                continue;
+            }
+
+            try {
+                String childBranch = resolveBranch(worktreeSubmodulePath, getBranchSafe(worktreeSubmodulePath));
+                NormalizedMergeResult mergeResult = mergeFromChildRepoWithFallback(
+                        sourceSubmodulePath,
+                        worktreeSubmodulePath,
+                        childBranch
+                );
+                if (!mergeResult.successful()) {
+                    if (mergeResult.hasConflicts()) {
+                        conflicts.addAll(mergeResult.conflictFiles().stream()
+                                .map(file -> new MergeResult.MergeConflict(
+                                        file,
+                                        "content",
+                                        "",
+                                        "",
+                                        "",
+                                        formatSubmodulePath(relPath)
+                                ))
+                                .toList());
+                    } else {
+                        conflicts.add(new MergeResult.MergeConflict(
+                                relPath,
+                                "merge-error",
+                                "",
+                                "",
+                                "",
+                                formatSubmodulePath(relPath)
+                        ));
+                    }
+                    continue;
+                }
+                commitDirtySubmodulePointers(sourceRepoPath);
+            } catch (Exception e) {
+                conflicts.add(new MergeResult.MergeConflict(
+                        relPath,
+                        "merge-error",
+                        "",
+                        "",
+                        "",
+                        formatSubmodulePath(relPath)
+                ));
+            }
+        }
+
+        return conflicts;
+    }
+
+    private List<MergeResult.MergeConflict> extractMergeConflicts(
+            org.eclipse.jgit.api.MergeResult mergeResult,
+            String relPath
+    ) {
+        Map<String, int[][]> conflictMap = mergeResult.getConflicts();
+        if (conflictMap == null || conflictMap.isEmpty()) {
+            return List.of(new MergeResult.MergeConflict(
+                    relPath,
+                    "merge-conflict",
+                    "",
+                    "",
+                    "",
+                    formatSubmodulePath(relPath)
+            ));
+        }
+        return conflictMap.keySet().stream()
+                .map(file -> new MergeResult.MergeConflict(
+                        file,
+                        "content",
+                        "",
+                        "",
+                        "",
+                        formatSubmodulePath(relPath)
+                ))
+                .toList();
+    }
+
+    private WorktreeContext createSourceMergeContext(
+            MainWorktreeContext childContext,
+            Path sourcePath,
+            String baseBranch
+    ) {
+        if (childContext == null) {
+            throw new IllegalArgumentException("childContext is required to build source merge context");
+        }
+        String sourceId = "source:" + childContext.worktreeId();
+        String sourceCommit = null;
+        try {
+            sourceCommit = getCurrentCommitHashInternal(sourcePath);
+        } catch (Exception ignored) {
+            // Best-effort only for event enrichment.
+        }
+        return new MainWorktreeContext(
+                sourceId,
+                sourcePath,
+                baseBranch,
+                baseBranch,
+                WorktreeContext.WorktreeStatus.ACTIVE,
+                null,
+                childContext.associatedNodeId(),
+                Instant.now(),
+                sourceCommit,
+                sourcePath != null ? sourcePath.toString() : sourceId,
+                false,
+                List.of(),
+                new HashMap<>()
+        );
+    }
+
     /**
      * Build a merge plan for merging worktree derived branches back into the source repo's
      * original branches. Ordered leaves-first, root-last.
@@ -1559,7 +2152,7 @@ public class GitWorktreeService implements WorktreeService {
 
         // Ensure source repo submodules are initialized.
         try {
-            initializeSubmodule(sourcePath);
+            initializeSubmodule(sourcePath, derivedBranch);
         } catch (Exception e) {
             log.debug("Source submodule init skipped: {}", e.getMessage());
         }
@@ -1644,10 +2237,15 @@ public class GitWorktreeService implements WorktreeService {
     }
 
     private static String shortId(String id) {
-        if (id == null) {
-            return "";
+        if (id == null || id.isBlank()) {
+            return "unknown";
         }
-        return id.length() <= 8 ? id : id.substring(0, 8);
+        String shortened = id.length() <= 8 ? id : id.substring(0, 8);
+        String sanitized = shortened.replaceAll("[^A-Za-z0-9._-]", "-");
+        if (sanitized.isBlank()) {
+            return "unknown";
+        }
+        return sanitized;
     }
 
     /**
@@ -1655,7 +2253,7 @@ public class GitWorktreeService implements WorktreeService {
      * Each step knows its parent-of-parent path so that after a successful merge,
      * dirty submodule pointers can be committed in the correct containing repo.
      */
-    private List<MergePlanStep> buildMergePlan(Path childPath, Path parentPath, String rootChildBranch) throws IOException {
+    public List<MergePlanStep> buildMergePlan(Path childPath, Path parentPath, String rootChildBranch) throws IOException {
         List<MergePlanStep> plan = new ArrayList<>();
         collectSubmoduleSteps(childPath, parentPath, parentPath, "", plan);
 
@@ -1713,6 +2311,9 @@ public class GitWorktreeService implements WorktreeService {
             String childBranch;
             try (var g = openGit(childSubPath)) {
                 childBranch = g.getRepository().getBranch();
+            } catch (IOException e) {
+                log.info("Skipping submodule {}: {}.", childPath, e.getMessage());
+                continue;
             }
             String parentBranch;
             try (var g = openGit(parentSubPath)) {
@@ -1734,7 +2335,7 @@ public class GitWorktreeService implements WorktreeService {
      * A single step in the merge plan. Includes the parent-of-parent path so that
      * after a successful submodule merge, we commit dirty pointers in the containing repo.
      */
-    private record MergePlanStep(
+    public record MergePlanStep(
             Path childPath,
             Path parentPath,
             String submodulePath,
@@ -1897,6 +2498,7 @@ public class GitWorktreeService implements WorktreeService {
             ObjectId head = repo.resolve(Constants.HEAD);
             return head != null ? head.name() : "unknown";
         } catch (Exception e) {
+            emitNodeErrorInternal("Failed to resolve HEAD for " + normalizePath(worktreePath) + ": " + e.getMessage());
             return "unknown";
         }
     }
@@ -1905,6 +2507,7 @@ public class GitWorktreeService implements WorktreeService {
         try (var g = openGit(path)) {
             return g.getRepository().getBranch();
         } catch (Exception e) {
+            emitNodeErrorInternal("Failed to resolve branch for " + normalizePath(path) + ": " + e.getMessage());
             return "error:" + e.getMessage();
         }
     }
@@ -1916,8 +2519,92 @@ public class GitWorktreeService implements WorktreeService {
         return path.toAbsolutePath().normalize().toString();
     }
 
+    private boolean isCleanIgnoringSubmodules(Path repoPath) {
+        try (var git = openGit(repoPath)) {
+            return git.status()
+                    .setIgnoreSubmodules(SubmoduleWalk.IgnoreSubmoduleMode.ALL)
+                    .call()
+                    .isClean();
+        } catch (Exception e) {
+            log.warn("JGit status check failed for {}. Falling back to git CLI.", repoPath, e);
+            Boolean fallback = isCleanViaCli(repoPath);
+            return fallback != null && fallback;
+        }
+    }
+
+    private Boolean isCleanViaCli(Path repoPath) {
+        var result = RepoUtil.runGitCommand(
+                repoPath,
+                List.of("-c", "core.quotepath=false", "status", "--porcelain", "--ignore-submodules=all")
+        );
+        if (result.isErr()) {
+            log.warn("git status CLI fallback failed for {}: {}", repoPath, result.e().toString());
+            emitNodeErrorInternal("git status CLI fallback failed for " + normalizePath(repoPath) + ": " + result.e().toString());
+            return null;
+        }
+        String output = result.r().get();
+        if (output == null) {
+            return true;
+        }
+        return output.lines().map(String::trim).filter(s -> !s.isEmpty()).findAny().isEmpty();
+    }
+
+    private List<String> changedFilesViaCli(Path repoPath) {
+        var result = RepoUtil.runGitCommand(
+                repoPath,
+                List.of("-c", "core.quotepath=false", "status", "--porcelain", "--ignore-submodules=all")
+        );
+        if (result.isErr()) {
+            log.warn("git status CLI fallback for changed files failed for {}: {}", repoPath, result.e().toString());
+            emitNodeErrorInternal("git status CLI changed-files fallback failed for " + normalizePath(repoPath) + ": " + result.e().toString());
+            return null;
+        }
+
+        Set<String> files = new TreeSet<>();
+        String output = result.r().get();
+        if (output == null || output.isBlank()) {
+            return new ArrayList<>();
+        }
+
+        output.lines()
+                .map(String::trim)
+                .filter(line -> !line.isEmpty())
+                .forEach(line -> {
+                    if (line.startsWith("?? ")) {
+                        files.add(line.substring(3).trim());
+                        return;
+                    }
+                    if (line.length() < 4) {
+                        return;
+                    }
+                    String pathPart = line.substring(3).trim();
+                    int renameSep = pathPart.indexOf(" -> ");
+                    if (renameSep >= 0) {
+                        pathPart = pathPart.substring(renameSep + 4).trim();
+                    }
+                    if (pathPart.startsWith("\"") && pathPart.endsWith("\"") && pathPart.length() > 1) {
+                        pathPart = pathPart.substring(1, pathPart.length() - 1);
+                    }
+                    if (!pathPart.isBlank()) {
+                        files.add(pathPart);
+                    }
+                });
+        return new ArrayList<>(files);
+    }
+
     private Git openGit(Path repoPath) throws IOException {
         return RepoUtil.initGitOrThrow(repoPath);
+    }
+
+    private void emitNodeErrorInternal(String message) {
+        if (message == null || message.isBlank()) {
+            return;
+        }
+        log.error(message);
+        if (eventBus == null) {
+            return;
+        }
+        eventBus.publish(Events.NodeErrorEvent.err(message, ArtifactKey.createRoot()));
     }
 
     private void deleteRecursively(Path path) throws IOException {

@@ -28,6 +28,18 @@ public class SetGoalRequestDecorator implements DispatchedAgentRequestDecorator 
             log.info("Last request was null - must be starting orchestrator request.");
             return request;
         }
+        if (request instanceof AgentModels.CommitAgentRequest ca)
+            return request;
+        if (request instanceof AgentModels.MergeConflictRequest mcr)
+            return request;
+
+        var firstGoal
+                = BlackboardHistory.getEntireBlackboardHistory(context.operationContext())
+                .fromHistory(h -> h.getEntriesOfTypeOrSuper(AgentModels.OrchestratorRequest.class))
+                .stream()
+                .findFirst()
+                .map(AgentModels.OrchestratorRequest::goal)
+                .orElse("Could not find original goal.");
 
         var goal
                 = BlackboardHistory.getEntireBlackboardHistory(context.operationContext())
@@ -86,6 +98,12 @@ public class SetGoalRequestDecorator implements DispatchedAgentRequestDecorator 
                                         case AgentModels.TicketAgentRequest ctx -> {
                                             return new GoalState(ctx, "");
                                         }
+                                        case AgentModels.CommitAgentRequest ctx -> {
+                                            return new GoalState(ctx, ctx.goal());
+                                        }
+                                        case AgentModels.MergeConflictRequest ctx -> {
+                                            return new GoalState(ctx, ctx.goal());
+                                        }
                                         case AgentModels.TicketAgentRequests ctx -> {
                                             return new GoalState(ctx, ctx.goal());
                                         }
@@ -108,30 +126,27 @@ public class SetGoalRequestDecorator implements DispatchedAgentRequestDecorator 
                 .toList();
 
         if (goal.size() == 1) {
-            request = (T) request.withGoal(goal.getFirst().goal);
+            request = (T) request.withGoal(firstGoal);
         } else if (!goal.isEmpty()) {
+
+            String[] split = goal.getLast().goal.split("# Original Goal");
+            String s = split[0];
+
+            if (s.isEmpty() && split.length == 2)
+                s = split[1];
 
             var g = """
                     # Current Goal
                     
                     Goal: %s
                     
-                    The goal has changed a bit since we initialized. For context, and so you can resolve with the original goal,
-                    here is the history of the goal:
+                    # Original Goal
                     
-                    # Goal History
-                    %s
-                    
-                    ---
-                    
-                    # Original Goal:
-                    
-                    In particular, all changes to the goal should be take as in addition to the original goal:
-                    Original Goal: %s
+                    The goal may have changed a bit since we initialized.
+ 
+                    Here is the original goal: %s
                     """
-                    .formatted(goal.getLast().goal,
-                            goal.stream().map(gs -> "%s: %s".formatted(gs.agentRequest.getClass().getSimpleName(), gs.goal))
-                            .collect(Collectors.joining(System.lineSeparator())), goal.getFirst().goal);
+                    .formatted(s, firstGoal);
             request = (T) request.withGoal(g);
         }
 
