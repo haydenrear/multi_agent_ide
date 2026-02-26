@@ -182,52 +182,6 @@ public class ArtifactEventListener implements EventListener {
         }
     }
     
-    /**
-     * Finds execution key by searching for a nodeId match in active executions.
-     * Stream events don't carry the execution key directly, so we need to find it.
-     */
-    private String findExecutionKeyByNodeId(String nodeId) {
-        if (nodeId == null || nodeId.isBlank()) {
-            return null;
-        }
-        
-        // First check if nodeId itself contains the execution key prefix
-        for (String executionKey : activeExecutions.values()) {
-            if (nodeId.startsWith(executionKey)) {
-                return executionKey;
-            }
-        }
-        
-        // If only one execution is active, use that
-        if (activeExecutions.size() == 1) {
-            return activeExecutions.values().iterator().next();
-        }
-        
-        // Otherwise we can't determine which execution this belongs to
-        return null;
-    }
-    
-    private void handleExecutionComplete(Events.GoalCompletedEvent event) {
-        String workflowRunId = event.orchestratorNodeId();
-        String executionKey = findExecutionKey(workflowRunId);
-        if (executionKey == null) {
-            log.warn("No active execution found for completion: {}", workflowRunId);
-            return;
-        }
-
-        // Finish and persist the execution
-        log.info("Execution completed, finishing artifacts for: {}", executionKey);
-        Optional<Artifact> result = treeBuilder.persistExecutionTree(executionKey);
-        
-        if (result.isPresent()) {
-            log.info("Persisted artifact tree for execution: {} with {} children", 
-                    executionKey, StreamUtil.toStream(result.get().children()).count());
-        }
-        
-        // Remove from active executions
-        activeExecutions.remove(workflowRunId);
-    }
-
     private String findExecutionKey(String workflowRunIdOrExecutionKey) {
         if (workflowRunIdOrExecutionKey == null || workflowRunIdOrExecutionKey.isBlank()) {
             return null;

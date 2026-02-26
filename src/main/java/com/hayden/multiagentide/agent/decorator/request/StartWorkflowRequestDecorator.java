@@ -74,6 +74,12 @@ public class StartWorkflowRequestDecorator implements RequestDecorator, Dispatch
                 }
                 storeRunning(operationContext, workflowGraphService.startTicketAgent(parent, req));
             }
+            case AgentModels.CommitAgentRequest ignored -> {
+                // Internal commit action: do not create a dedicated workflow node.
+            }
+            case AgentModels.MergeConflictRequest ignored -> {
+                // Internal merge-conflict action: do not create a dedicated workflow node.
+            }
             case AgentModels.ContextManagerRequest req ->
                     storeRequiredNode(operationContext, req,
                             () -> workflowGraphService.requireOrchestrator(operationContext));
@@ -160,15 +166,64 @@ public class StartWorkflowRequestDecorator implements RequestDecorator, Dispatch
         }
         switch (request) {
             case AgentModels.DiscoveryAgentResults ignored ->
-                    storeRequiredNode(context, request,
-                            () -> workflowGraphService.requireDiscoveryCollector(context));
+                    storeResultsNodeWithFallback(
+                            context,
+                            request,
+                            () -> workflowGraphService.requireDiscoveryOrchestrator(context),
+                            () -> workflowGraphService.requireDiscoveryCollector(context),
+                            "discovery"
+                    );
             case AgentModels.PlanningAgentResults ignored ->
-                    storeRequiredNode(context, request,
-                            () -> workflowGraphService.requirePlanningCollector(context));
+                    storeResultsNodeWithFallback(
+                            context,
+                            request,
+                            () -> workflowGraphService.requirePlanningOrchestrator(context),
+                            () -> workflowGraphService.requirePlanningCollector(context),
+                            "planning"
+                    );
             case AgentModels.TicketAgentResults ignored ->
-                    storeRequiredNode(context, request,
-                            () -> workflowGraphService.requireTicketCollector(context));
+                    storeResultsNodeWithFallback(
+                            context,
+                            request,
+                            () -> workflowGraphService.requireTicketOrchestrator(context),
+                            () -> workflowGraphService.requireTicketCollector(context),
+                            "ticket"
+                    );
         }
+    }
+
+    private void storeResultsNodeWithFallback(
+            OperationContext context,
+            AgentModels.ResultsRequest request,
+            Supplier<? extends GraphNode> primaryNode,
+            Supplier<? extends GraphNode> fallbackNode,
+            String workflowType
+    ) {
+        GraphNode node = null;
+        try {
+            node = primaryNode.get();
+        } catch (RuntimeException expectedMissingCollector) {
+            log.debug(
+                    "Collector node unavailable for {} results (contextId={}), falling back to orchestrator: {}",
+                    workflowType,
+                    request != null && request.contextId() != null ? request.contextId().value() : "unknown",
+                    expectedMissingCollector.getMessage()
+            );
+        }
+
+        if (node == null) {
+            try {
+                node = fallbackNode.get();
+            } catch (RuntimeException e) {
+                String message = "Failed to resolve node for " + requestType(request)
+                        + " (collector + orchestrator fallback): " + e.getMessage();
+                log.error(message, e);
+                workflowGraphService.emitDecoratorError(context, message);
+                return;
+            }
+        }
+
+        storeRunning(context, node);
     }
 
     private void handleInterrupt(
