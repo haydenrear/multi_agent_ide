@@ -82,6 +82,12 @@ public class CliEventFormatter {
                         + " event=" + summarize(args, e.tuiEvent() == null ? null : e.tuiEvent().getClass().getSimpleName()));
                 case Events.TuiSystemGraphEvent e -> format(args, "TUI", e, "sessionId=" + summarize(args, e.sessionId())
                         + " event=" + summarize(args, e.tuiEvent() == null ? null : e.tuiEvent().getClass().getSimpleName()));
+                case Events.MergePhaseStartedEvent e -> format(args, "MERGE", e, "direction=" + e.mergeDirection()
+                        + " trunk=" + summarize(args, e.trunkWorktreeId()) + " child=" + summarize(args, e.childWorktreeId())
+                        + " children=" + e.childCount());
+                case Events.MergePhaseCompletedEvent e -> format(args, "MERGE", e, "direction=" + e.mergeDirection()
+                        + " successful=" + e.successful() + " merged=" + e.mergedCount()
+                        + " conflicts=" + e.conflictCount());
             };
     }
 
@@ -290,6 +296,13 @@ public class CliEventFormatter {
                     "TicketAgentRequest ticket=" + summarize(args, r.ticketDetails())
                             + " path=" + summarize(args, r.ticketDetailsFilePath())
                             + " summary=" + summary;
+            case AgentModels.CommitAgentRequest r ->
+                    "CommitAgentRequest sourceAgentType=" + summarize(args, r.sourceAgentType())
+                            + " summary=" + summary;
+            case AgentModels.MergeConflictRequest r ->
+                    "MergeConflictRequest direction=" + summarize(args, r.mergeDirection())
+                            + " conflicts=" + summarize(args, r.conflictFiles())
+                            + " summary=" + summary;
             case AgentModels.TicketCollectorRequest r ->
                     "TicketCollectorRequest goal=" + summarize(args, r.goal())
                             + " summary=" + summary;
@@ -345,6 +358,14 @@ public class CliEventFormatter {
                             + " summary=" + summary;
             case AgentModels.TicketAgentResult r ->
                     "TicketAgentResult summary=" + summary;
+            case AgentModels.CommitAgentResult r ->
+                    "CommitAgentResult successful=" + r.successful()
+                            + " commits=" + countOf(r.commitMetadata())
+                            + " summary=" + summary;
+            case AgentModels.MergeConflictResult r ->
+                    "MergeConflictResult successful=" + r.successful()
+                            + " resolved=" + countOf(r.resolvedConflictFiles())
+                            + " summary=" + summary;
             case AgentModels.ReviewAgentResult r ->
                     "ReviewAgentResult summary=" + summary;
             case AgentModels.MergerAgentResult r ->

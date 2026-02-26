@@ -1,6 +1,7 @@
 package com.hayden.multiagentide.worktree;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
@@ -23,9 +24,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 @SpringBootTest(properties = "multiagentide.worktrees.base-path=${java.io.tmpdir}/multi-agent-ide-test-worktrees")
+@ActiveProfiles({"testdocker", "test"})
 class GitWorktreeServiceTest extends AgentTestBase {
 
     private static final String WORKTREE_BASE =
@@ -69,6 +72,58 @@ class GitWorktreeServiceTest extends AgentTestBase {
 
         String head = gitOutput(worktree.worktreePath(), "git", "rev-parse", "HEAD").trim();
         assertThat(worktree.lastCommitHash()).isEqualTo(head);
+    }
+
+    @Test
+    void branchWorktreeBranchesFromParentDerivedBranchWhenSourceRepoDoesNotHaveIt() throws Exception {
+        Path repoDir = Files.createTempDirectory("branch-source-repo");
+        initRepo(repoDir);
+        commitFile(repoDir, "README.md", "hello", "init");
+
+        MainWorktreeContext parent = gitWorktreeService.createMainWorktree(
+                repoDir.toString(),
+                "main",
+                "main-parent-derived",
+                "node-parent"
+        );
+
+        String sourceRepoBranches = gitOutput(repoDir, "git", "branch", "--list", "main-parent-derived").trim();
+        assertThat(sourceRepoBranches).isEmpty();
+
+        MainWorktreeContext child = gitWorktreeService.branchWorktree(
+                parent.worktreeId(),
+                "discovery-1-ak-01KJ8",
+                "node-child"
+        );
+
+        String parentHead = gitOutput(parent.worktreePath(), "git", "rev-parse", "HEAD").trim();
+        String childHead = gitOutput(child.worktreePath(), "git", "rev-parse", "HEAD").trim();
+        String childBranch = gitOutput(child.worktreePath(), "git", "branch", "--show-current").trim();
+
+        assertThat(child.baseBranch()).isEqualTo("main-parent-derived");
+        assertThat(childBranch).isEqualTo("discovery-1-ak-01KJ8");
+        assertThat(childHead).isEqualTo(parentHead);
+    }
+
+    @Test
+    void createMainWorktreeFailsFastWhenSourceRepoIsDetachedHead() throws Exception {
+        Path repoDir = Files.createTempDirectory("detached-repo");
+        initRepo(repoDir);
+        commitFile(repoDir, "README.md", "hello", "init");
+        runGit(repoDir, "git", "checkout", "--detach");
+
+        assertThatThrownBy(() -> gitWorktreeService.createMainWorktree(
+                repoDir.toString(),
+                "main",
+                "main-0",
+                "node-detached"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("detached HEAD");
+
+        verify(eventBus, atLeastOnce()).publish(argThat(event ->
+                event instanceof Events.NodeErrorEvent err
+                        && err.message().contains("detached HEAD")
+        ));
     }
 
     @Test

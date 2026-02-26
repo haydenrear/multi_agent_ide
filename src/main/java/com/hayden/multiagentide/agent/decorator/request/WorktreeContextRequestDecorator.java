@@ -10,7 +10,6 @@ import com.hayden.multiagentide.service.WorktreeService;
 import com.hayden.multiagentidelib.agent.AgentModels;
 import com.hayden.multiagentidelib.events.DegenerateLoopException;
 import com.hayden.multiagentidelib.model.nodes.GraphNode;
-import com.hayden.multiagentidelib.model.nodes.HasWorktree;
 import com.hayden.multiagentidelib.model.nodes.OrchestratorNode;
 import com.hayden.multiagentidelib.model.worktree.MainWorktreeContext;
 import com.hayden.multiagentidelib.model.worktree.SubmoduleWorktreeContext;
@@ -45,7 +44,7 @@ public class WorktreeContextRequestDecorator implements RequestDecorator, Dispat
 
     @Override
     public int order() {
-        return 20_000;
+        return -5_000;
     }
 
     @Override
@@ -101,6 +100,8 @@ public class WorktreeContextRequestDecorator implements RequestDecorator, Dispat
             case AgentModels.PlanningAgentResults r -> r.toBuilder().worktreeContext(worktreeContext).build();
             case AgentModels.TicketOrchestratorRequest r -> r.toBuilder().worktreeContext(worktreeContext).build();
             case AgentModels.TicketAgentRequest r -> r.toBuilder().worktreeContext(worktreeContext).build();
+            case AgentModels.CommitAgentRequest r -> r.toBuilder().worktreeContext(worktreeContext).build();
+            case AgentModels.MergeConflictRequest r -> r.toBuilder().worktreeContext(worktreeContext).build();
             case AgentModels.TicketCollectorRequest r -> r.toBuilder().worktreeContext(worktreeContext).build();
             case AgentModels.TicketAgentResults r -> r.toBuilder().worktreeContext(worktreeContext).build();
             case AgentModels.ReviewRequest r -> r.toBuilder().worktreeContext(worktreeContext).build();
@@ -154,14 +155,6 @@ public class WorktreeContextRequestDecorator implements RequestDecorator, Dispat
         if (node instanceof OrchestratorNode orchestratorNode) {
             mainWorktreeId = orchestratorNode.mainWorktreeId();
             return buildSandboxContextFrom(mainWorktreeId, orchestratorNode.submoduleWorktrees());
-        } else if (node instanceof HasWorktree hasWorktree && hasWorktree.worktree() != null) {
-            mainWorktreeId = hasWorktree.worktree().worktreeId();
-            if (hasWorktree.worktree().submoduleWorktrees() != null) {
-                submoduleIds = hasWorktree.worktree().submoduleWorktrees().stream()
-                        .map(HasWorktree.WorkTree::worktreeId)
-                        .toList();
-            }
-            return buildSandboxContext(mainWorktreeId, submoduleIds);
         }
 
         return null;
