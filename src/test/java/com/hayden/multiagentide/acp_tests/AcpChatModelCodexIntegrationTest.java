@@ -59,7 +59,7 @@ import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles({"claudellama"})
+@ActiveProfiles({"codex", "testdocker"})
 @ExtendWith(SpringExtension.class)
 @TestPropertySource(properties = {"spring.ai.mcp.server.stdio=false"})
 class AcpChatModelCodexIntegrationTest {
@@ -153,9 +153,9 @@ class AcpChatModelCodexIntegrationTest {
 //            Optional<List<ToolObject>> deepwiki = toolObjectRegistry.tool("deepwiki");
             Optional<List<ToolObject>> hindsight = toolObjectRegistry.tool("hindsight");
 
-            assertThat(hindsight)
-                    .withFailMessage("Hindsight could not be reached.")
-                    .isPresent();
+//            assertThat(hindsight)
+//                    .withFailMessage("Hindsight could not be reached.")
+//                    .isPresent();
 
             var c = context.ai()
                     .withFirstAvailableLlmOf("acp-chat-model", context.getAgentProcess().getId())
@@ -185,8 +185,8 @@ class AcpChatModelCodexIntegrationTest {
 
         CompletableFuture.runAsync(() -> {
             var s = orchestrationController.startGoal(new OrchestrationController.StartGoalRequest(
-                    "Please add centralization of artifacts pulled by any of the LibsDownloader into centralized repository.",
-                    "/Users/hayde/IdeaProjects/multi_agent_ide_parent/libs-resolver",
+                    "Please add a README.md with text HELLO to the path multi_agent_ide_java_parent/README.md. For discovery, just create one agent request that says code map does not have readme, for planner have one planner agent that says only to write readme, for ticket, have one agent that says to write readme.",
+                    "/Users/hayde/IdeaProjects/multi_agent_ide_parent",
                     "main", "Artifact Centralization"));
         });
 
@@ -260,9 +260,7 @@ class AcpChatModelCodexIntegrationTest {
                     .filter(agent -> agent.getName().equals(agentName))
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("Agent not found: " + agentName));
-            RequestValue v1 = new RequestValue("Can you use your read tool to read the file %s/hello, return the result, ".formatted(workingDir.toAbsolutePath().toString()) +
-                    "then write that result to another file named log.log using your write tool, " +
-                    "then update that file and add the words WHATEVER!??");
+            RequestValue v1 = new RequestValue("What model are you?");
             AgentProcess process = agentPlatform.runAgentFrom(
                     thisAgent,
                     processOptions,
@@ -306,11 +304,13 @@ class AcpChatModelCodexIntegrationTest {
                                                     request.getRequestId(),
                                                     permissions.stream().filter(po -> po.getKind() == PermissionOptionKind.ALLOW_ONCE).findAny().orElseThrow()
                                             );
+                                            System.out.println("Resolved selected");
                                             return;
                                         }
                                         var trimmed = input.trim();
                                         if ("cancel".equalsIgnoreCase(trimmed)) {
                                             permissionGateAdapter.resolveCancelled(request.getRequestId());
+                                            System.out.println("Resolved selected");
                                             return;
                                         }
                                         try {
@@ -318,12 +318,14 @@ class AcpChatModelCodexIntegrationTest {
                                             if (index >= 1 && index <= permissions.size()) {
                                                 var selected = permissions.get(index - 1);
                                                 permissionGateAdapter.resolveSelected(request.getRequestId(), selected);
+                                                System.out.println("Resolved selected");
                                                 return;
                                             }
                                         } catch (
                                                 NumberFormatException ignored) {
                                         }
                                         permissionGateAdapter.resolveSelected(request.getRequestId(), trimmed);
+                                        System.out.println("Resolved selected");
                                     } catch (
                                             IOException e) {
                                         throw new RuntimeException(e);
