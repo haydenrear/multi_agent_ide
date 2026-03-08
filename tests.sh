@@ -1,11 +1,11 @@
 echo "Cleaning first ..."
 ./gradlew clean
 echo "Starting unit tests."
-./gradlew test --info
+./gradlew test
 #echo "Starting unit tests."
 #./gradlew test -Pprofile=shell-integration
 echo "Starting integration-y tests."
-./gradlew test -Pprofile=integration --info
+./gradlew test -Pprofile=integration
 #echo "Starting acp-integration-y tests."
 #./gradlew test -Pprofile=acp-integration
 
