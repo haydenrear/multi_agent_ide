@@ -1,17 +1,5 @@
-Error handling request {
-  type: 'com.agentclientprotocol.rpc.JsonRpcRequest',
-  id: 4,
-  method: 'session/prompt',
-  params: {
-    sessionId: '33083526-8936-496d-926e-becad24c0607',
-    prompt: [ [Object] ]
-  },
-  jsonrpc: '2.0'
-} {
-  code: -32603,
-  message: 'Internal error',
-  data: { details: 'Claude Code process exited with code 143' }
-}
+<local-command-stdout>Set model to claude-sonnet-4-6</local-command-stdout>
+<local-command-stdout>Set model to openai/gpt-oss-120b</local-command-stdout>
 node:events:486
       throw er; // Unhandled 'error' event
       ^
